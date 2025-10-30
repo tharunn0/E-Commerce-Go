@@ -3,11 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-
 	"os"
 
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/database"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/repository"
 	"github.com/tharunn0/E-Commerce-Go/internal/presentation/handler"
@@ -17,6 +14,8 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/pkg/logger"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
 
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
 
@@ -35,18 +34,24 @@ func main() {
 
 	mailer := mailer.NewGoMailer(587, os.Getenv("EMAIL_HOST"), os.Getenv("EMAIL_USERNAME"), os.Getenv("EMAIL_PASSWORD"), os.Getenv("EMAIL"))
 
-	authrepo := repository.NewAuthRepository(pgdb)
+	authRepo := repository.NewAuthRepository(pgdb)
 	userRepo := repository.NewUserRepository(pgdb)
+	adminRepo := repository.NewAdminRepository(pgdb)
+	categoryRepo := repository.NewCategoryRepository(pgdb)
 
-	userServ := service.NewUserService(userRepo, authrepo, log, mailer)
-	authServ := service.NewAuthService(authrepo, mailer, log)
+	userServ := service.NewUserService(userRepo, authRepo, log, mailer)
+	adminServ := service.NewAdminService(adminRepo, log)
+	authServ := service.NewAuthService(authRepo, mailer, log)
+	catergoryServ := service.NewCategoryService(categoryRepo, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ)
+	adminHandler := handler.NewAdminHandler(adminServ, log)
+	categoryHandler := handler.NewCategoryHandler(catergoryServ, log)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger(), middleware.RequestLogger(log))
 
-	routes.RegisterRoutes(r, log, userHandler)
+	routes.RegisterRoutes(r, log, userHandler, adminHandler, categoryHandler)
 
 	port := 8080
 	log.Info(`Server starting at port : ` + fmt.Sprintf("%d", port))
