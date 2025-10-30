@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -101,4 +102,15 @@ func GenerateToken(len int) (string, error) {
 		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(b), nil
+}
+
+func GetUserRole(ctx context.Context) string {
+	if role, ok := ctx.Value("role").(string); ok {
+		return role
+	}
+	return "user"
+}
+
+func IsAdmin(ctx context.Context) bool {
+	return GetUserRole(ctx) == "admin"
 }
