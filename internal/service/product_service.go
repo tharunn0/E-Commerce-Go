@@ -4,17 +4,16 @@ import (
 	"context"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
-	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/repository"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type ProductService struct {
-	repo repository.ProductRepository
+	repo domain.ProductRepository
 	log  *zap.Logger
 }
 
-func NewProductService(repo repository.ProductRepository, log *zap.Logger) *ProductService {
+func NewProductService(repo domain.ProductRepository, log *zap.Logger) *ProductService {
 	return &ProductService{repo: repo, log: log}
 }
 
@@ -32,7 +31,7 @@ func (serv *ProductService) CreateBrand(ctx context.Context, createBrandRequest 
 	return brand, nil
 }
 
-func (serv *ProductService) GetAllBrands(ctx context.Context) ([]domain.Brand, *domain.APIError) {
+func (serv *ProductService) GetAllBrands(ctx context.Context) ([]*domain.Brand, *domain.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	brands, err := serv.repo.GetAllBrands(ctx, activeOnly)
 	if err != nil {

@@ -8,24 +8,12 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 )
 
-type IAdminRepository interface {
-	GetAdmin(ctx context.Context, email string) (*domain.User, error)
-
-	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
-	GetUsersByName(ctx context.Context, name string) ([]domain.User, error)
-
-	ListUsers(ctx context.Context, filter *domain.UserFilter) ([]domain.User, error)
-	CountUsers(ctx context.Context, filter *domain.UserFilter) (int64, error)
-
-	UpdateUserStatus(ctx context.Context, userID int64, status string) error
-}
-
 type AdminRepository struct {
 	DB *pgxpool.Pool
 }
 
-func NewAdminRepository(db *pgxpool.Pool) AdminRepository {
-	return AdminRepository{
+func NewAdminRepository(db *pgxpool.Pool) *AdminRepository {
+	return &AdminRepository{
 		DB: db,
 	}
 }

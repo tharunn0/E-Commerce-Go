@@ -12,8 +12,8 @@ type CategoryRepository struct {
 	DB *pgxpool.Pool
 }
 
-func NewCategoryRepository(db *pgxpool.Pool) CategoryRepository {
-	return CategoryRepository{DB: db}
+func NewCategoryRepository(db *pgxpool.Pool) *CategoryRepository {
+	return &CategoryRepository{DB: db}
 }
 
 func (repo *CategoryRepository) CreateCategory(ctx context.Context, category *domain.Category) (*domain.Category, error) {

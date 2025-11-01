@@ -34,8 +34,8 @@ func main() {
 
 	mailer := mailer.NewGoMailer(587, os.Getenv("EMAIL_HOST"), os.Getenv("EMAIL_USERNAME"), os.Getenv("EMAIL_PASSWORD"), os.Getenv("EMAIL"))
 
-	authRepo := repository.NewAuthRepository(pgdb)
 	userRepo := repository.NewUserRepository(pgdb)
+	authRepo := repository.NewAuthRepository(pgdb)
 	adminRepo := repository.NewAdminRepository(pgdb)
 	categoryRepo := repository.NewCategoryRepository(pgdb)
 	productRepo := repository.NewProductRepository(pgdb)

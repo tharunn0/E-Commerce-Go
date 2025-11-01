@@ -8,21 +8,12 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 )
 
-type IProductRepository interface {
-	// Brand operations
-	CreateBrand(ctx context.Context, createBrandRequest *domain.CreateBrandRequest) (*domain.Brand, error)
-	GetAllBrands(ctx context.Context, activeOnly bool) ([]domain.Brand, error)
-	GetBrandByID(ctx context.Context, id int64, activeOnly bool) (*domain.Brand, error)
-	UpdateBrand(ctx context.Context, brand *domain.Brand) (*domain.Brand, error)
-	DeleteBrand(ctx context.Context, id int64) error
-}
-
 type ProductRepository struct {
 	DB *pgxpool.Pool
 }
 
-func NewProductRepository(db *pgxpool.Pool) ProductRepository {
-	return ProductRepository{DB: db}
+func NewProductRepository(db *pgxpool.Pool) *ProductRepository {
+	return &ProductRepository{DB: db}
 }
 
 // Brand operations
@@ -42,7 +33,7 @@ func (repo *ProductRepository) CreateBrand(ctx context.Context, createBrandReque
 	return &created, nil
 }
 
-func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool) ([]domain.Brand, error) {
+func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool) ([]*domain.Brand, error) {
 	query := `
 		SELECT id, name, description, logo_url, is_active, created_at, updated_at
 		FROM brands
@@ -56,14 +47,14 @@ func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool
 	}
 	defer rows.Close()
 
-	brands := []domain.Brand{}
+	brands := []*domain.Brand{}
 	for rows.Next() {
 		var b domain.Brand
 		err := rows.Scan(&b.ID, &b.Name, &b.Description, &b.LogoURL, &b.IsActive, &b.CreatedAt, &b.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
-		brands = append(brands, b)
+		brands = append(brands, &b)
 	}
 
 	return brands, nil

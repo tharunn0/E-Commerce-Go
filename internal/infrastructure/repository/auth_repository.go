@@ -15,8 +15,8 @@ type AuthRepository struct {
 	DB *pgxpool.Pool
 }
 
-func NewAuthRepository(db *pgxpool.Pool) AuthRepository {
-	return AuthRepository{DB: db}
+func NewAuthRepository(db *pgxpool.Pool) *AuthRepository {
+	return &AuthRepository{DB: db}
 }
 
 func (r *AuthRepository) InsertOTP(ctx context.Context, email, otp string, expiresAt time.Time) error {

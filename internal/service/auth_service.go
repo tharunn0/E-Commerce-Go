@@ -8,19 +8,18 @@ import (
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
-	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/repository"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
 	"go.uber.org/zap"
 )
 
 type AuthService struct {
-	repo   repository.AuthRepository
+	repo   domain.AuthRepository
 	sender *mailer.MailSender
 	log    *zap.Logger
 }
 
-func NewAuthService(Repo repository.AuthRepository, Sender *mailer.MailSender, logger *zap.Logger) *AuthService {
+func NewAuthService(Repo domain.AuthRepository, Sender *mailer.MailSender, logger *zap.Logger) *AuthService {
 	return &AuthService{
 		repo:   Repo,
 		sender: Sender,

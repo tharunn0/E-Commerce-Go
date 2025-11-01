@@ -6,17 +6,16 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
-	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/repository"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type AdminService struct {
-	repo repository.AdminRepository
+	repo domain.AdminRepository
 	log  *zap.Logger
 }
 
-func NewAdminService(adminRepo repository.AdminRepository, logger *zap.Logger) *AdminService {
+func NewAdminService(adminRepo domain.AdminRepository, logger *zap.Logger) *AdminService {
 	return &AdminService{
 		repo: adminRepo,
 		log:  logger,

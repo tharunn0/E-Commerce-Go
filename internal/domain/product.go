@@ -1,6 +1,18 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
+type ProductRepository interface {
+	// Brand operations
+	CreateBrand(ctx context.Context, createBrandRequest *CreateBrandRequest) (*Brand, error)
+	GetAllBrands(ctx context.Context, activeOnly bool) ([]*Brand, error)
+	GetBrandByID(ctx context.Context, id int64, activeOnly bool) (*Brand, error)
+	UpdateBrand(ctx context.Context, brand *Brand) (*Brand, error)
+	DeleteBrand(ctx context.Context, id int64) error
+}
 
 type Brand struct {
 	ID          int64     `json:"id"`

@@ -5,13 +5,24 @@ import (
 	"time"
 )
 
-type IUserRepository interface {
+type UserRepository interface {
 	RegisterUser(ctx context.Context, req *RegisterRequest) error
 	GetUser(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	InsertUserAddress(ctx context.Context, address *UserAddress) error
 	GetUserAddresses(ctx context.Context, userID int64) ([]*UserAddress, error)
-	GetDefaultUserAddress(ctx context.Context, userID int64) (*UserAddress, error)
+}
+
+type AdminRepository interface {
+	GetAdmin(ctx context.Context, email string) (*User, error)
+
+	// GetUserByEmail(ctx context.Context, email string) (*User, error)
+	// GetUsersByName(ctx context.Context, name string) ([]*User, error)
+
+	// ListUsers(ctx context.Context, filter *UserFilter) ([]*User, error)
+	// CountUsers(ctx context.Context, filter *UserFilter) (int64, error)
+
+	// UpdateUserStatus(ctx context.Context, userID int64, status string) error
 }
 
 type User struct {

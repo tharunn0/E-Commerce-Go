@@ -4,17 +4,16 @@ import (
 	"context"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
-	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/repository"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type CategoryService struct {
-	repo repository.CategoryRepository
+	repo domain.CategoryRepository
 	log  *zap.Logger
 }
 
-func NewCategoryService(repo repository.CategoryRepository, log *zap.Logger) *CategoryService {
+func NewCategoryService(repo domain.CategoryRepository, log *zap.Logger) *CategoryService {
 	return &CategoryService{repo: repo, log: log}
 }
 

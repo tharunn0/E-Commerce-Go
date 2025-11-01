@@ -6,7 +6,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
-	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/repository"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
 
@@ -14,13 +13,13 @@ import (
 )
 
 type UserService struct {
-	repo   repository.UserRepository
-	auth   repository.AuthRepository
+	repo   domain.UserRepository
+	auth   domain.AuthRepository
 	sender *mailer.MailSender
 	log    *zap.Logger
 }
 
-func NewUserService(userRepo repository.UserRepository, authrepo repository.AuthRepository, logger *zap.Logger, sender *mailer.MailSender) *UserService {
+func NewUserService(userRepo domain.UserRepository, authrepo domain.AuthRepository, logger *zap.Logger, sender *mailer.MailSender) *UserService {
 	return &UserService{
 		repo:   userRepo,
 		log:    logger,
