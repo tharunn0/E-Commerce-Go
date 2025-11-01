@@ -234,6 +234,18 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 	})
 }
 
+// func (h *UserHandler) GoogleSignIn(c *gin.Context) {
+// 	ctx := context.Background()
+// 	var googlereq domain.GoogleSignInRequest
+// 	if err := c.ShouldBindJSON(&googlereq); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{
+// 			"error":   "INVALID_REQUEST",
+// 			"message": "Please provide a valid token.",
+// 		})
+// 	}
+
+// }
+
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	ctx := context.Background()
 	userID, ok := c.Get("user_id")

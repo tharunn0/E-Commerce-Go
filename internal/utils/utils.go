@@ -114,3 +114,7 @@ func GetUserRole(ctx context.Context) string {
 func IsAdmin(ctx context.Context) bool {
 	return GetUserRole(ctx) == "admin"
 }
+
+// func ValidateGoogleSignIntoken(ctx context.Context, token string) {
+// 	idtoken.Validate(ctx, token, "")
+// }

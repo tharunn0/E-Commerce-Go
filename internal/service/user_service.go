@@ -204,3 +204,7 @@ func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]
 	}
 	return addresses, nil
 }
+
+// func (serv *UserService) GoogleSignIn(ctx context.Context, req *domain.GoogleSignInRequest) (*domain.User, *domain.APIError) {
+
+// }

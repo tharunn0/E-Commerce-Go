@@ -41,6 +41,10 @@ type RegisterRequest struct {
 	LastName  string `json:"lastName" validate:"required"`
 }
 
+type GoogleSignInRequest struct {
+	Token string `json:"token" validate:"required"`
+}
+
 type LoginResponse struct {
 	User struct {
 		ID        int64  `json:"id"`

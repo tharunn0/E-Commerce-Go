@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler) {
+func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler, producth *handler.ProductHandler) {
 
 	g.GET("/home", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -23,6 +23,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		userAuth.POST("/verify-otp", userh.VerifyOTP)
 		userAuth.POST("/reset-password-link", userh.SendPasswordResetLink)
 		userAuth.POST("/reset-password/", userh.ResetPassword)
+		userAuth.POST("/google")
 	}
 	{
 		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger))
@@ -45,6 +46,19 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		categoryProtectedRoute.PATCH("/:id/activate", categoryh.ToggleCategoryStatus)
 		categoryProtectedRoute.PATCH("/:id/deactivate", categoryh.ToggleCategoryStatus)
 
+	}
+
+	{
+		brandRoute := g.Group("/api/v1/brands")
+		// Brand routes
+		brandProtectedRoute := brandRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
+		brandProtectedRoute.POST("/", producth.CreateBrand)
+		brandProtectedRoute.PUT("/", producth.UpdateBrand)
+		brandProtectedRoute.DELETE("/:id", producth.DeleteBrand)
+
+		brandOpenRoute := brandRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
+		brandOpenRoute.GET("/", producth.GetBrands)
+		brandOpenRoute.GET("/:id", producth.GetBrandByID)
 	}
 
 }

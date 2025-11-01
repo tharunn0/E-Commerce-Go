@@ -38,20 +38,23 @@ func main() {
 	userRepo := repository.NewUserRepository(pgdb)
 	adminRepo := repository.NewAdminRepository(pgdb)
 	categoryRepo := repository.NewCategoryRepository(pgdb)
+	productRepo := repository.NewProductRepository(pgdb)
 
 	userServ := service.NewUserService(userRepo, authRepo, log, mailer)
 	adminServ := service.NewAdminService(adminRepo, log)
 	authServ := service.NewAuthService(authRepo, mailer, log)
 	catergoryServ := service.NewCategoryService(categoryRepo, log)
+	productServ := service.NewProductService(productRepo, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ)
 	adminHandler := handler.NewAdminHandler(adminServ, log)
 	categoryHandler := handler.NewCategoryHandler(catergoryServ, log)
+	productHandler := handler.NewProductHandler(productServ, log)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger(), middleware.RequestLogger(log))
 
-	routes.RegisterRoutes(r, log, userHandler, adminHandler, categoryHandler)
+	routes.RegisterRoutes(r, log, userHandler, adminHandler, categoryHandler, productHandler)
 
 	port := 8080
 	log.Info(`Server starting at port : ` + fmt.Sprintf("%d", port))
