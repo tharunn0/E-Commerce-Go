@@ -12,7 +12,16 @@ type ProductRepository interface {
 	GetBrandByID(ctx context.Context, id int64, activeOnly bool) (*Brand, error)
 	UpdateBrand(ctx context.Context, brand *Brand) (*Brand, error)
 	DeleteBrand(ctx context.Context, id int64) error
+
+	// Product operations
+	CreateProduct(ctx context.Context, product *CreateProductRequest) (*Product, error)
+	GetProducts(ctx context.Context, page, limit int64, activeOnly bool) ([]*ProductResponse, int64, error)
+	GetProductByID(ctx context.Context, id int64, activeOnly bool) (*ProductResponse, error)
+	UpdateProduct(ctx context.Context, updateProductRequest *UpdateProductRequest) error
+	DeleteProduct(ctx context.Context, id int64) error
 }
+
+// brand
 
 type Brand struct {
 	ID          int64     `json:"id"`
@@ -36,4 +45,66 @@ type UpdateBrandRequest struct {
 	Description *string `json:"description,omitempty"`
 	LogoURL     *string `json:"logo_url,omitempty"`
 	IsActive    *bool   `json:"is_active,omitempty"`
+}
+
+// product
+
+type Product struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name" binding:"required"`
+	BrandID     *int64    `json:"brand_id,omitempty"`
+	Description string    `json:"description" binding:"required"`
+	CategoryId  *int64    `json:"category_id" binding:"required"`
+	BasePrice   float64   `json:"base_price" binding:"required"`
+	IsDigital   bool      `json:"is_digital"`
+	IsActive    bool      `json:"is_active"`
+	ImageURL    string    `json:"image_url"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type CreateProductRequest struct {
+	Name        string  `json:"name" binding:"required"`
+	BrandID     *int64  `json:"brand_id,omitempty"`
+	Description string  `json:"description" binding:"required"`
+	CategoryId  *int64  `json:"category_id" binding:"required"`
+	BasePrice   float64 `json:"base_price" binding:"required"`
+	IsDigital   bool    `json:"is_digital"`
+	IsActive    bool    `json:"is_active"`
+	ImageURL    string  `json:"image_url"`
+}
+
+type UpdateProductRequest struct {
+	ID          int64    `json:"id"`
+	Name        *string  `json:"name"`
+	BrandID     *int64   `json:"brand_id,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	CategoryId  *int64   `json:"category_id,omitempty"`
+	BasePrice   *float64 `json:"base_price,omitempty"`
+	IsDigital   *bool    `json:"is_digital,omitempty"`
+	IsActive    *bool    `json:"is_active,omitempty"`
+	ImageURL    *string  `json:"image_url,omitempty"`
+}
+
+type ProductResponse struct {
+	ID          int64                   `json:"id"`
+	Name        string                  `json:"name"`
+	Brand       ProductBrandResponse    `json:"brand"`
+	Category    ProductCategoryResponse `json:"category"`
+	Description string                  `json:"description"`
+	BasePrice   float64                 `json:"base_price"`
+	IsDigital   bool                    `json:"is_digital"`
+	IsActive    bool                    `json:"is_active"`
+	ImageURL    string                  `json:"image_url"`
+	CreatedAt   time.Time               `json:"created_at"`
+	UpdatedAt   time.Time               `json:"updated_at"`
+}
+type ProductCategoryResponse struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type ProductBrandResponse struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }

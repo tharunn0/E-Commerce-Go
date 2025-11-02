@@ -68,9 +68,13 @@ func (repo *AdminRepository) GetUsersByName(ctx context.Context, name string) ([
 	return users, nil
 }
 
-func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserFilter) ([]domain.User, error) {
-	query := `SELECT id, email, phone, password, first_name, last_name, role, is_verified, status, created_at, updated_at FROM users WHERE 1=1`
-	args := []interface{}{}
+func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserFilter) ([]*domain.User, error) {
+	query := `
+		SELECT id, email, phone, password, first_name, last_name, role, is_verified, status, created_at, updated_at
+		FROM users
+		WHERE 1=1
+	`
+	args := []any{}
 	argIndex := 1
 
 	if filter != nil {
@@ -85,11 +89,16 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 			argIndex++
 		}
 		if filter.Search != "" {
-			query += fmt.Sprintf(" AND (first_name ILIKE $%d OR last_name ILIKE $%d OR email ILIKE $%d)", argIndex, argIndex, argIndex)
+			query += fmt.Sprintf(
+				" AND (first_name ILIKE $%d OR last_name ILIKE $%d OR email ILIKE $%d)",
+				argIndex, argIndex, argIndex,
+			)
 			args = append(args, "%"+filter.Search+"%")
 			argIndex++
 		}
 	}
+
+	query += " ORDER BY created_at DESC"
 
 	if filter != nil && filter.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIndex)
@@ -101,24 +110,29 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 		args = append(args, filter.Offset)
 	}
 
-	query += " ORDER BY created_at DESC"
-
 	rows, err := repo.DB.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var users []domain.User
+	var users []*domain.User
 	for rows.Next() {
 		var user domain.User
-		err := rows.Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
-			&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt)
-		if err != nil {
+		if err = rows.Scan(
+			&user.ID, &user.Email, &user.Phone, &user.Password,
+			&user.FirstName, &user.LastName, &user.Role,
+			&user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
-		users = append(users, user)
+		users = append(users, &user)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return users, nil
 }
 

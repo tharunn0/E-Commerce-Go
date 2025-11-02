@@ -19,7 +19,7 @@ type AdminRepository interface {
 	// GetUserByEmail(ctx context.Context, email string) (*User, error)
 	// GetUsersByName(ctx context.Context, name string) ([]*User, error)
 
-	// ListUsers(ctx context.Context, filter *UserFilter) ([]*User, error)
+	ListUsers(ctx context.Context, filter *UserFilter) ([]*User, error)
 	// CountUsers(ctx context.Context, filter *UserFilter) (int64, error)
 
 	// UpdateUserStatus(ctx context.Context, userID int64, status string) error

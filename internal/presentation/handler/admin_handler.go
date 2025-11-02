@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,6 @@ func NewAdminHandler(srv *service.AdminService, log *zap.Logger) *AdminHandler {
 func (h *AdminHandler) LoginUser(c *gin.Context) {
 	var req domain.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.log.Warn("invalid login payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "INVALID_REQUEST",
 			"message": "Invalid request payload.",
@@ -34,11 +34,6 @@ func (h *AdminHandler) LoginUser(c *gin.Context) {
 
 	admin, apiErr := h.service.LoginAdmin(&req)
 	if apiErr != nil {
-		h.log.Warn("login failed",
-			zap.String("email", req.Email),
-			zap.String("code", apiErr.Code),
-			zap.String("msg", apiErr.Message),
-		)
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
@@ -46,11 +41,20 @@ func (h *AdminHandler) LoginUser(c *gin.Context) {
 		return
 	}
 
-	h.log.Info("user logged in successfully",
-		zap.Int64("user_id", admin.User.ID),
-		zap.String("email", admin.User.Email),
-		zap.String("role", string(admin.User.Role)),
-	)
-
 	c.JSON(http.StatusOK, admin)
+}
+
+func (h *AdminHandler) GetAllUsers(c *gin.Context) {
+	ctx := context.Background()
+
+	var filters domain.UserFilter
+
+	if err := c.ShouldBindJSON(&filters); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Invalid request parameters.",
+		})
+	}
+
+	h.service.GetAllUsers(ctx, &filters)
 }

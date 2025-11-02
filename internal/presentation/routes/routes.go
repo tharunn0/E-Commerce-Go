@@ -30,8 +30,11 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		userProtected.GET("/profile", userh.GetProfile)
 	}
 
-	adminAuth := g.Group("/api/v1/auth/admin/").Use(middleware.JWTMiddleware("admin", logger))
+	adminAuth := g.Group("/api/v1/auth/admin/")
 	adminAuth.POST("/login", adminh.LoginUser)
+
+	adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger))
+	adminProtectedRoute.GET("/users", adminh.GetAllUsers)
 
 	{
 		// Category routes
@@ -59,6 +62,23 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		brandOpenRoute := brandRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
 		brandOpenRoute.GET("/", producth.GetBrands)
 		brandOpenRoute.GET("/:id", producth.GetBrandByID)
+	}
+
+	{
+		// Product routes
+		productRoute := g.Group("/api/v1/products")
+		// Product routes
+		productOpenRoute := productRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
+		productOpenRoute.GET("/", producth.GetProducts)
+		productOpenRoute.GET("/:id", producth.GetProductByID)
+		//productOpenRoute.GET("/:id/variants", producth.GetProductVariants)
+		//productOpenRoute.GET("/:id/attributes", producth.GetProductAttributes)
+		//productOpenRoute.GET("/:id/reviews", producth.GetProductReviews)
+
+		productProtectedRoute := productRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
+		productProtectedRoute.POST("/", producth.CreateProduct)
+		productProtectedRoute.PUT("/", producth.UpdateProduct)
+		productProtectedRoute.DELETE("/:id", producth.DeleteProduct)
 	}
 
 }

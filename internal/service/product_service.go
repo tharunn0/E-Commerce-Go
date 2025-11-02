@@ -104,3 +104,79 @@ func (serv *ProductService) DeleteBrand(ctx context.Context, id int64) *domain.A
 	}
 	return nil
 }
+
+// Product operations
+func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequest *domain.CreateProductRequest) (*domain.Product, *domain.APIError) {
+	createdProduct, err := serv.repo.CreateProduct(ctx, createProductRequest)
+	if err != nil {
+		serv.log.Debug("failed to create product", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to create product",
+		}
+	}
+	return createdProduct, nil
+}
+
+func (serv *ProductService) GetProducts(ctx context.Context, page, limit int) ([]*domain.ProductResponse, int64, *domain.APIError) {
+
+	activeOnly := !utils.IsAdmin(ctx)
+	products, total, err := serv.repo.GetProducts(ctx, int64(page), int64(limit), activeOnly)
+	if err != nil {
+		serv.log.Debug("failed to get products", zap.String("function", "GetProducts"), zap.Error(err))
+		return nil, 0, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get products",
+		}
+	}
+	return products, total, nil
+}
+
+func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.ProductResponse, *domain.APIError) {
+	activeOnly := !utils.IsAdmin(ctx)
+	product, err := serv.repo.GetProductByID(ctx, id, activeOnly)
+	if err != nil {
+		serv.log.Debug("failed to get product", zap.String("function", "GetProductByID"), zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get product",
+		}
+	}
+	return product, nil
+}
+
+func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequest *domain.UpdateProductRequest) (*domain.ProductResponse, *domain.APIError) {
+
+	err := serv.repo.UpdateProduct(ctx, updateProductRequest)
+	if err != nil {
+		serv.log.Debug("failed to update product", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to update product",
+		}
+	}
+
+	updatedProduct, err := serv.repo.GetProductByID(ctx, updateProductRequest.ID, false)
+	if err != nil {
+		serv.log.Debug("failed to get product", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get product",
+		}
+	}
+
+	return updatedProduct, nil
+
+}
+
+func (serv *ProductService) DeleteProduct(ctx context.Context, id int64) *domain.APIError {
+	err := serv.repo.DeleteProduct(ctx, id)
+	if err != nil {
+		serv.log.Debug("failed to delete product", zap.Error(err))
+		return &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to delete product",
+		}
+	}
+	return nil
+}
