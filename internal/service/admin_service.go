@@ -64,7 +64,8 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 
 	// Issue JWT
 	token, err := utils.IssueJWT(fetchedUser.ID, fetchedUser.Email, fetchedUser.Role, fetchedUser.IsVerified, serv.log)
-	if len(token) == 0 {
+	if len(token) == 0 || err != nil {
+		serv.log.Error("failed to issue jwt", zap.Error(err))
 		return nil, &domain.APIError{
 			Code:    "TOKEN_GENERATION_FAILED",
 			Message: "Could not generate access token.",
@@ -93,4 +94,30 @@ func (serv *AdminService) GetAllUsers(ctx context.Context, req *domain.UserFilte
 	}
 
 	return users, nil
+}
+
+func (serv *AdminService) UpdateUserStatus(ctx context.Context, req *domain.UserStatusUpdateRequest) *domain.APIError {
+
+	if !utils.IsValidStatus(req.Status) {
+		return &domain.APIError{
+			Code:    "INVALID_STATUS",
+			Message: "Invalid status. Please provide a valid status.",
+		}
+	}
+
+	if req.UserID <= 0 {
+		return &domain.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID. Please provide a valid user ID.",
+		}
+	}
+
+	err := serv.repo.UpdateUserStatus(ctx, req)
+	if err != nil {
+		return &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Something went wrong. Please try again later.",
+		}
+	}
+	return nil
 }

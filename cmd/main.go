@@ -31,6 +31,13 @@ func main() {
 	db_str := os.Getenv("PGDB_URL")
 	pgdb := database.InitDB(db_str, log)
 	pgdb.Query(context.Background(), "")
+	var host, port string
+	if host = os.Getenv("HOST"); host == "" {
+		host = "127.0.0.1"
+	}
+	if port = os.Getenv("PORT"); port == "" {
+		port = "8080"
+	}
 
 	mailer := mailer.NewGoMailer(587, os.Getenv("EMAIL_HOST"), os.Getenv("EMAIL_USERNAME"), os.Getenv("EMAIL_PASSWORD"), os.Getenv("EMAIL"))
 
@@ -56,9 +63,8 @@ func main() {
 
 	routes.RegisterRoutes(r, log, userHandler, adminHandler, categoryHandler, productHandler)
 
-	port := 8080
-	log.Info(`Server starting at port : ` + fmt.Sprintf("%d", port))
-	if er := r.Run(fmt.Sprintf("127.0.0.1:%d", port)); er != nil {
+	log.Info(`Server starting at port : ` + fmt.Sprintf("%s", port))
+	if er := r.Run(host + ":" + port); er != nil {
 		log.Fatal("Server failed to start", zap.Error(er))
 	}
 }

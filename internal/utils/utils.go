@@ -122,3 +122,7 @@ func IsAdmin(ctx context.Context) bool {
 func IsValidDataType(dataType string) bool {
 	return dataType == "text" || dataType == "number" || dataType == "boolean" || dataType == "date"
 }
+
+func IsValidStatus(status string) bool {
+	return status == "active" || status == "blocked" || status == "deleted"
+}

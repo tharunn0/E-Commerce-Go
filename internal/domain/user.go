@@ -22,7 +22,7 @@ type AdminRepository interface {
 	ListUsers(ctx context.Context, filter *UserFilter) ([]*User, error)
 	// CountUsers(ctx context.Context, filter *UserFilter) (int64, error)
 
-	// UpdateUserStatus(ctx context.Context, userID int64, status string) error
+	UpdateUserStatus(ctx context.Context, req *UserStatusUpdateRequest) error
 }
 
 type User struct {
@@ -72,7 +72,7 @@ type UserFilter struct {
 	Role   string `json:"role,omitempty"`
 	Search string `json:"search,omitempty"`
 	Limit  int    `json:"limit,omitempty"`
-	Offset int    `json:"offset,omitempty"`
+	Page   int    `json:"page,omitempty"`
 }
 
 type PasswordResetRequest struct {
@@ -112,4 +112,9 @@ type UserAddress struct {
 	Country      string    `json:"country"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type UserStatusUpdateRequest struct {
+	UserID int64  `json:"user_id" validate:"required"`
+	Status string `json:"status" validate:"required,oneof=active inactive"`
 }

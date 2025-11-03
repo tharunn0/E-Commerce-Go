@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -48,13 +49,31 @@ func (h *AdminHandler) GetAllUsers(c *gin.Context) {
 	ctx := context.Background()
 
 	var filters domain.UserFilter
-
-	if err := c.ShouldBindJSON(&filters); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "INVALID_REQUEST",
-			"message": "Invalid request parameters.",
-		})
+	filters.Status = c.Query("status")
+	filters.Role = c.Query("role")
+	filters.Search = c.Query("search")
+	filters.Page, _ = strconv.Atoi(c.Query("page"))
+	filters.Limit, _ = strconv.Atoi(c.Query("limit"))
+	users, apierr := h.service.GetAllUsers(ctx, &filters)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
 	}
+	c.JSON(http.StatusOK, gin.H{"users": users})
+}
 
-	h.service.GetAllUsers(ctx, &filters)
+func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
+	ctx := context.Background()
+
+	var req domain.UserStatusUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_REQUEST", "message": "Invalid request payload."})
+		return
+	}
+	apierr := h.service.UpdateUserStatus(ctx, &req)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "User status updated successfully"})
 }

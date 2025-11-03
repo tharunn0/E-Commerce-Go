@@ -35,7 +35,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 
 	adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger))
 	adminProtectedRoute.GET("/users", adminh.GetAllUsers)
-
+	adminProtectedRoute.PUT("/users", adminh.UpdateUserStatus)
 	{
 		// Category routes
 		categoryOpenRoute := g.Group("/api/v1/categories/").Use(middleware.AuthContextMiddleware(logger))

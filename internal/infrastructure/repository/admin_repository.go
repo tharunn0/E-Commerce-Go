@@ -105,9 +105,11 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 		args = append(args, filter.Limit)
 		argIndex++
 	}
-	if filter != nil && filter.Offset > 0 {
+	offset := (filter.Page - 1) * filter.Limit
+	if filter != nil && offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", argIndex)
-		args = append(args, filter.Offset)
+		args = append(args, offset)
+		argIndex++
 	}
 
 	rows, err := repo.DB.Query(ctx, query, args...)
@@ -166,11 +168,13 @@ func (repo *AdminRepository) CountUsers(ctx context.Context, filter *domain.User
 	}
 	return count, nil
 }
-func (repo *AdminRepository) UpdateUserStatus(ctx context.Context, userID int64, status string) error {
+
+func (repo *AdminRepository) UpdateUserStatus(ctx context.Context, req *domain.UserStatusUpdateRequest) error {
 	_, err := repo.DB.Exec(ctx,
 		`UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`,
-		status, userID)
+		req.Status, req.UserID)
 	if err != nil {
+		fmt.Println("Error updating user status: ", err)
 		return err
 	}
 	return nil
