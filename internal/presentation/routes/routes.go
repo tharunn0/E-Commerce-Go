@@ -81,4 +81,34 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		productProtectedRoute.DELETE("/:id", producth.DeleteProduct)
 	}
 
+	{
+		// Product variant routes
+		productVariantRoute := g.Group("/api/v1/product-variants")
+		productVariantOpenRoute := productVariantRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
+		productVariantOpenRoute.GET("/:id", producth.GetProductVariantByID)
+		// productVariantOpenRoute.GET("/", producth.GetProductVariants)
+		// productVariantOpenRoute.GET("/:id", producth.GetProductVariantByID)
+
+		productVariantProtectedRoute := productVariantRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
+		productVariantProtectedRoute.POST("/", producth.CreateProductVariant)
+		// productVariantProtectedRoute.POST("/", producth.CreateProductVariant)
+		// productVariantProtectedRoute.PUT("/", producth.UpdateProductVariant)
+		// productVariantProtectedRoute.DELETE("/:id", producth.DeleteProductVariant)
+
+	}
+
+	{
+		// Variant attribute routes
+		variantAttributeRoute := g.Group("/api/v1/attributes")
+		// Variant attribute routes
+		variantAttributeProtectedRoute := variantAttributeRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
+		variantAttributeProtectedRoute.POST("/", producth.CreateAttribute)
+		// variantAttributeProtectedRoute.PUT("/", producth.UpdateVariantAttribute)
+		// variantAttributeProtectedRoute.DELETE("/:id", producth.DeleteVariantAttribute)
+
+		variantAttributeOpenRoute := variantAttributeRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
+		variantAttributeOpenRoute.GET("/", producth.GetAttributes)
+		variantAttributeOpenRoute.GET("/:id", producth.GetAttributeByID)
+	}
+
 }

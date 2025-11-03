@@ -19,6 +19,24 @@ type ProductRepository interface {
 	GetProductByID(ctx context.Context, id int64, activeOnly bool) (*ProductResponse, error)
 	UpdateProduct(ctx context.Context, updateProductRequest *UpdateProductRequest) error
 	DeleteProduct(ctx context.Context, id int64) error
+
+	// Variant operations
+	//------------------
+	CreateProductVariant(ctx context.Context, productVariant *CreateProductVariantRequest) (*ProductVariantResponse, error)
+	// GetProductVariants(ctx context.Context, productID int64) ([]ProductVariant, error)
+	GetProductVariantByID(ctx context.Context, id int64, activeOnly bool) (*ProductVariantResponse, error)
+	// UpdateProductVariant(ctx context.Context, productVariant *UpdateProductVariantRequest) (*ProductVariant, error)
+	// DeleteProductVariant(ctx context.Context, id int64) error
+
+	// Attribute operations
+	//------------------
+	CreateAttribute(ctx context.Context, attribute *CreateAttributeRequest) (*Attribute, error)
+	AddAttributeValues(ctx context.Context, attributeValues *AddAttributeValuesRequest) error
+	GetAttributes(ctx context.Context, activeOnly bool) ([]*Attribute, error)
+	GetAttributeByID(ctx context.Context, id int64, activeOnly bool) (*Attribute, error)
+	// UpdateAttribute(ctx context.Context, attribute *Attribute) (*Attribute, error)
+	DeleteAttribute(ctx context.Context, id int64) error
+	DeleteAttributeValues(ctx context.Context, req *DeleteAttributeValuesRequest) error
 }
 
 // brand

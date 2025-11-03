@@ -188,3 +188,79 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Product deleted successfully"})
 }
+
+// Product variant operations
+func (h *ProductHandler) CreateProductVariant(c *gin.Context) {
+	ctx := context.Background()
+	var createProductVariantRequest domain.CreateProductVariantRequest
+	if err := c.ShouldBindJSON(&createProductVariantRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Provide valid product variant details"})
+		return
+	}
+
+	createdProductVariant, apierr := h.service.CreateProductVariant(ctx, &createProductVariantRequest)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"product_variant": createdProductVariant})
+}
+
+func (h *ProductHandler) GetProductVariantByID(c *gin.Context) {
+	ctx := c.Request.Context()
+	id := c.Param("id")
+	idInt, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product variant ID"})
+		return
+	}
+	productVariant, apierr := h.service.GetProductVariantByID(ctx, idInt)
+	if apierr != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "product_variant": productVariant})
+}
+
+// Attribute operations
+func (h *ProductHandler) CreateAttribute(c *gin.Context) {
+	ctx := context.Background()
+	var createProductVariantRequest domain.CreateAttributeRequest
+	if err := c.ShouldBindJSON(&createProductVariantRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Provide valid product variant details"})
+		return
+	}
+
+	createdAttribute, apierr := h.service.CreateAttribute(ctx, &createProductVariantRequest)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"attribute": createdAttribute})
+}
+
+func (h *ProductHandler) GetAttributes(c *gin.Context) {
+	ctx := c.Request.Context()
+	attributes, apierr := h.service.GetAttributes(ctx)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "attributes": attributes})
+}
+
+func (h *ProductHandler) GetAttributeByID(c *gin.Context) {
+	ctx := c.Request.Context()
+	id := c.Param("id")
+	idInt, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid attribute ID"})
+		return
+	}
+	attribute, apierr := h.service.GetAttributeByID(ctx, idInt)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "attribute": attribute})
+}

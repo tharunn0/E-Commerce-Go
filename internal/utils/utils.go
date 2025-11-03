@@ -118,3 +118,7 @@ func IsAdmin(ctx context.Context) bool {
 // func ValidateGoogleSignIntoken(ctx context.Context, token string) {
 // 	idtoken.Validate(ctx, token, "")
 // }
+
+func IsValidDataType(dataType string) bool {
+	return dataType == "text" || dataType == "number" || dataType == "boolean" || dataType == "date"
+}

@@ -180,3 +180,171 @@ func (serv *ProductService) DeleteProduct(ctx context.Context, id int64) *domain
 	}
 	return nil
 }
+
+// Product variant operations
+func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domain.CreateProductVariantRequest) (*domain.ProductVariantResponse, *domain.APIError) {
+	if len(req.VariantAttributes) == 0 {
+		return nil, &domain.APIError{
+			Code:    "INVALID_REQUEST",
+			Message: "Variant attributes are required",
+		}
+	}
+	for _, variantAttribute := range req.VariantAttributes {
+		if variantAttribute.AttributeID == nil || variantAttribute.AttributeValueID == nil {
+			return nil, &domain.APIError{
+				Code:    "INVALID_REQUEST",
+				Message: "Attribute ID and value ID are required",
+			}
+		}
+	}
+	for _, image := range req.Images {
+		if image == "" {
+			return nil, &domain.APIError{
+				Code:    "INVALID_REQUEST",
+				Message: "Images are required",
+			}
+		}
+	}
+	if req.SKU == "" || req.PriceDifference <= 0 || req.Stock <= 0 {
+		return nil, &domain.APIError{
+			Code:    "INVALID_REQUEST",
+			Message: "SKU is required",
+		}
+	}
+
+	productVariant, err := serv.repo.CreateProductVariant(ctx, req)
+	if err != nil {
+		serv.log.Debug("failed to create product variant", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to create product variant",
+		}
+	}
+	return productVariant, nil
+}
+
+func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64) (*domain.ProductVariantResponse, *domain.APIError) {
+
+	activeOnly := !utils.IsAdmin(ctx)
+	productVariant, err := serv.repo.GetProductVariantByID(ctx, id, activeOnly)
+	if err != nil {
+		serv.log.Debug("failed to get product variant", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "NOT_FOUND",
+			Message: "Product variant not found",
+		}
+	}
+
+	return productVariant, nil
+}
+
+// Attribute operations
+func (serv *ProductService) CreateAttribute(ctx context.Context, createAttributeRequest *domain.CreateAttributeRequest) (*domain.Attribute, *domain.APIError) {
+	if len(createAttributeRequest.Values) == 0 {
+		return nil, &domain.APIError{
+			Code:    "INVALID_REQUEST",
+			Message: "Values are required",
+		}
+	}
+
+	if !utils.IsValidDataType(createAttributeRequest.DataType) {
+		return nil, &domain.APIError{
+			Code:    "INVALID_REQUEST",
+			Message: "Invalid data type",
+		}
+	}
+
+	attribute, err := serv.repo.CreateAttribute(ctx, createAttributeRequest)
+	if err != nil {
+		serv.log.Debug("failed to create attribute", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to create attribute",
+		}
+	}
+	return attribute, nil
+}
+
+func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttributeValuesRequest *domain.AddAttributeValuesRequest) *domain.APIError {
+
+	if len(addAttributeValuesRequest.Values) == 0 {
+		return &domain.APIError{
+			Code:    "INVALID_REQUEST",
+			Message: "Values are required",
+		}
+	}
+
+	for _, value := range addAttributeValuesRequest.Values {
+		if value == "" {
+			return &domain.APIError{
+				Code:    "INVALID_REQUEST",
+				Message: "Values are required",
+			}
+		}
+	}
+
+	err := serv.repo.AddAttributeValues(ctx, addAttributeValuesRequest)
+	if err != nil {
+		serv.log.Debug("failed to add attribute values", zap.Error(err))
+		return &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to add attribute values",
+		}
+	}
+	return nil
+}
+
+func (serv *ProductService) GetAttributes(ctx context.Context) ([]*domain.Attribute, *domain.APIError) {
+	activeOnly := !utils.IsAdmin(ctx)
+	attributes, err := serv.repo.GetAttributes(ctx, activeOnly)
+	if err != nil {
+		serv.log.Debug("failed to get attributes", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get attributes",
+		}
+	}
+	return attributes, nil
+}
+func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*domain.Attribute, *domain.APIError) {
+	activeOnly := !utils.IsAdmin(ctx)
+	attribute, err := serv.repo.GetAttributeByID(ctx, id, activeOnly)
+	if err != nil {
+		serv.log.Debug("failed to get attribute", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get attribute",
+		}
+	}
+	return attribute, nil
+}
+
+func (serv *ProductService) DeleteAttribute(ctx context.Context, id int64) *domain.APIError {
+	err := serv.repo.DeleteAttribute(ctx, id)
+	if err != nil {
+		serv.log.Debug("failed to delete attribute", zap.Error(err))
+		return &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to delete attribute",
+		}
+	}
+	return nil
+}
+func (serv *ProductService) DeleteAttributeValues(ctx context.Context, deleteAttributeValuesRequest *domain.DeleteAttributeValuesRequest) *domain.APIError {
+	if len(deleteAttributeValuesRequest.ValueIDs) == 0 {
+		return &domain.APIError{
+			Code:    "INVALID_REQUEST",
+			Message: "Value IDs are required",
+		}
+	}
+
+	err := serv.repo.DeleteAttributeValues(ctx, deleteAttributeValuesRequest)
+	if err != nil {
+		serv.log.Debug("failed to delete attribute values", zap.Error(err))
+		return &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to delete attribute values",
+		}
+	}
+	return nil
+}
