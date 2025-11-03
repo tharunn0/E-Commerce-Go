@@ -116,27 +116,23 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 }
 
 func (h *ProductHandler) GetProducts(c *gin.Context) {
-	ctx := context.Background()
-	page := c.Query("page")
-	limit := c.Query("limit")
-	pageInt, err := strconv.Atoi(page)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page number"})
-		return
-	}
-	limitInt, err := strconv.Atoi(limit)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid limit"})
-		return
-	}
-	products, total, apierr := h.service.GetProducts(ctx, pageInt, limitInt)
+	ctx := c.Request.Context()
+	var filter domain.ProductFilter
+
+	filter.Page, _ = strconv.Atoi(c.Query("page"))
+	filter.Limit, _ = strconv.Atoi(c.Query("limit"))
+	filter.Search = c.Query("search")
+	filter.Sort = c.Query("sort")
+	filter.Order = c.Query("order")
+
+	products, total, apierr := h.service.GetProducts(ctx, &filter)
 	if apierr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"page":     pageInt,
-		"limit":    limitInt,
+		"page":     filter.Page,
+		"limit":    filter.Limit,
 		"total":    total,
 		"products": products,
 	})
@@ -220,6 +216,38 @@ func (h *ProductHandler) GetProductVariantByID(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "product_variant": productVariant})
+}
+
+func (h *ProductHandler) UpdateProductVariant(c *gin.Context) {
+	ctx := context.Background()
+	var updateProductVariantRequest domain.UpdateProductVariantRequest
+	if err := c.ShouldBindJSON(&updateProductVariantRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	updatedProductVariant, apierr := h.service.UpdateProductVariant(ctx, &updateProductVariantRequest)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "product_variant": updatedProductVariant})
+}
+
+func (h *ProductHandler) DeleteProductVariant(c *gin.Context) {
+	ctx := context.Background()
+	id := c.Param("id")
+	idInt, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product variant ID"})
+		return
+	}
+
+	apierr := h.service.DeleteProductVariant(ctx, idInt)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Product variant deleted successfully"})
 }
 
 // Attribute operations

@@ -93,7 +93,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		productVariantProtectedRoute.POST("/", producth.CreateProductVariant)
 		// productVariantProtectedRoute.POST("/", producth.CreateProductVariant)
 		// productVariantProtectedRoute.PUT("/", producth.UpdateProductVariant)
-		// productVariantProtectedRoute.DELETE("/:id", producth.DeleteProductVariant)
+		productVariantProtectedRoute.DELETE("/:id", producth.DeleteProductVariant)
 
 	}
 

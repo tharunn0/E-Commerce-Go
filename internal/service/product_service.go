@@ -118,10 +118,10 @@ func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequ
 	return createdProduct, nil
 }
 
-func (serv *ProductService) GetProducts(ctx context.Context, page, limit int) ([]*domain.ProductResponse, int64, *domain.APIError) {
+func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.ProductFilter) ([]*domain.ProductResponse, int64, *domain.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
-	products, total, err := serv.repo.GetProducts(ctx, int64(page), int64(limit), activeOnly)
+	products, total, err := serv.repo.GetProducts(ctx, filter, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get products", zap.String("function", "GetProducts"), zap.Error(err))
 		return nil, 0, &domain.APIError{
@@ -236,6 +236,31 @@ func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64)
 	}
 
 	return productVariant, nil
+}
+
+func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProductVariantRequest *domain.UpdateProductVariantRequest) (*domain.ProductVariant, *domain.APIError) {
+	productVariant, err := serv.repo.UpdateProductVariant(ctx, updateProductVariantRequest)
+	if err != nil {
+		serv.log.Debug("failed to update product variant", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to update product variant",
+		}
+	}
+
+	return productVariant, nil
+}
+
+func (serv *ProductService) DeleteProductVariant(ctx context.Context, id int64) *domain.APIError {
+	err := serv.repo.DeleteProductVariant(ctx, id)
+	if err != nil {
+		serv.log.Debug("failed to delete product variant", zap.Error(err))
+		return &domain.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to delete product variant",
+		}
+	}
+	return nil
 }
 
 // Attribute operations

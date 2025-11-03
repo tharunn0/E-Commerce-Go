@@ -35,6 +35,7 @@ func (repo *ProductRepository) CreateBrand(ctx context.Context, createBrandReque
 }
 
 func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool) ([]*domain.Brand, error) {
+
 	query := `
 		SELECT id, name, description, logo_url, is_active, created_at, updated_at
 		FROM brands
@@ -121,9 +122,7 @@ func (repo *ProductRepository) CreateProduct(ctx context.Context, product *domai
 	return &created, nil
 }
 
-func (repo *ProductRepository) GetProducts(ctx context.Context, page, limit int64, activeOnly bool) ([]*domain.ProductResponse, int64, error) {
-
-	offset := (page - 1) * limit
+func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.ProductFilter, activeOnly bool) ([]*domain.ProductResponse, int64, error) {
 
 	var total int64
 	query := `
@@ -135,34 +134,57 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, page, limit int6
 	}
 
 	query = `
-		SELECT p.id, p.name, b.name as brand_name, COALESCE(p.description, ''), c.name as category_name, p.base_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at
+		SELECT p.id, p.name,b.id as brand_id, b.name as brand_name, COALESCE(p.description, ''),
+		 c.id as category_id, c.name as category_name, p.base_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at
 		FROM products p
 		LEFT JOIN brands b ON p.brand_id = b.id
 		LEFT JOIN categories c ON p.category_id = c.id
+		WHERE 1=1
 	`
 	if activeOnly {
-		query += " WHERE p.is_active = true"
+		query += " AND p.is_active = true"
 	}
-	query += " ORDER BY p.id LIMIT $1 OFFSET $2"
-	rows, err := repo.DB.Query(ctx, query, limit, offset)
+	args := []any{}
+	argIndex := 1
+
+	if filter.Search != "" {
+		query += fmt.Sprintf(" AND (p.name ILIKE $%d OR b.name ILIKE $%d OR c.name ILIKE $%d)", argIndex, argIndex, argIndex)
+		args = append(args, "%"+filter.Search+"%")
+		argIndex++
+	}
+	if filter.Sort != "" {
+		query += fmt.Sprintf(" ORDER BY p.%s %s", filter.Sort, filter.Order)
+	}
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIndex)
+		args = append(args, filter.Limit)
+		argIndex++
+	}
+	offset := (filter.Page - 1) * filter.Limit
+	if filter.Page > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIndex)
+		args = append(args, offset)
+		argIndex++
+	}
+
+	fmt.Println("filter : ", filter)
+
+	fmt.Println("query : ", query, "args : ", args)
+
+	rows, err := repo.DB.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer rows.Close()
 
 	products := []*domain.ProductResponse{}
-	var p domain.ProductResponse
 	for rows.Next() {
-
+		var p domain.ProductResponse
 		if err := rows.Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID, &p.Category.Name,
 			&p.BasePrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
-
 		products = append(products, &p)
-	}
-	if rows.Err() != nil {
-		return nil, 0, rows.Err()
 	}
 	return products, total, nil
 }
@@ -402,6 +424,30 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 	return &created, nil
 }
 
+func (repo *ProductRepository) UpdateProductVariant(ctx context.Context, productVariant *domain.UpdateProductVariantRequest) (*domain.ProductVariant, error) {
+	query := `UPDATE product_variants SET sku = COALESCE($1,sku), price_difference = COALESCE($2,price_difference), stock = COALESCE($3,stock), is_active = COALESCE($4,is_active), updated_at = now() WHERE id = $5
+	RETURNING id, product_id, sku, price_difference, stock, is_active, created_at
+	`
+	var updated domain.ProductVariant
+	err := repo.DB.QueryRow(ctx, query, productVariant.SKU, productVariant.PriceDifference, productVariant.Stock, productVariant.IsActive, productVariant.ID).Scan(
+		&updated.ID, &updated.ProductID, &updated.SKU, &updated.PriceDifference, &updated.Stock, &updated.IsActive, &updated.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &updated, nil
+}
+
+func (repo *ProductRepository) DeleteProductVariant(ctx context.Context, id int64) error {
+	cmdTag, err := repo.DB.Exec(ctx, `DELETE FROM product_variants WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("PRODUCT_VARIANT_NOT_FOUND")
+	}
+	return nil
+}
+
 // Attribute operations
 // //////////////////////////////////////////////////////////
 // //////////////////////////////////////////////////////////
@@ -527,6 +573,7 @@ func (repo *ProductRepository) GetAttributeByID(ctx context.Context, id int64, a
 		) AS values
 	FROM attributes a
 	LEFT JOIN attribute_values av ON a.id = av.attribute_id WHERE a.id = $1`
+
 	if activeOnly {
 		query += ` AND a.is_active = true`
 	}
@@ -537,6 +584,7 @@ func (repo *ProductRepository) GetAttributeByID(ctx context.Context, id int64, a
 	if err != nil {
 		return nil, err
 	}
+
 	return &attribute, nil
 }
 

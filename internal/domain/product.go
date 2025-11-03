@@ -15,7 +15,7 @@ type ProductRepository interface {
 
 	// Product operations
 	CreateProduct(ctx context.Context, product *CreateProductRequest) (*Product, error)
-	GetProducts(ctx context.Context, page, limit int64, activeOnly bool) ([]*ProductResponse, int64, error)
+	GetProducts(ctx context.Context, filter *ProductFilter, activeOnly bool) ([]*ProductResponse, int64, error)
 	GetProductByID(ctx context.Context, id int64, activeOnly bool) (*ProductResponse, error)
 	UpdateProduct(ctx context.Context, updateProductRequest *UpdateProductRequest) error
 	DeleteProduct(ctx context.Context, id int64) error
@@ -25,8 +25,8 @@ type ProductRepository interface {
 	CreateProductVariant(ctx context.Context, productVariant *CreateProductVariantRequest) (*ProductVariantResponse, error)
 	// GetProductVariants(ctx context.Context, productID int64) ([]ProductVariant, error)
 	GetProductVariantByID(ctx context.Context, id int64, activeOnly bool) (*ProductVariantResponse, error)
-	// UpdateProductVariant(ctx context.Context, productVariant *UpdateProductVariantRequest) (*ProductVariant, error)
-	// DeleteProductVariant(ctx context.Context, id int64) error
+	UpdateProductVariant(ctx context.Context, productVariant *UpdateProductVariantRequest) (*ProductVariant, error)
+	DeleteProductVariant(ctx context.Context, id int64) error
 
 	// Attribute operations
 	//------------------
@@ -125,4 +125,12 @@ type ProductCategoryResponse struct {
 type ProductBrandResponse struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
+}
+
+type ProductFilter struct {
+	Page   int    `json:"page"`
+	Limit  int    `json:"limit"`
+	Search string `json:"search"`
+	Sort   string `json:"sort"`
+	Order  string `json:"order"`
 }
