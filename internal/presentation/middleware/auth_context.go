@@ -30,7 +30,7 @@ func AuthContextMiddleware(log *zap.Logger) gin.HandlerFunc {
 		}
 
 		role := roleGuest
-		userID := ""
+		userID := 0
 		verified := false
 
 		auth := c.GetHeader("Authorization")
@@ -49,11 +49,11 @@ func AuthContextMiddleware(log *zap.Logger) gin.HandlerFunc {
 					if r, ok := claims["role"].(string); ok && (r == roleAdmin || r == roleUser) {
 						role = r
 					}
-					if uid, ok := claims["user_id"].(string); ok {
+					if uid, ok := claims["user_id"].(int); ok {
 						userID = uid
 					}
 					verified = claims["verified"] == true
-					log.Debug("JWT validated", zap.String("userId", userID), zap.String("role", role))
+					log.Debug("JWT validated", zap.Int("userId", userID), zap.String("role", role))
 				}
 			} else {
 				log.Debug("Invalid JWT", zap.Error(err))

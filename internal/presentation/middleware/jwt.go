@@ -61,10 +61,7 @@ func JWTMiddleware(role string, log *zap.Logger) gin.HandlerFunc {
 			return secretKey, nil
 		})
 
-		log.Debug("token", zap.String("service", "JWTMiddleware"), zap.Any("token", token))
-
 		if err != nil || !token.Valid {
-			log.Debug("invalid token", zap.String("service", "JWTMiddleware"), zap.Error(err))
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "INVALID_TOKEN",
 				"message": "Invalid or expired token",
