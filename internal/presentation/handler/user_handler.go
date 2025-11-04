@@ -113,23 +113,12 @@ func (h *UserHandler) LoginUser(c *gin.Context) {
 
 func (h *UserHandler) SendOTP(c *gin.Context) {
 
-	var reqbody struct {
-		Email string `json:"email" validate:"required,email"`
-	}
+	email := c.Value(domain.KeyEmail).(string)
 
-	if err := c.ShouldBindJSON(&reqbody); err != nil {
-		h.logger.Warn("invalid OTP request payload", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "INVALID_REQUEST",
-			"message": "Please provide a valid email address.",
-		})
-		return
-	}
-
-	apiErr := h.authserv.SendOTP(reqbody.Email)
+	apiErr := h.authserv.SendOTP(email)
 	if apiErr != nil {
 		h.logger.Warn("OTP send failed",
-			zap.String("email", reqbody.Email),
+			zap.String("email", email),
 			zap.String("code", apiErr.Code),
 			zap.String("message", apiErr.Message),
 		)
@@ -247,16 +236,10 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 // }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	ctx := context.Background()
-	userID, ok := c.Get("user_id")
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error":   "UNAUTHORIZED",
-			"message": "Unauthorized",
-		})
-		return
-	}
-	userProfile, apiErr := h.service.GetUserProfile(ctx, int64(userID.(float64)))
+	ctx := c.Request.Context()
+	userID := c.Value(domain.KeyUserID).(int64)
+
+	userProfile, apiErr := h.service.GetUserProfile(ctx, userID)
 	if apiErr != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   apiErr.Code,

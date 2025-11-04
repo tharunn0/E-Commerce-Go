@@ -19,8 +19,6 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		userAuth := g.Group("/api/v1/auth/users/")
 		userAuth.POST("/register", userh.RegisterUser)
 		userAuth.POST("/login", userh.LoginUser)
-		userAuth.POST("/send-otp", userh.SendOTP)
-		userAuth.POST("/verify-otp", userh.VerifyOTP)
 		userAuth.POST("/reset-password-link", userh.SendPasswordResetLink)
 		userAuth.POST("/reset-password/", userh.ResetPassword)
 		userAuth.POST("/google")
@@ -28,6 +26,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 	{
 		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger))
 		userProtected.GET("/profile", userh.GetProfile)
+		userProtected.POST("/verify-otp", userh.VerifyOTP)
+		userProtected.POST("/send-otp", userh.SendOTP)
 	}
 
 	adminAuth := g.Group("/api/v1/auth/admin/")

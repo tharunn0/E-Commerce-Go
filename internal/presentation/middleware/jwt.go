@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -16,12 +17,6 @@ const (
 	roleAdmin = "admin"
 	roleUser  = "user"
 	roleGuest = "guest"
-)
-
-const (
-	keyUserID   string = "userId"
-	keyRole     string = "role"
-	keyVerified string = "verified"
 )
 
 func JWTMiddleware(role string, log *zap.Logger) gin.HandlerFunc {
@@ -96,9 +91,10 @@ func JWTMiddleware(role string, log *zap.Logger) gin.HandlerFunc {
 		// c.Set("verified", claims["verified"])
 
 		ctx := c.Request.Context()
-		ctx = context.WithValue(ctx, keyUserID, claims["user_id"])
-		ctx = context.WithValue(ctx, keyRole, claims["role"])
-		ctx = context.WithValue(ctx, keyVerified, claims["verified"])
+		ctx = context.WithValue(ctx, domain.KeyUserID, claims["user_id"])
+		ctx = context.WithValue(ctx, domain.KeyRole, claims["role"])
+		ctx = context.WithValue(ctx, domain.KeyVerified, claims["verified"])
+		ctx = context.WithValue(ctx, domain.KeyEmail, claims["email"])
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()

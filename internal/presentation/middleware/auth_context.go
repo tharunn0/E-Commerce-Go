@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -21,9 +22,9 @@ func AuthContextMiddleware(log *zap.Logger) gin.HandlerFunc {
 		path := c.Request.URL.Path
 		if strings.Contains(path, "/login") || strings.Contains(path, "/register") {
 			ctx := c.Request.Context()
-			ctx = context.WithValue(ctx, keyUserID, "")
-			ctx = context.WithValue(ctx, keyRole, roleGuest)
-			ctx = context.WithValue(ctx, keyVerified, false)
+			ctx = context.WithValue(ctx, domain.KeyUserID, "")
+			ctx = context.WithValue(ctx, domain.KeyRole, roleGuest)
+			ctx = context.WithValue(ctx, domain.KeyVerified, false)
 			c.Request = c.Request.WithContext(ctx)
 			c.Next()
 			return
@@ -65,9 +66,9 @@ func AuthContextMiddleware(log *zap.Logger) gin.HandlerFunc {
 		fmt.Println("Role from auth context middleware : ", role)
 
 		ctx := c.Request.Context()
-		ctx = context.WithValue(ctx, keyUserID, userID)
-		ctx = context.WithValue(ctx, keyRole, role)
-		ctx = context.WithValue(ctx, keyVerified, verified)
+		ctx = context.WithValue(ctx, domain.KeyUserID, userID)
+		ctx = context.WithValue(ctx, domain.KeyRole, role)
+		ctx = context.WithValue(ctx, domain.KeyVerified, verified)
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
