@@ -218,6 +218,24 @@ func (h *ProductHandler) GetProductVariantByID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "product_variant": productVariant})
 }
 
+func (h *ProductHandler) GetVariantsByProductID(c *gin.Context) {
+	ctx := c.Request.Context()
+	productID := c.Param("id")
+	productIDInt, err := strconv.ParseInt(productID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	variants, apierr := h.service.GetVariantsByProductID(ctx, productIDInt)
+	if apierr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "variants": variants})
+
+}
+
 func (h *ProductHandler) UpdateProductVariant(c *gin.Context) {
 	ctx := context.Background()
 	var updateProductVariantRequest domain.UpdateProductVariantRequest

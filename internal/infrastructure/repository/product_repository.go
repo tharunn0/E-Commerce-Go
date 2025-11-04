@@ -255,7 +255,6 @@ func (repo *ProductRepository) DeleteProduct(ctx context.Context, id int64) erro
 
 // Variant operations
 // ////////////////////////////////////////////////////////
-// ////////////////////////////////////////////////////////
 func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *domain.CreateProductVariantRequest) (*domain.ProductVariantResponse, error) {
 
 	var created domain.ProductVariantResponse
@@ -424,6 +423,87 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 	return &created, nil
 }
 
+func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, productID int64, activeOnly bool) (*domain.ProductVariantBaseResponse, error) {
+	var productvariants domain.ProductVariantBaseResponse
+
+	query := `
+		SELECT p.id, p.name as product_name, b.name as brand_name, p.base_price, p.is_digital,p.image_url, p.created_at FROM products p
+		 LEFT JOIN brands b ON p.brand_id = b.id WHERE p.id = $1 AND p.is_active = true
+	`
+	err := repo.DB.QueryRow(ctx, query, productID).Scan(
+		&productvariants.ProductID,
+		&productvariants.ProductName,
+		&productvariants.BrandName,
+		&productvariants.BasePrice,
+		&productvariants.IsDigital,
+		&productvariants.ImageURL,
+		&productvariants.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	// get variants
+
+	query = `
+		SELECT id, sku, price_difference, stock, is_active, created_at FROM product_variants WHERE product_id = $1 AND is_active = true
+	`
+	rows, err := repo.DB.Query(ctx, query, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var variant domain.VariantBaseResponse
+		err := rows.Scan(&variant.ID, &variant.SKU, &variant.PriceDifference, &variant.Stock, &variant.IsActive, &variant.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		productvariants.Variants = append(productvariants.Variants, variant)
+	}
+
+	for i := range productvariants.Variants {
+		query = `
+		SELECT  url FROM product_variant_images WHERE product_variant_id = $1
+	`
+		rows, err = repo.DB.Query(ctx, query, productvariants.Variants[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var image string
+			err := rows.Scan(&image)
+			if err != nil {
+				return nil, err
+			}
+			productvariants.Variants[i].Images = append(productvariants.Variants[i].Images, image)
+		}
+	}
+
+	// get variant attributes
+	for i := range productvariants.Variants {
+		query = `
+		SELECT pva.id,a.name as attribute,av.value as value FROM product_variant_attributes pva 
+		LEFT JOIN attributes a ON pva.attribute_id = a.id 
+		LEFT JOIN attribute_values av ON pva.attribute_value_id = av.id
+		WHERE pva.product_variant_id = $1
+	`
+		rows, err = repo.DB.Query(ctx, query, productvariants.Variants[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var attrVal domain.AttributeValueResponse
+			err := rows.Scan(&attrVal.ID, &attrVal.Attribute, &attrVal.Value)
+			if err != nil {
+				return nil, err
+			}
+			productvariants.Variants[i].Attributes = append(productvariants.Variants[i].Attributes, attrVal)
+		}
+	}
+	return &productvariants, nil
+}
+
 func (repo *ProductRepository) UpdateProductVariant(ctx context.Context, productVariant *domain.UpdateProductVariantRequest) (*domain.ProductVariant, error) {
 	query := `UPDATE product_variants SET sku = COALESCE($1,sku), price_difference = COALESCE($2,price_difference), stock = COALESCE($3,stock), is_active = COALESCE($4,is_active), updated_at = now() WHERE id = $5
 	RETURNING id, product_id, sku, price_difference, stock, is_active, created_at
@@ -449,7 +529,6 @@ func (repo *ProductRepository) DeleteProductVariant(ctx context.Context, id int6
 }
 
 // Attribute operations
-// //////////////////////////////////////////////////////////
 // //////////////////////////////////////////////////////////
 func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *domain.CreateAttributeRequest) (*domain.Attribute, error) {
 

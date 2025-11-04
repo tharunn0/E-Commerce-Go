@@ -238,6 +238,19 @@ func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64)
 	return productVariant, nil
 }
 
+func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productID int64) (*domain.ProductVariantBaseResponse, *domain.APIError) {
+	activeOnly := !utils.IsAdmin(ctx)
+	productvariants, err := serv.repo.GetVariantsByProductID(ctx, productID, activeOnly)
+	if err != nil {
+		serv.log.Debug("failed to get variants by product ID", zap.Error(err))
+		return nil, &domain.APIError{
+			Code:    "NOT_FOUND",
+			Message: "Product variants not found",
+		}
+	}
+	return productvariants, nil
+}
+
 func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProductVariantRequest *domain.UpdateProductVariantRequest) (*domain.ProductVariant, *domain.APIError) {
 	productVariant, err := serv.repo.UpdateProductVariant(ctx, updateProductVariantRequest)
 	if err != nil {

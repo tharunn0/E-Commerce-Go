@@ -71,7 +71,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		productOpenRoute := productRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
 		productOpenRoute.GET("/", producth.GetProducts)
 		productOpenRoute.GET("/:id", producth.GetProductByID)
-		//productOpenRoute.GET("/:id/variants", producth.GetProductVariants)
+		productOpenRoute.GET("/:id/variants", producth.GetVariantsByProductID)
 		//productOpenRoute.GET("/:id/attributes", producth.GetProductAttributes)
 		//productOpenRoute.GET("/:id/reviews", producth.GetProductReviews)
 
