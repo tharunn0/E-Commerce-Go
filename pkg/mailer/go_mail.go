@@ -50,7 +50,7 @@ func (m *MailSender) SendMail(ctx context.Context, templatePath, to, subject str
 		return ctx.Err()
 	case err := <-errCh:
 		return err
-	case <-time.After(30 * time.Second):
+	case <-time.After(15 * time.Second):
 		return context.DeadlineExceeded
 	}
 

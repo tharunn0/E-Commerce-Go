@@ -2,12 +2,29 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/presentation/handler"
 	"github.com/tharunn0/E-Commerce-Go/internal/presentation/middleware"
 	"go.uber.org/zap"
 )
 
-func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler, producth *handler.ProductHandler) {
+type Handler struct {
+	User     *handler.UserHandler
+	Admin    *handler.AdminHandler
+	Category *handler.CategoryHandler
+	Product  *handler.ProductHandler
+}
+
+func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler, producth *handler.ProductHandler) *Handler {
+	return &Handler{
+		User:     userh,
+		Admin:    adminh,
+		Category: categoryh,
+		Product:  producth,
+	}
+}
+
+func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.SecuritySettings) {
 
 	g.GET("/home", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -17,83 +34,83 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 
 	{
 		userAuth := g.Group("/api/v1/auth/users/")
-		userAuth.POST("/register", userh.RegisterUser)
-		userAuth.POST("/login", userh.LoginUser)
-		userAuth.POST("/reset-password-link", userh.SendPasswordResetLink)
-		userAuth.POST("/reset-password/", userh.ResetPassword)
+		userAuth.POST("/register", h.User.RegisterUser)
+		userAuth.POST("/login", h.User.LoginUser)
+		userAuth.POST("/reset-password-link", h.User.SendPasswordResetLink)
+		userAuth.POST("/reset-password/", h.User.ResetPassword)
 		userAuth.POST("/google")
 	}
 	{
-		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger))
-		userProtected.GET("/profile", userh.GetProfile)
-		userProtected.POST("/verify-otp", userh.VerifyOTP)
-		userProtected.POST("/send-otp", userh.SendOTP)
+		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		userProtected.GET("/profile", h.User.GetProfile)
+		userProtected.POST("/verify-otp", h.User.VerifyOTP)
+		userProtected.POST("/send-otp", h.User.SendOTP)
 	}
 
 	adminAuth := g.Group("/api/v1/auth/admin/")
-	adminAuth.POST("/login", adminh.LoginUser)
+	adminAuth.POST("/login", h.Admin.LoginUser)
 
-	adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger))
-	adminProtectedRoute.GET("/users", adminh.GetAllUsers)
-	adminProtectedRoute.PUT("/users", adminh.UpdateUserStatus)
+	adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+	adminProtectedRoute.GET("/users", h.Admin.GetAllUsers)
+	adminProtectedRoute.PUT("/users", h.Admin.UpdateUserStatus)
 	{
 		// Category routes
-		categoryOpenRoute := g.Group("/api/v1/categories/").Use(middleware.AuthContextMiddleware(logger))
-		categoryOpenRoute.GET("/", categoryh.GetAllCategories)
-		categoryOpenRoute.GET("/:id", categoryh.GetCategoryByID)
+		categoryOpenRoute := g.Group("/api/v1/categories/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
+		categoryOpenRoute.GET("/", h.Category.GetAllCategories)
+		categoryOpenRoute.GET("/:id", h.Category.GetCategoryByID)
 
-		categoryProtectedRoute := g.Group("/api/v1/categories/").Use(middleware.JWTMiddleware("admin", logger))
-		categoryProtectedRoute.POST("/", categoryh.CreateCategory)
-		categoryProtectedRoute.DELETE("/:id", categoryh.DeleteCategory)
-		categoryProtectedRoute.PUT("/", categoryh.UpdateCategory)
-		categoryProtectedRoute.PATCH("/:id/activate", categoryh.ToggleCategoryStatus)
-		categoryProtectedRoute.PATCH("/:id/deactivate", categoryh.ToggleCategoryStatus)
+		categoryProtectedRoute := g.Group("/api/v1/categories/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		categoryProtectedRoute.POST("/", h.Category.CreateCategory)
+		categoryProtectedRoute.DELETE("/:id", h.Category.DeleteCategory)
+		categoryProtectedRoute.PUT("/", h.Category.UpdateCategory)
+		categoryProtectedRoute.PATCH("/:id/activate", h.Category.ToggleCategoryStatus)
+		categoryProtectedRoute.PATCH("/:id/deactivate", h.Category.ToggleCategoryStatus)
 
 	}
 
 	{
 		brandRoute := g.Group("/api/v1/brands")
 		// Brand routes
-		brandProtectedRoute := brandRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
-		brandProtectedRoute.POST("/", producth.CreateBrand)
-		brandProtectedRoute.PUT("/", producth.UpdateBrand)
-		brandProtectedRoute.DELETE("/:id", producth.DeleteBrand)
+		brandProtectedRoute := brandRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		brandProtectedRoute.POST("/", h.Product.CreateBrand)
+		brandProtectedRoute.PUT("/", h.Product.UpdateBrand)
+		brandProtectedRoute.DELETE("/:id", h.Product.DeleteBrand)
 
-		brandOpenRoute := brandRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
-		brandOpenRoute.GET("/", producth.GetBrands)
-		brandOpenRoute.GET("/:id", producth.GetBrandByID)
+		brandOpenRoute := brandRoute.Group("/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
+		brandOpenRoute.GET("/", h.Product.GetBrands)
+		brandOpenRoute.GET("/:id", h.Product.GetBrandByID)
 	}
 
 	{
 		// Product routes
 		productRoute := g.Group("/api/v1/products")
 		// Product routes
-		productOpenRoute := productRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
-		productOpenRoute.GET("/", producth.GetProducts)
-		productOpenRoute.GET("/:id", producth.GetProductByID)
-		productOpenRoute.GET("/:id/variants", producth.GetVariantsByProductID)
-		//productOpenRoute.GET("/:id/attributes", producth.GetProductAttributes)
-		//productOpenRoute.GET("/:id/reviews", producth.GetProductReviews)
+		productOpenRoute := productRoute.Group("/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
+		productOpenRoute.GET("/", h.Product.GetProducts)
+		productOpenRoute.GET("/:id", h.Product.GetProductByID)
+		productOpenRoute.GET("/:id/variants", h.Product.GetVariantsByProductID)
+		//productOpenRoute.GET("/:id/attributes", h.Product.GetProductAttributes)
+		//productOpenRoute.GET("/:id/reviews", h.Product.GetProductReviews)
 
-		productProtectedRoute := productRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
-		productProtectedRoute.POST("/", producth.CreateProduct)
-		productProtectedRoute.PUT("/", producth.UpdateProduct)
-		productProtectedRoute.DELETE("/:id", producth.DeleteProduct)
+		productProtectedRoute := productRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		productProtectedRoute.POST("/", h.Product.CreateProduct)
+		productProtectedRoute.PUT("/", h.Product.UpdateProduct)
+		productProtectedRoute.DELETE("/:id", h.Product.DeleteProduct)
 	}
 
 	{
 		// Product variant routes
 		productVariantRoute := g.Group("/api/v1/product-variants")
-		productVariantOpenRoute := productVariantRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
-		productVariantOpenRoute.GET("/:id", producth.GetProductVariantByID)
-		// productVariantOpenRoute.GET("/", producth.GetProductVariants)
-		// productVariantOpenRoute.GET("/:id", producth.GetProductVariantByID)
+		productVariantOpenRoute := productVariantRoute.Group("/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
+		productVariantOpenRoute.GET("/:id", h.Product.GetProductVariantByID)
+		// productVariantOpenRoute.GET("/", h.Product.GetProductVariants)
+		// productVariantOpenRoute.GET("/:id", h.Product.GetProductVariantByID)
 
-		productVariantProtectedRoute := productVariantRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
-		productVariantProtectedRoute.POST("/", producth.CreateProductVariant)
-		// productVariantProtectedRoute.POST("/", producth.CreateProductVariant)
-		// productVariantProtectedRoute.PUT("/", producth.UpdateProductVariant)
-		productVariantProtectedRoute.DELETE("/:id", producth.DeleteProductVariant)
+		productVariantProtectedRoute := productVariantRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		productVariantProtectedRoute.POST("/", h.Product.CreateProductVariant)
+		// productVariantProtectedRoute.POST("/", h.Product.CreateProductVariant)
+		// productVariantProtectedRoute.PUT("/", h.Product.UpdateProductVariant)
+		productVariantProtectedRoute.DELETE("/:id", h.Product.DeleteProductVariant)
 
 	}
 
@@ -101,14 +118,14 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, userh *handler.UserHandle
 		// Variant attribute routes
 		variantAttributeRoute := g.Group("/api/v1/attributes")
 		// Variant attribute routes
-		variantAttributeProtectedRoute := variantAttributeRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger))
-		variantAttributeProtectedRoute.POST("/", producth.CreateAttribute)
-		// variantAttributeProtectedRoute.PUT("/", producth.UpdateVariantAttribute)
-		// variantAttributeProtectedRoute.DELETE("/:id", producth.DeleteVariantAttribute)
+		variantAttributeProtectedRoute := variantAttributeRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		variantAttributeProtectedRoute.POST("/", h.Product.CreateAttribute)
+		// variantAttributeProtectedRoute.PUT("/", h.Product.UpdateVariantAttribute)
+		// variantAttributeProtectedRoute.DELETE("/:id", h.Product.DeleteVariantAttribute)
 
-		variantAttributeOpenRoute := variantAttributeRoute.Group("/").Use(middleware.AuthContextMiddleware(logger))
-		variantAttributeOpenRoute.GET("/", producth.GetAttributes)
-		variantAttributeOpenRoute.GET("/:id", producth.GetAttributeByID)
+		variantAttributeOpenRoute := variantAttributeRoute.Group("/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
+		variantAttributeOpenRoute.GET("/", h.Product.GetAttributes)
+		variantAttributeOpenRoute.GET("/:id", h.Product.GetAttributeByID)
 	}
 
 }

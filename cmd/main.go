@@ -1,10 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"os"
 
+	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/database"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/repository"
 	"github.com/tharunn0/E-Commerce-Go/internal/presentation/handler"
@@ -27,19 +26,15 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to load .env")
 	}
+	cfg := config.LoadConfig()
+	pg := cfg.Postgres
+	smtp := cfg.SMTP
+	app := cfg.App
 
-	db_str := os.Getenv("PGDB_URL")
-	pgdb := database.InitDB(db_str, log)
-	pgdb.Query(context.Background(), "")
-	var host, port string
-	if host = os.Getenv("HOST"); host == "" {
-		host = "127.0.0.1"
-	}
-	if port = os.Getenv("PORT"); port == "" {
-		port = "8080"
-	}
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pg.User, pg.Password, pg.Host, pg.Port, pg.DB)
+	pgdb := database.InitDB(dsn, log)
 
-	mailer := mailer.NewGoMailer(587, os.Getenv("EMAIL_HOST"), os.Getenv("EMAIL_USERNAME"), os.Getenv("EMAIL_PASSWORD"), os.Getenv("EMAIL"))
+	mailer := mailer.NewGoMailer(smtp.Port, smtp.Host, smtp.User, smtp.Pass, smtp.User)
 
 	userRepo := repository.NewUserRepository(pgdb)
 	authRepo := repository.NewAuthRepository(pgdb)
@@ -49,7 +44,7 @@ func main() {
 
 	userServ := service.NewUserService(userRepo, authRepo, log, mailer)
 	adminServ := service.NewAdminService(adminRepo, log)
-	authServ := service.NewAuthService(authRepo, mailer, log)
+	authServ := service.NewAuthService(authRepo, mailer, log, &cfg.Security)
 	catergoryServ := service.NewCategoryService(categoryRepo, log)
 	productServ := service.NewProductService(productRepo, log)
 
@@ -61,10 +56,12 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger(), middleware.RequestLogger(log))
 
-	routes.RegisterRoutes(r, log, userHandler, adminHandler, categoryHandler, productHandler)
+	handler := routes.NewHandler(userHandler, adminHandler, categoryHandler, productHandler)
 
-	log.Info(`Server starting at port : ` + fmt.Sprintf("%s", port))
-	if er := r.Run(host + ":" + port); er != nil {
+	routes.RegisterRoutes(r, log, handler, &cfg.Security)
+
+	log.Info(`Server starting at port : ` + app.Port)
+	if er := r.Run(app.Host + ":" + app.Port); er != nil {
 		log.Fatal("Server failed to start", zap.Error(er))
 	}
 }

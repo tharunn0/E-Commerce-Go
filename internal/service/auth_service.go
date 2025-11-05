@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
+	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
@@ -18,25 +18,22 @@ type AuthService struct {
 	repo   domain.AuthRepository
 	sender *mailer.MailSender
 	log    *zap.Logger
+
+	cfg *config.SecuritySettings
 }
 
-func NewAuthService(Repo domain.AuthRepository, Sender *mailer.MailSender, logger *zap.Logger) *AuthService {
+func NewAuthService(Repo domain.AuthRepository, Sender *mailer.MailSender, logger *zap.Logger, cfg *config.SecuritySettings) *AuthService {
 	return &AuthService{
 		repo:   Repo,
 		sender: Sender,
 		log:    logger,
+		cfg:    cfg,
 	}
 }
 
 func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
 	ctx := context.Background()
-	exp, err := strconv.Atoi(os.Getenv("OTP_EXPIRY_TIME"))
-	if err != nil {
-		return &apperror.APIError{
-			Code:    "OTP_EXPIRY_TIME_CONVERSION_FAILED",
-			Message: "Could not convert OTP expiry time. Please try again.",
-		}
-	}
+	exp := serv.cfg.OTPExpiryMinutes
 
 	otp, err := utils.GenerateOTP()
 	if err != nil {
@@ -139,12 +136,7 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 		}
 	}
 
-	expiryTimeStr := os.Getenv("PASSWORD_RESET_TOKEN_EXPIRY_TIME")
-	expiryTime, err := strconv.Atoi(expiryTimeStr)
-	if err != nil || expiryTime == 0 {
-		expiryTime = 15
-	}
-
+	expiryTime := serv.cfg.PasswordResetExpiry
 	expiryAt := time.Now().Add(time.Duration(expiryTime) * time.Minute)
 
 	resetToken := &domain.PasswordResetToken{

@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,12 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
-func AuthContextMiddleware(log *zap.Logger) gin.HandlerFunc {
-	secret := []byte(os.Getenv("HS_256KEY"))
-	if len(secret) == 0 {
-		log.Fatal("HS_256KEY environment variable is required")
+func AuthContextMiddleware(log *zap.Logger, jwtsecret string) gin.HandlerFunc {
+	if len(jwtsecret) == 0 {
+		log.Fatal("JWT secret is required")
 	}
-
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if strings.Contains(path, "/login") || strings.Contains(path, "/register") {
@@ -42,7 +39,7 @@ func AuthContextMiddleware(log *zap.Logger) gin.HandlerFunc {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, jwt.ErrSignatureInvalid
 				}
-				return secret, nil
+				return jwtsecret, nil
 			})
 
 			if err == nil && token.Valid {

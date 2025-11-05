@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +18,7 @@ const (
 	roleGuest = "guest"
 )
 
-func JWTMiddleware(role string, log *zap.Logger) gin.HandlerFunc {
+func JWTMiddleware(role string, log *zap.Logger, jwtsecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		if strings.Contains(c.Request.URL.Path, "login") {
@@ -27,8 +26,7 @@ func JWTMiddleware(role string, log *zap.Logger) gin.HandlerFunc {
 			return
 		}
 
-		secretKey := []byte(os.Getenv("HS_256KEY"))
-		if len(secretKey) == 0 {
+		if len(jwtsecret) == 0 {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "SERVER_ERROR",
 				"message": "Server configuration error",
@@ -53,7 +51,7 @@ func JWTMiddleware(role string, log *zap.Logger) gin.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return secretKey, nil
+			return jwtsecret, nil
 		})
 
 		if err != nil || !token.Valid {
