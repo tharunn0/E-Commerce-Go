@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
@@ -17,12 +18,12 @@ func NewCategoryService(repo domain.CategoryRepository, log *zap.Logger) *Catego
 	return &CategoryService{repo: repo, log: log}
 }
 
-func (s *CategoryService) CreateCategory(ctx context.Context, category *domain.Category) (*domain.Category, *domain.APIError) {
+func (s *CategoryService) CreateCategory(ctx context.Context, category *domain.Category) (*domain.Category, *apperror.APIError) {
 
 	category, err := s.repo.CreateCategory(ctx, category)
 	if err != nil {
 		s.log.Debug("failed to create category", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to create category",
 		}
@@ -31,13 +32,13 @@ func (s *CategoryService) CreateCategory(ctx context.Context, category *domain.C
 
 }
 
-func (s *CategoryService) UpdateCategory(ctx context.Context, categoryreq *domain.UpdateCategoryRequest) (*domain.Category, *domain.APIError) {
+func (s *CategoryService) UpdateCategory(ctx context.Context, categoryreq *domain.UpdateCategoryRequest) (*domain.Category, *apperror.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
 	category, err := s.repo.GetCategoryByID(ctx, categoryreq.ID, activeOnly)
 	if err != nil {
 		s.log.Debug("failed to get category by id", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get category by id",
 		}
@@ -59,7 +60,7 @@ func (s *CategoryService) UpdateCategory(ctx context.Context, categoryreq *domai
 	updatedCategory, err := s.repo.UpdateCategory(ctx, category)
 	if err != nil {
 		s.log.Debug("failed to update category", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to update category",
 		}
@@ -67,11 +68,11 @@ func (s *CategoryService) UpdateCategory(ctx context.Context, categoryreq *domai
 	return updatedCategory, nil
 }
 
-func (s *CategoryService) ChangeCategoryStatus(ctx context.Context, id int64, statusreq *domain.CategoryStatusRequest) (*domain.Category, *domain.APIError) {
+func (s *CategoryService) ChangeCategoryStatus(ctx context.Context, id int64, statusreq *domain.CategoryStatusRequest) (*domain.Category, *apperror.APIError) {
 	updatedCategory, err := s.repo.ChangeCategoryStatus(ctx, id, statusreq.IsActive)
 	if err != nil {
 		s.log.Debug("failed to change category status", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to change category status",
 		}
@@ -79,11 +80,11 @@ func (s *CategoryService) ChangeCategoryStatus(ctx context.Context, id int64, st
 	return updatedCategory, nil
 }
 
-func (s *CategoryService) DeleteCategory(ctx context.Context, id int64) *domain.APIError {
+func (s *CategoryService) DeleteCategory(ctx context.Context, id int64) *apperror.APIError {
 	err := s.repo.DeleteCategory(ctx, id)
 	if err != nil {
 		s.log.Debug("failed to delete category", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to delete category",
 		}
@@ -91,12 +92,12 @@ func (s *CategoryService) DeleteCategory(ctx context.Context, id int64) *domain.
 	return nil
 }
 
-func (s *CategoryService) GetCategoryByID(ctx context.Context, id int64) (*domain.Category, *domain.APIError) {
+func (s *CategoryService) GetCategoryByID(ctx context.Context, id int64) (*domain.Category, *apperror.APIError) {
 	activeOnly := utils.IsAdmin(ctx)
 	category, err := s.repo.GetCategoryByID(ctx, id, activeOnly)
 	if err != nil {
 		s.log.Debug("failed to get category by id", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get category by id",
 		}
@@ -104,7 +105,7 @@ func (s *CategoryService) GetCategoryByID(ctx context.Context, id int64) (*domai
 	return category, nil
 }
 
-func (s *CategoryService) GetAllCategories(ctx context.Context) ([]*domain.Category, *domain.APIError) {
+func (s *CategoryService) GetAllCategories(ctx context.Context) ([]*domain.Category, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 
 	if activeOnly {
@@ -115,7 +116,7 @@ func (s *CategoryService) GetAllCategories(ctx context.Context) ([]*domain.Categ
 	categories, err := s.repo.GetAllCategories(ctx, activeOnly)
 	if err != nil {
 		s.log.Debug("failed to get all categories", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get all categories",
 		}

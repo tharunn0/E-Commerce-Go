@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
@@ -18,12 +19,12 @@ func NewProductService(repo domain.ProductRepository, log *zap.Logger) *ProductS
 }
 
 // Brand operations
-func (serv *ProductService) CreateBrand(ctx context.Context, createBrandRequest *domain.CreateBrandRequest) (*domain.Brand, *domain.APIError) {
+func (serv *ProductService) CreateBrand(ctx context.Context, createBrandRequest *domain.CreateBrandRequest) (*domain.Brand, *apperror.APIError) {
 
 	brand, err := serv.repo.CreateBrand(ctx, createBrandRequest)
 	if err != nil {
 		serv.log.Debug("failed to create brand", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to create brand",
 		}
@@ -31,12 +32,12 @@ func (serv *ProductService) CreateBrand(ctx context.Context, createBrandRequest 
 	return brand, nil
 }
 
-func (serv *ProductService) GetAllBrands(ctx context.Context) ([]*domain.Brand, *domain.APIError) {
+func (serv *ProductService) GetAllBrands(ctx context.Context) ([]*domain.Brand, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	brands, err := serv.repo.GetAllBrands(ctx, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get all brands", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get all brands",
 		}
@@ -44,14 +45,14 @@ func (serv *ProductService) GetAllBrands(ctx context.Context) ([]*domain.Brand, 
 	return brands, nil
 }
 
-func (serv *ProductService) GetBrandByID(ctx context.Context, id int64) (*domain.Brand, *domain.APIError) {
+func (serv *ProductService) GetBrandByID(ctx context.Context, id int64) (*domain.Brand, *apperror.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
 
 	brand, err := serv.repo.GetBrandByID(ctx, id, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get brand", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get brand",
 		}
@@ -59,12 +60,12 @@ func (serv *ProductService) GetBrandByID(ctx context.Context, id int64) (*domain
 	return brand, nil
 }
 
-func (serv *ProductService) UpdateBrand(ctx context.Context, updateBrandRequest *domain.UpdateBrandRequest) (*domain.Brand, *domain.APIError) {
+func (serv *ProductService) UpdateBrand(ctx context.Context, updateBrandRequest *domain.UpdateBrandRequest) (*domain.Brand, *apperror.APIError) {
 
 	brand, err := serv.repo.GetBrandByID(ctx, updateBrandRequest.ID, false)
 	if err != nil {
 		serv.log.Debug("failed to get brand", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get brand",
 		}
@@ -85,7 +86,7 @@ func (serv *ProductService) UpdateBrand(ctx context.Context, updateBrandRequest 
 	updatedBrand, err := serv.repo.UpdateBrand(ctx, brand)
 	if err != nil {
 		serv.log.Debug("failed to update brand", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to update brand",
 		}
@@ -93,11 +94,11 @@ func (serv *ProductService) UpdateBrand(ctx context.Context, updateBrandRequest 
 	return updatedBrand, nil
 }
 
-func (serv *ProductService) DeleteBrand(ctx context.Context, id int64) *domain.APIError {
+func (serv *ProductService) DeleteBrand(ctx context.Context, id int64) *apperror.APIError {
 	err := serv.repo.DeleteBrand(ctx, id)
 	if err != nil {
 		serv.log.Debug("failed to delete brand", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to delete brand",
 		}
@@ -106,11 +107,11 @@ func (serv *ProductService) DeleteBrand(ctx context.Context, id int64) *domain.A
 }
 
 // Product operations
-func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequest *domain.CreateProductRequest) (*domain.Product, *domain.APIError) {
+func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequest *domain.CreateProductRequest) (*domain.Product, *apperror.APIError) {
 	createdProduct, err := serv.repo.CreateProduct(ctx, createProductRequest)
 	if err != nil {
 		serv.log.Debug("failed to create product", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to create product",
 		}
@@ -118,13 +119,13 @@ func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequ
 	return createdProduct, nil
 }
 
-func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.ProductFilter) ([]*domain.ProductResponse, int64, *domain.APIError) {
+func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.ProductFilter) ([]*domain.ProductResponse, int64, *apperror.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
 	products, total, err := serv.repo.GetProducts(ctx, filter, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get products", zap.String("function", "GetProducts"), zap.Error(err))
-		return nil, 0, &domain.APIError{
+		return nil, 0, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get products",
 		}
@@ -132,12 +133,12 @@ func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.Prod
 	return products, total, nil
 }
 
-func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.ProductResponse, *domain.APIError) {
+func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.ProductResponse, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	product, err := serv.repo.GetProductByID(ctx, id, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get product", zap.String("function", "GetProductByID"), zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get product",
 		}
@@ -145,12 +146,12 @@ func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*doma
 	return product, nil
 }
 
-func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequest *domain.UpdateProductRequest) (*domain.ProductResponse, *domain.APIError) {
+func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequest *domain.UpdateProductRequest) (*domain.ProductResponse, *apperror.APIError) {
 
 	err := serv.repo.UpdateProduct(ctx, updateProductRequest)
 	if err != nil {
 		serv.log.Debug("failed to update product", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to update product",
 		}
@@ -159,7 +160,7 @@ func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequ
 	updatedProduct, err := serv.repo.GetProductByID(ctx, updateProductRequest.ID, false)
 	if err != nil {
 		serv.log.Debug("failed to get product", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get product",
 		}
@@ -169,11 +170,11 @@ func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequ
 
 }
 
-func (serv *ProductService) DeleteProduct(ctx context.Context, id int64) *domain.APIError {
+func (serv *ProductService) DeleteProduct(ctx context.Context, id int64) *apperror.APIError {
 	err := serv.repo.DeleteProduct(ctx, id)
 	if err != nil {
 		serv.log.Debug("failed to delete product", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to delete product",
 		}
@@ -182,16 +183,16 @@ func (serv *ProductService) DeleteProduct(ctx context.Context, id int64) *domain
 }
 
 // Product variant operations
-func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domain.CreateProductVariantRequest) (*domain.ProductVariantResponse, *domain.APIError) {
+func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domain.CreateProductVariantRequest) (*domain.ProductVariantResponse, *apperror.APIError) {
 	if len(req.VariantAttributes) == 0 {
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "INVALID_REQUEST",
 			Message: "Variant attributes are required",
 		}
 	}
 	for _, variantAttribute := range req.VariantAttributes {
 		if variantAttribute.AttributeID == nil || variantAttribute.AttributeValueID == nil {
-			return nil, &domain.APIError{
+			return nil, &apperror.APIError{
 				Code:    "INVALID_REQUEST",
 				Message: "Attribute ID and value ID are required",
 			}
@@ -199,14 +200,14 @@ func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domai
 	}
 	for _, image := range req.Images {
 		if image == "" {
-			return nil, &domain.APIError{
+			return nil, &apperror.APIError{
 				Code:    "INVALID_REQUEST",
 				Message: "Images are required",
 			}
 		}
 	}
 	if req.SKU == "" || req.PriceDifference <= 0 || req.Stock <= 0 {
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "INVALID_REQUEST",
 			Message: "SKU is required",
 		}
@@ -215,7 +216,7 @@ func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domai
 	productVariant, err := serv.repo.CreateProductVariant(ctx, req)
 	if err != nil {
 		serv.log.Debug("failed to create product variant", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to create product variant",
 		}
@@ -223,13 +224,13 @@ func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domai
 	return productVariant, nil
 }
 
-func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64) (*domain.ProductVariantResponse, *domain.APIError) {
+func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64) (*domain.ProductVariantResponse, *apperror.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
 	productVariant, err := serv.repo.GetProductVariantByID(ctx, id, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get product variant", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "NOT_FOUND",
 			Message: "Product variant not found",
 		}
@@ -238,12 +239,12 @@ func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64)
 	return productVariant, nil
 }
 
-func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productID int64) (*domain.ProductVariantBaseResponse, *domain.APIError) {
+func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productID int64) (*domain.ProductVariantBaseResponse, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	productvariants, err := serv.repo.GetVariantsByProductID(ctx, productID, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get variants by product ID", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "NOT_FOUND",
 			Message: "Product variants not found",
 		}
@@ -251,11 +252,11 @@ func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productI
 	return productvariants, nil
 }
 
-func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProductVariantRequest *domain.UpdateProductVariantRequest) (*domain.ProductVariant, *domain.APIError) {
+func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProductVariantRequest *domain.UpdateProductVariantRequest) (*domain.ProductVariant, *apperror.APIError) {
 	productVariant, err := serv.repo.UpdateProductVariant(ctx, updateProductVariantRequest)
 	if err != nil {
 		serv.log.Debug("failed to update product variant", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to update product variant",
 		}
@@ -264,11 +265,11 @@ func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProd
 	return productVariant, nil
 }
 
-func (serv *ProductService) DeleteProductVariant(ctx context.Context, id int64) *domain.APIError {
+func (serv *ProductService) DeleteProductVariant(ctx context.Context, id int64) *apperror.APIError {
 	err := serv.repo.DeleteProductVariant(ctx, id)
 	if err != nil {
 		serv.log.Debug("failed to delete product variant", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to delete product variant",
 		}
@@ -277,16 +278,16 @@ func (serv *ProductService) DeleteProductVariant(ctx context.Context, id int64) 
 }
 
 // Attribute operations
-func (serv *ProductService) CreateAttribute(ctx context.Context, createAttributeRequest *domain.CreateAttributeRequest) (*domain.Attribute, *domain.APIError) {
+func (serv *ProductService) CreateAttribute(ctx context.Context, createAttributeRequest *domain.CreateAttributeRequest) (*domain.Attribute, *apperror.APIError) {
 	if len(createAttributeRequest.Values) == 0 {
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "INVALID_REQUEST",
 			Message: "Values are required",
 		}
 	}
 
 	if !utils.IsValidDataType(createAttributeRequest.DataType) {
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "INVALID_REQUEST",
 			Message: "Invalid data type",
 		}
@@ -295,7 +296,7 @@ func (serv *ProductService) CreateAttribute(ctx context.Context, createAttribute
 	attribute, err := serv.repo.CreateAttribute(ctx, createAttributeRequest)
 	if err != nil {
 		serv.log.Debug("failed to create attribute", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to create attribute",
 		}
@@ -303,10 +304,10 @@ func (serv *ProductService) CreateAttribute(ctx context.Context, createAttribute
 	return attribute, nil
 }
 
-func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttributeValuesRequest *domain.AddAttributeValuesRequest) *domain.APIError {
+func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttributeValuesRequest *domain.AddAttributeValuesRequest) *apperror.APIError {
 
 	if len(addAttributeValuesRequest.Values) == 0 {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "INVALID_REQUEST",
 			Message: "Values are required",
 		}
@@ -314,7 +315,7 @@ func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttribute
 
 	for _, value := range addAttributeValuesRequest.Values {
 		if value == "" {
-			return &domain.APIError{
+			return &apperror.APIError{
 				Code:    "INVALID_REQUEST",
 				Message: "Values are required",
 			}
@@ -324,7 +325,7 @@ func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttribute
 	err := serv.repo.AddAttributeValues(ctx, addAttributeValuesRequest)
 	if err != nil {
 		serv.log.Debug("failed to add attribute values", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to add attribute values",
 		}
@@ -332,24 +333,24 @@ func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttribute
 	return nil
 }
 
-func (serv *ProductService) GetAttributes(ctx context.Context) ([]*domain.Attribute, *domain.APIError) {
+func (serv *ProductService) GetAttributes(ctx context.Context) ([]*domain.Attribute, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	attributes, err := serv.repo.GetAttributes(ctx, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get attributes", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get attributes",
 		}
 	}
 	return attributes, nil
 }
-func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*domain.Attribute, *domain.APIError) {
+func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*domain.Attribute, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	attribute, err := serv.repo.GetAttributeByID(ctx, id, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get attribute", zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get attribute",
 		}
@@ -357,20 +358,20 @@ func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*do
 	return attribute, nil
 }
 
-func (serv *ProductService) DeleteAttribute(ctx context.Context, id int64) *domain.APIError {
+func (serv *ProductService) DeleteAttribute(ctx context.Context, id int64) *apperror.APIError {
 	err := serv.repo.DeleteAttribute(ctx, id)
 	if err != nil {
 		serv.log.Debug("failed to delete attribute", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to delete attribute",
 		}
 	}
 	return nil
 }
-func (serv *ProductService) DeleteAttributeValues(ctx context.Context, deleteAttributeValuesRequest *domain.DeleteAttributeValuesRequest) *domain.APIError {
+func (serv *ProductService) DeleteAttributeValues(ctx context.Context, deleteAttributeValuesRequest *domain.DeleteAttributeValuesRequest) *apperror.APIError {
 	if len(deleteAttributeValuesRequest.ValueIDs) == 0 {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "INVALID_REQUEST",
 			Message: "Value IDs are required",
 		}
@@ -379,7 +380,7 @@ func (serv *ProductService) DeleteAttributeValues(ctx context.Context, deleteAtt
 	err := serv.repo.DeleteAttributeValues(ctx, deleteAttributeValuesRequest)
 	if err != nil {
 		serv.log.Debug("failed to delete attribute values", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to delete attribute values",
 		}

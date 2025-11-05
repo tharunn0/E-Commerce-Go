@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 )
 
@@ -25,6 +27,17 @@ func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.Regist
 	`,
 		req.FirstName, req.LastName, req.Email, req.Phone, req.Password)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" {
+				switch pgErr.ConstraintName {
+				case "users_email_key":
+					return apperror.ErrEmailExists
+				case "users_phone_key":
+					return apperror.ErrPhoneExists
+				}
+			}
+		}
 		return err
 	}
 	if cmdTag.RowsAffected() != 1 {

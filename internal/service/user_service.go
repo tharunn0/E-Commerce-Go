@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
@@ -29,12 +30,12 @@ func NewUserService(userRepo domain.UserRepository, authrepo domain.AuthReposito
 }
 
 // register a new user
-func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterRequest) *domain.APIError {
+func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterRequest) *apperror.APIError {
 	serv.log.Debug("starting user registration", zap.String("email", req.Email))
 
 	if !utils.IsValidEmail(req.Email) {
 		serv.log.Warn("invalid email format", zap.String("email", req.Email))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "INVALID_EMAIL",
 			Message: "Please provide a valid email.",
 		}
@@ -42,7 +43,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 
 	if !utils.IsValidPassword(req.Password) {
 		serv.log.Warn("weak password", zap.String("email", req.Email))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "WEAK_PASSWORD",
 			Message: "Password must contain at least 8 characters, including numbers/symbols.",
 		}
@@ -51,7 +52,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	existingUser, err := serv.repo.GetUser(ctx, req.Email)
 	if err == nil && existingUser != nil {
 		serv.log.Warn("duplicate user registration attempt", zap.String("email", req.Email))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "EMAIL_ALREADY_EXISTS",
 			Message: "An account with this email already exists.",
 		}
@@ -60,7 +61,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	hashedPass := utils.HashPassword(req.Password)
 	if len(hashedPass) == 0 {
 		serv.log.Error("password hashing failed", zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "HASHING_FAILED",
 			Message: "Could not process password. Please try again.",
 		}
@@ -72,9 +73,9 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	err = serv.repo.RegisterUser(ctx, req)
 	if err != nil {
 		serv.log.Error("user registration failed", zap.String("email", req.Email), zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
-			Message: "Something went wrong while creating the user.",
+			Message: err.Error(),
 		}
 	}
 
@@ -83,12 +84,12 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 }
 
 // login user
-func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest) (*domain.User, *domain.APIError) {
+func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest) (*domain.User, *apperror.APIError) {
 	serv.log.Info("login attempt started", zap.String("email", req.Email))
 
 	if !utils.IsValidEmail(req.Email) {
 		serv.log.Warn("invalid email format", zap.String("email", req.Email))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "INVALID_EMAIL",
 			Message: "Please provide a valid email address.",
 		}
@@ -98,7 +99,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			serv.log.Warn("login failed: user not found", zap.String("email", req.Email))
-			return nil, &domain.APIError{
+			return nil, &apperror.APIError{
 				Code:    "USER_NOT_FOUND",
 				Message: "No account found with this email.",
 			}
@@ -108,7 +109,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 			zap.String("email", req.Email),
 			zap.Error(err),
 		)
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Something went wrong. Please try again later.",
 		}
@@ -116,7 +117,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 
 	if fetchedUser.Status == "blocked" || fetchedUser.Status == "deleted" {
 		serv.log.Warn("blocked or deleted user attempted login", zap.Int64("user_id", fetchedUser.ID))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "USER_BLOCKED",
 			Message: "Your account is not active. Please contact support.",
 		}
@@ -124,7 +125,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 
 	if !utils.VerifyPassword(fetchedUser.Password, req.Password) {
 		serv.log.Warn("wrong password", zap.String("email", req.Email))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "WRONG_PASSWORD",
 			Message: "Invalid email or password.",
 		}
@@ -142,12 +143,12 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 }
 
 // get user profile
-func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*domain.UserProfile, *domain.APIError) {
+func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*domain.UserProfile, *apperror.APIError) {
 
 	user, err := serv.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		serv.log.Debug("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch user profile.",
 		}
@@ -156,7 +157,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
 	if err != nil {
 		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch user addresses.",
 		}
@@ -179,11 +180,11 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 }
 
 // add user address
-func (serv *UserService) AddUserAddress(ctx context.Context, address *domain.UserAddress) *domain.APIError {
+func (serv *UserService) AddUserAddress(ctx context.Context, address *domain.UserAddress) *apperror.APIError {
 	err := serv.repo.InsertUserAddress(ctx, address)
 	if err != nil {
 		serv.log.Debug("failed to insert user address into db", zap.Int64("user_id", address.UserID), zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to add user address.",
 		}
@@ -192,11 +193,11 @@ func (serv *UserService) AddUserAddress(ctx context.Context, address *domain.Use
 }
 
 // get user addresses
-func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, *domain.APIError) {
+func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, *apperror.APIError) {
 	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
 	if err != nil {
 		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
-		return nil, &domain.APIError{
+		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch user addresses.",
 		}

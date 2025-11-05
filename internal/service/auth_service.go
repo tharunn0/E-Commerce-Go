@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
@@ -27,11 +28,11 @@ func NewAuthService(Repo domain.AuthRepository, Sender *mailer.MailSender, logge
 	}
 }
 
-func (serv *AuthService) SendOTP(toAddr string) *domain.APIError {
+func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
 	ctx := context.Background()
 	exp, err := strconv.Atoi(os.Getenv("OTP_EXPIRY_TIME"))
 	if err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "OTP_EXPIRY_TIME_CONVERSION_FAILED",
 			Message: "Could not convert OTP expiry time. Please try again.",
 		}
@@ -39,7 +40,7 @@ func (serv *AuthService) SendOTP(toAddr string) *domain.APIError {
 
 	otp, err := utils.GenerateOTP()
 	if err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "OTP_GENERATION_FAILED",
 			Message: "Could not generate OTP. Please try again.",
 		}
@@ -47,7 +48,7 @@ func (serv *AuthService) SendOTP(toAddr string) *domain.APIError {
 
 	expiresAt := time.Now().Add(time.Duration(exp) * time.Minute)
 	if err := serv.repo.InsertOTP(ctx, toAddr, otp, expiresAt); err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "OTP_SAVE_FAILED",
 			Message: "Could not save OTP. Please try again.",
 		}
@@ -68,7 +69,7 @@ func (serv *AuthService) SendOTP(toAddr string) *domain.APIError {
 	toAddr = strings.ToLower(toAddr)
 
 	if err := serv.sender.SendMail(ctx, "./pkg/mailer/verification-mail-template.html", toAddr, "Email Verification", data); err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "OTP_EMAIL_FAILED",
 			Message: "Could not send OTP email. Please try again.",
 		}
@@ -78,40 +79,40 @@ func (serv *AuthService) SendOTP(toAddr string) *domain.APIError {
 	return nil
 }
 
-func (serv *AuthService) VerifyOTP(email, otp string) *domain.APIError {
+func (serv *AuthService) VerifyOTP(email, otp string) *apperror.APIError {
 
 	otpRecord, err := serv.repo.GetLatestOTP(email)
 	if err != nil {
 		serv.log.Error("OTP verification failed", zap.String("email", email), zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "OTP_FETCH_FAILED",
 			Message: "Something went wrong. Please try again.",
 		}
 	}
 
 	if time.Now().After(otpRecord.ExpiresAt) {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "OTP_EXPIRED",
 			Message: "Your OTP has expired. Please request a new one.",
 		}
 	}
 
 	if otpRecord.OTP != otp {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "INVALID_OTP",
 			Message: "The OTP you entered is incorrect. Please try again.",
 		}
 	}
 
 	if err := serv.repo.MarkVerified(otpRecord.ID); err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "OTP_MARK_VERIFIED_FAILED",
 			Message: "OTP verification successful but failed to update status. Please contact support.",
 		}
 	}
 
 	if err := serv.repo.MarkUserVerified(email); err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "USER_MARK_VERIFIED_FAILED",
 			Message: "OTP verification successful but failed to update user status. Please contact support.",
 		}
@@ -121,10 +122,10 @@ func (serv *AuthService) VerifyOTP(email, otp string) *domain.APIError {
 	return nil
 }
 
-func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.PasswordResetRequest) *domain.APIError {
+func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.PasswordResetRequest) *apperror.APIError {
 
 	if !utils.IsValidEmail(req.Email) {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "INVALID_EMAIL",
 			Message: "Please provide a valid email address.",
 		}
@@ -132,7 +133,7 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 
 	token, err := utils.GenerateToken(16)
 	if err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "TOKEN_GENERATION_FAILED",
 			Message: "Something went wrong generating a reset token.",
 		}
@@ -153,7 +154,7 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 
 	err = serv.repo.SetPasswordResetToken(ctx, resetToken)
 	if err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "TOKEN_SAVE_FAILED",
 			Message: "Could not initiate password reset. Please try again.",
 		}
@@ -173,7 +174,7 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 
 	if err := serv.sender.SendMail(ctx, "./pkg/mailer/reset_password_mail.html", req.Email, "Password Reset Request", emailData); err != nil {
 		serv.log.Debug("Failed to send password reset email", zap.String("email", req.Email), zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "SEND_MAIL_FAILED",
 			Message: "Failed to send password reset email. Please try again.",
 		}
@@ -182,10 +183,10 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 	return nil
 }
 
-func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.PasswordResetData) *domain.APIError {
+func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.PasswordResetData) *apperror.APIError {
 
 	if !utils.IsValidPassword(data.NewPassword) {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "WEAK_PASSWORD",
 			Message: "Password must contain at least 8 characters, including numbers/symbols.",
 		}
@@ -194,14 +195,14 @@ func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.Passwor
 	resetToken, err := serv.repo.GetPasswordResetToken(ctx, data.Token)
 	if err != nil || resetToken == nil {
 		serv.log.Debug("Failed to get password reset token", zap.String("token", data.Token), zap.Error(err))
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "INVALID_OR_EXPIRED_TOKEN",
 			Message: "Password reset token is invalid or expired.",
 		}
 	}
 
 	if time.Now().After(resetToken.ExpiryAt) {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "TOKEN_EXPIRED",
 			Message: "Password reset token has expired.",
 		}
@@ -209,7 +210,7 @@ func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.Passwor
 
 	hashedPass := utils.HashPassword(data.NewPassword)
 	if hashedPass == "" {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "HASHING_FAILED",
 			Message: "Password hashing failed. Please try again.",
 		}
@@ -219,7 +220,7 @@ func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.Passwor
 
 	err = serv.repo.PasswordReset(ctx, data)
 	if err != nil {
-		return &domain.APIError{
+		return &apperror.APIError{
 			Code:    "PASSWORD_UPDATE_FAILED",
 			Message: "Failed to update password. Please try again.",
 		}
