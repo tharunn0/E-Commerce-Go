@@ -34,3 +34,5 @@ logs/app.log
 docs/
 PROJECT_ANALYSIS.md
 todo.txt
+bin/
+tmp/

@@ -28,7 +28,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 	g.GET("/home", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"msg": "server up and ready to roll",
+			"msg": "Server up and ready to roll",
 		})
 	})
 
