@@ -26,6 +26,14 @@ func HashPassword(pass string) string {
 	return string(res)
 }
 
+func GenerateState() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	return base64.URLEncoding.EncodeToString(b)
+}
+
 func VerifyPassword(hash, pass string) bool {
 	er := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass))
 	return er == nil
@@ -50,7 +58,7 @@ func IsValidPassword(password string) bool {
 
 func IssueJWT(uid int64, email, role string, isverified bool, log *zap.Logger) (string, error) {
 
-	secretkey := []byte(os.Getenv("HS_256KEY"))
+	secretkey := []byte(os.Getenv("JWT_SECRET"))
 	if len(secretkey) == 0 {
 		log.Error("SECRET_KEY_NOT_FOUND_IN_ENVIRONMENT", zap.String("service", "utils"))
 		return "", fmt.Errorf("internal server configuration error")

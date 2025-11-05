@@ -9,6 +9,7 @@ type UserRepository interface {
 	RegisterUser(ctx context.Context, req *RegisterRequest) error
 	GetUser(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
+	GoogleSignIn(ctx context.Context, req *GoogleSignInRequest) (*User, error)
 	InsertUserAddress(ctx context.Context, address *UserAddress) error
 	GetUserAddresses(ctx context.Context, userID int64) ([]*UserAddress, error)
 }
@@ -53,7 +54,12 @@ type RegisterRequest struct {
 }
 
 type GoogleSignInRequest struct {
-	Token string `json:"token" validate:"required"`
+	Email     string
+	Token     string
+	Verified  bool
+	FirstName string
+	LastName  string
+	Sub       string
 }
 
 type LoginResponse struct {

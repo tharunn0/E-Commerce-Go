@@ -30,11 +30,14 @@ func main() {
 	pg := cfg.Postgres
 	smtp := cfg.SMTP
 	app := cfg.App
+	google := cfg.Google
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pg.User, pg.Password, pg.Host, pg.Port, pg.DB)
 	pgdb := database.InitDB(dsn, log)
 
 	mailer := mailer.NewGoMailer(smtp.Port, smtp.Host, smtp.User, smtp.Pass, smtp.User)
+
+	oauth := config.NewOAuthConfig(google.ClientID, google.ClientSecret, google.RedirectURL)
 
 	userRepo := repository.NewUserRepository(pgdb)
 	authRepo := repository.NewAuthRepository(pgdb)
@@ -48,7 +51,7 @@ func main() {
 	catergoryServ := service.NewCategoryService(categoryRepo, log)
 	productServ := service.NewProductService(productRepo, log)
 
-	userHandler := handler.NewUserHandler(userServ, log, authServ)
+	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
 	adminHandler := handler.NewAdminHandler(adminServ, log)
 	categoryHandler := handler.NewCategoryHandler(catergoryServ, log)
 	productHandler := handler.NewProductHandler(productServ, log)

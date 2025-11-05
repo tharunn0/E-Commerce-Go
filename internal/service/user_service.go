@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -205,6 +206,41 @@ func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]
 	return addresses, nil
 }
 
-// func (serv *UserService) GoogleSignIn(ctx context.Context, req *domain.GoogleSignInRequest) (*domain.User, *domain.APIError) {
+func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSignInRequest) (*domain.LoginResponse, *apperror.APIError) {
 
-// }
+	user, err := serv.repo.GoogleSignIn(ctx, req)
+	if user == nil {
+		return nil, &apperror.APIError{
+			Code:    "USER_NOT_FOUND",
+			Message: "No account found with this email.",
+		}
+	}
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, &apperror.APIError{
+				Code:    "USER_NOT_FOUND",
+				Message: err.Error(),
+			}
+		}
+	}
+
+	token, err := utils.IssueJWT(user.ID, user.Email, user.Role, user.IsVerified, serv.log)
+	if err != nil {
+		fmt.Println(err)
+		return nil, &apperror.APIError{
+			Code:    "TOKEN_GENERATION_FAILED",
+			Message: "Could not generate token.",
+		}
+	}
+
+	resp := domain.LoginResponse{
+		Token: token,
+	}
+	resp.User.ID = user.ID
+	resp.User.Email = user.Email
+	resp.User.FirstName = user.FirstName
+	resp.User.LastName = user.LastName
+	resp.User.Role = string(user.Role)
+
+	return &resp, nil
+}

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -56,6 +57,62 @@ func (repo *UserRepository) GetUser(ctx context.Context, email string) (*domain.
 	if err != nil {
 		return nil, err
 	}
+	return user, nil
+}
+
+func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *domain.GoogleSignInRequest) (*domain.User, error) {
+	user := &domain.User{}
+
+	// check if user exists with google sub
+	fmt.Println("checking for user with gsub")
+	query := `SELECT id, email, COALESCE(phone,''), password, first_name, last_name, role,is_verified , status FROM users
+    WHERE status = 'active' AND google_id = $1;`
+	err := repo.DB.QueryRow(ctx, query, req.Sub).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status)
+
+	fmt.Println("error from query user with gsub :", err)
+	fmt.Println("user from gsub :", user)
+	if err == nil {
+		return user, nil
+	}
+	// check if user exists with email
+	query = `SELECT id, email, COALESCE(phone,''), password, first_name, last_name, role,is_verified , status FROM users
+    WHERE status = 'active' AND email = $1;`
+	fmt.Println("checking for user with email")
+	err = repo.DB.QueryRow(ctx, query, req.Email).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status)
+	fmt.Println("error from query user with email :", err)
+	fmt.Println("user from email :", user)
+	if err == nil {
+		// update user with google sub
+		cmdTag, err := repo.DB.Exec(ctx, `UPDATE users SET google_id = $1 WHERE id = $2`, req.Sub, user.ID)
+		if err != nil {
+			fmt.Println("error updating google id :", err)
+			return nil, err
+		}
+		if cmdTag.RowsAffected() != 1 {
+			return nil, errors.New("FAILED_TO_UPDATE_USER")
+		}
+		return user, nil
+	}
+
+	query = `INSERT INTO users (email,first_name, last_name, password,provider, is_verified, google_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, email,first_name,last_name,role,is_verified,status;`
+
+	err = repo.DB.QueryRow(ctx, query, req.Email, req.FirstName, req.LastName, "", "google", req.Verified, req.Sub).Scan(
+		&user.ID,
+		&user.Email,
+		&user.FirstName,
+		&user.LastName,
+		&user.Role,
+		&user.IsVerified,
+		&user.Status)
+
+	if err != nil {
+		fmt.Println("error creating user :", err)
+		return nil, err
+	}
+	fmt.Println("returning user :", user)
 	return user, nil
 }
 

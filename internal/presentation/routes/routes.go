@@ -38,7 +38,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		userAuth.POST("/login", h.User.LoginUser)
 		userAuth.POST("/reset-password-link", h.User.SendPasswordResetLink)
 		userAuth.POST("/reset-password/", h.User.ResetPassword)
-		userAuth.POST("/google")
+		userAuth.GET("/google", h.User.GoogleSignIn)
+		userAuth.GET("/google/callback", h.User.GoogleCallback)
 	}
 	{
 		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))

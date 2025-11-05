@@ -2,12 +2,15 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/idtoken"
 
 	"go.uber.org/zap"
 )
@@ -16,13 +19,15 @@ type UserHandler struct {
 	service  *service.UserService
 	logger   *zap.Logger
 	authserv *service.AuthService
+	oauth    *oauth2.Config
 }
 
-func NewUserHandler(srv *service.UserService, log *zap.Logger, authserv *service.AuthService) *UserHandler {
+func NewUserHandler(srv *service.UserService, log *zap.Logger, authserv *service.AuthService, oauth *oauth2.Config) *UserHandler {
 	return &UserHandler{
 		service:  srv,
 		logger:   log,
 		authserv: authserv,
+		oauth:    oauth,
 	}
 }
 
@@ -223,18 +228,6 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 	})
 }
 
-// func (h *UserHandler) GoogleSignIn(c *gin.Context) {
-// 	ctx := context.Background()
-// 	var googlereq domain.GoogleSignInRequest
-// 	if err := c.ShouldBindJSON(&googlereq); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{
-// 			"error":   "INVALID_REQUEST",
-// 			"message": "Please provide a valid token.",
-// 		})
-// 	}
-
-// }
-
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	ctx := c.Request.Context()
 	userID := c.Value(domain.KeyUserID).(int64)
@@ -248,4 +241,89 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, userProfile)
+}
+
+func (h *UserHandler) GoogleSignIn(c *gin.Context) {
+
+	state := utils.GenerateState()
+	if state == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "GOOGLE_SIGN_IN_FAILED",
+			"message": "Could not generate state. Please try again.",
+		})
+		return
+	}
+	c.SetCookie("oauth_state", state, 3600, "/", "127.0.0.1", false, true)
+
+	redirectURL := h.oauth.AuthCodeURL(state, oauth2.AccessTypeOffline)
+
+	fmt.Println(redirectURL)
+
+	c.Redirect(http.StatusFound, redirectURL)
+
+}
+
+func (h *UserHandler) GoogleCallback(c *gin.Context) {
+
+	code := c.Query("code")
+	state, err := c.Cookie("oauth_state")
+	if err != nil {
+		h.logger.Error("error getting oauth state", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "GOOGLE_SIGN_IN_FAILED",
+			"message": "Could not retrieve necessary state. Please try again.",
+		})
+		return
+	}
+	if state == "" {
+		c.Redirect(http.StatusFound, "/api/v1/auth/users/google?error=state_mismatch")
+		return
+	}
+
+	if state != c.Query("state") {
+		c.Redirect(http.StatusFound, "/api/v1/auth/users/google?error=state_mismatch")
+		return
+	}
+
+	token, err := h.oauth.Exchange(c.Request.Context(), code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "GOOGLE_TOKEN_EXCHANGE_FAILED",
+			"message": "Something went wrong with Google token exchange. Please try again.",
+		})
+		return
+	}
+
+	rawIDToken := token.Extra("id_token").(string)
+
+	payload, err := idtoken.Validate(c.Request.Context(), rawIDToken, h.oauth.ClientID)
+	if err != nil {
+		h.logger.Error("error validating google token", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "GOOGLE_TOKEN_VALIDATION_FAILED",
+			"message": "Something went wrong with Google token validation. Please try again.",
+		})
+		return
+	}
+
+	req := &domain.GoogleSignInRequest{
+		Email:     payload.Claims["email"].(string),
+		Token:     rawIDToken,
+		Verified:  payload.Claims["email_verified"].(bool),
+		FirstName: payload.Claims["given_name"].(string),
+		LastName:  payload.Claims["family_name"].(string),
+		Sub:       payload.Claims["sub"].(string),
+	}
+
+	user, apiErr := h.service.OAuthSignIn(c.Request.Context(), req)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+
 }
