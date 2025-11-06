@@ -121,7 +121,16 @@ func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequ
 
 func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.ProductFilter) ([]*domain.ProductResponse, int64, *apperror.APIError) {
 
+	isAdmin := utils.IsAdmin(ctx)
 	activeOnly := !utils.IsAdmin(ctx)
+
+	if !utils.IsFiltersValid(filter) {
+		return nil, 0, &apperror.APIError{
+			Code:    "INVALID_FILTERS",
+			Message: "Filters contain invalid values",
+		}
+	}
+
 	products, total, err := serv.repo.GetProducts(ctx, filter, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get products", zap.String("function", "GetProducts"), zap.Error(err))
@@ -130,6 +139,15 @@ func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.Prod
 			Message: "Failed to get products",
 		}
 	}
+
+	if !isAdmin {
+		for _, p := range products {
+			p.CreatedAt = nil
+			p.UpdatedAt = nil
+			p.IsActive = nil
+		}
+	}
+
 	return products, total, nil
 }
 

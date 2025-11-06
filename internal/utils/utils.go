@@ -9,14 +9,18 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+var validSortColumns = []string{"name", "created_at", "min_price"}
+var validOrders = []string{"DESC", "ASC"}
 
 func HashPassword(pass string) string {
 	res, er := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
@@ -113,7 +117,7 @@ func GenerateToken(len int) (string, error) {
 }
 
 func GetUserRole(ctx context.Context) string {
-	if role, ok := ctx.Value("role").(string); ok {
+	if role, ok := ctx.Value(domain.KeyRole).(string); ok {
 		return role
 	}
 	return "user"
@@ -133,4 +137,37 @@ func IsValidDataType(dataType string) bool {
 
 func IsValidStatus(status string) bool {
 	return status == "active" || status == "blocked" || status == "deleted"
+}
+
+func IsFiltersValid(f *domain.ProductFilter) bool {
+
+	if f.Sort == "price" {
+		f.Sort = "base_price"
+	}
+
+	if f.Sort == "" || f.Order == "" {
+		return true
+	}
+
+	f.Order = strings.ToUpper(f.Order)
+	f.Sort = strings.ToLower(f.Sort)
+
+	validOrder := map[string]struct{}{
+		"ASC":  {},
+		"DESC": {},
+	}
+	validSortCol := map[string]struct{}{
+		"base_price": {},
+		"name":       {},
+		"created_at": {},
+	}
+
+	if _, ok := validOrder[f.Order]; !ok {
+		return false
+	}
+	if _, ok := validSortCol[f.Sort]; !ok {
+		return false
+	}
+
+	return true
 }

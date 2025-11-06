@@ -51,10 +51,11 @@ func JWTMiddleware(role string, log *zap.Logger, jwtsecret string) gin.HandlerFu
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return jwtsecret, nil
+			return []byte(jwtsecret), nil
 		})
 
 		if err != nil || !token.Valid {
+			fmt.Println(err, token.Valid)
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "INVALID_TOKEN",
 				"message": "Invalid or expired token",

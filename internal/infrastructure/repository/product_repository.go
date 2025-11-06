@@ -152,6 +152,22 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		args = append(args, "%"+filter.Search+"%")
 		argIndex++
 	}
+
+	if filter.BrandID != nil && *filter.BrandID >= 0 {
+		query += fmt.Sprintf(" AND p.brand_id = %d", *filter.BrandID)
+	}
+
+	if filter.CategoryID != nil && *filter.CategoryID >= 0 {
+		query += fmt.Sprintf(" AND p.category_id = %d", *filter.CategoryID)
+	}
+
+	if filter.MinPrice > 0 {
+		query += fmt.Sprintf(" AND p.base_price > %.2f", filter.MinPrice)
+	}
+	if filter.MaxPrice > 0 {
+		query += fmt.Sprintf(" AND p.base_price < %.2f", filter.MaxPrice)
+	}
+
 	if filter.Sort != "" {
 		query += fmt.Sprintf(" ORDER BY p.%s %s", filter.Sort, filter.Order)
 	}
@@ -162,14 +178,12 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 	}
 	offset := (filter.Page - 1) * filter.Limit
 	if filter.Page > 0 {
-		query += fmt.Sprintf(" OFFSET $%d", argIndex)
+		query += fmt.Sprintf(" OFFSET $%d\n", argIndex)
 		args = append(args, offset)
 		argIndex++
 	}
 
-	fmt.Println("filter : ", filter)
-
-	fmt.Println("query : ", query, "args : ", args)
+	fmt.Println(query)
 
 	rows, err := repo.DB.Query(ctx, query, args...)
 	if err != nil {
@@ -203,11 +217,9 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 	rows, err := repo.DB.Query(ctx, query, id)
 
 	if err == sql.ErrNoRows {
-		fmt.Println("errr : sql.ErrNoRows")
-		return nil, fmt.Errorf("PRODUCT_NOT_FOUND")
+		return nil, fmt.Errorf("PRODUCT_DOES_NOT_EXIST")
 	}
 	if err != nil {
-		fmt.Println("errr : ", err.Error())
 		return nil, err
 	}
 
@@ -262,7 +274,6 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 	// start transaction
 	tx, err := repo.DB.Begin(ctx)
 	if err != nil {
-		fmt.Println("transaction failed: ", err.Error())
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
@@ -275,7 +286,6 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 	err = tx.QueryRow(ctx, query, req.ProductID, req.SKU, req.PriceDifference, req.Stock).Scan(
 		&created.ID, &created.BaseProduct.ID, &created.SKU, &created.PriceDifference, &created.Stock, &created.CreatedAt)
 	if err != nil {
-		fmt.Println("insertion into product_variants table failed: ", err.Error())
 		return nil, err
 	}
 
@@ -287,7 +297,6 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 		`
 		cmdTag, err := tx.Exec(ctx, query, created.ID, req.Images[i])
 		if err != nil {
-			fmt.Println("insertion into product_variant_images table failed: ", err.Error())
 			return nil, err
 		}
 		if cmdTag.RowsAffected() == 0 {
@@ -302,31 +311,22 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 	`
 	for i := range req.VariantAttributes {
 		var attrVal domain.AttributeValueResponse
-		// type AttributeValueResponse struct {
-		// 	ID        int64  `json:"id"`
-		// 	Attribute string `json:"attribute"`
-		// 	Value     string `json:"value"`
-		// }
+
 		err = tx.QueryRow(ctx,
 			query, created.ID,
 			req.VariantAttributes[i].AttributeID,
 			req.VariantAttributes[i].AttributeValueID).Scan(
 			&attrVal.ID)
 		if err != nil {
-			fmt.Println("insertion into product_variant_attributes table failed: ", err.Error())
 			return nil, err
 		}
-		fmt.Println("attrVal : ", attrVal)
 		created.Attributes = append(created.Attributes, attrVal)
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		fmt.Println("commit failed: ", err.Error())
 		return nil, err
 	}
-
-	fmt.Println("transaction committed successfully")
 
 	// get base product
 	query = `SELECT p.id,p.name,b.id,b.name,p.base_price FROM products p
@@ -340,7 +340,6 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 		&created.BaseProduct.Brand.Name,
 		&created.BaseProduct.BasePrice)
 	if err != nil {
-		fmt.Println("insertion into products table failed: ", err.Error())
 		return nil, err
 	}
 
@@ -360,7 +359,6 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 			&created.Attributes[i].Attribute,
 			&created.Attributes[i].Value)
 		if err != nil {
-			fmt.Println("getting attribute values failed: ", err.Error())
 			return nil, err
 		}
 	}
@@ -546,7 +544,6 @@ func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *d
 	err = tx.QueryRow(ctx, query, attribute.Name, attribute.DataType).Scan(
 		&created.ID, &created.Name, &created.DataType, &created.IsActive, &created.CreatedAt)
 	if err != nil {
-		fmt.Println("insertion into attributes table failed: ", err.Error())
 		return nil, err
 	}
 
@@ -561,7 +558,6 @@ func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *d
 		err = tx.QueryRow(ctx, query, created.ID, value.Value).Scan(
 			&val.ID, &val.AttributeID, &val.Value, &val.IsActive, &val.CreatedAt)
 		if err != nil {
-			fmt.Println("insertion into attribute_values table failed: ", err.Error())
 			return nil, err
 		}
 		created.Values = append(created.Values, val)
@@ -569,7 +565,6 @@ func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *d
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		fmt.Println("commit failed: ", err.Error())
 		return nil, err
 	}
 	return &created, nil
@@ -657,7 +652,6 @@ func (repo *ProductRepository) GetAttributeByID(ctx context.Context, id int64, a
 		query += ` AND a.is_active = true`
 	}
 	query += " GROUP BY a.id, a.name ORDER BY a.id;"
-	fmt.Println("query : ", query, "id : ", id)
 	var attribute domain.Attribute
 	err := repo.DB.QueryRow(ctx, query, id).Scan(&attribute.ID, &attribute.Name, &attribute.DataType, &attribute.Values)
 	if err != nil {

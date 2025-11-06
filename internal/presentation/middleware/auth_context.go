@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -39,7 +38,7 @@ func AuthContextMiddleware(log *zap.Logger, jwtsecret string) gin.HandlerFunc {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, jwt.ErrSignatureInvalid
 				}
-				return jwtsecret, nil
+				return []byte(jwtsecret), nil
 			})
 
 			if err == nil && token.Valid {
@@ -57,10 +56,8 @@ func AuthContextMiddleware(log *zap.Logger, jwtsecret string) gin.HandlerFunc {
 				log.Debug("Invalid JWT", zap.Error(err))
 			}
 		} else {
-			log.Debug("No Bearer token")
+			log.Debug("No Bearer token : Continuing as guest")
 		}
-
-		fmt.Println("Role from auth context middleware : ", role)
 
 		ctx := c.Request.Context()
 		ctx = context.WithValue(ctx, domain.KeyUserID, userID)

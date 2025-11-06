@@ -112,10 +112,10 @@ type ProductResponse struct {
 	Description string                  `json:"description"`
 	BasePrice   float64                 `json:"base_price"`
 	IsDigital   bool                    `json:"is_digital"`
-	IsActive    bool                    `json:"is_active"`
+	IsActive    *bool                   `json:"is_active,omitempty"`
 	ImageURL    string                  `json:"image_url"`
-	CreatedAt   time.Time               `json:"created_at"`
-	UpdatedAt   time.Time               `json:"updated_at"`
+	CreatedAt   *time.Time              `json:"created_at,omitempty"`
+	UpdatedAt   *time.Time              `json:"updated_at,omitempty"`
 }
 type ProductCategoryResponse struct {
 	ID   int64  `json:"id"`
@@ -128,11 +128,15 @@ type ProductBrandResponse struct {
 }
 
 type ProductFilter struct {
-	Page   int    `json:"page"`
-	Limit  int    `json:"limit"`
-	Search string `json:"search"`
-	Sort   string `json:"sort"`
-	Order  string `json:"order"`
+	BrandID    *int    `form:"brand_id"`
+	CategoryID *int    `form:"category_id"`
+	Page       int     `form:"page"`
+	Limit      int     `form:"limit"`
+	Search     string  `form:"search"`
+	Sort       string  `form:"sort"`
+	Order      string  `form:"order"`
+	MinPrice   float64 `form:"min_price"`
+	MaxPrice   float64 `form:"max_price"`
 }
 
 type VariantBaseResponse struct {
