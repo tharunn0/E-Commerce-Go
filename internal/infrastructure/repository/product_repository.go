@@ -109,7 +109,7 @@ func (repo *ProductRepository) DeleteBrand(ctx context.Context, id int64) error 
 func (repo *ProductRepository) CreateProduct(ctx context.Context, product *domain.CreateProductRequest) (*domain.Product, error) {
 	query := `
 		INSERT INTO products (name, brand_id, description, category_id, base_price, is_digital, is_active, image_url)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, name, brand_id, description, category_id, base_price, is_digital, is_active, image_url, created_at, updated_at
 	`
 	var created domain.Product
@@ -183,8 +183,6 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		argIndex++
 	}
 
-	fmt.Println(query)
-
 	rows, err := repo.DB.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
@@ -237,7 +235,7 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 }
 
 func (repo *ProductRepository) UpdateProduct(ctx context.Context, product *domain.UpdateProductRequest) error {
-	query := `UPDATE products 
+	query := `UPDATE products
 	SET name = COALESCE($1,name), brand_id = COALESCE($2,brand_id), description = COALESCE($3,description),
 	 category_id = COALESCE($4,category_id), image_url = COALESCE($5,image_url), base_price = COALESCE($6,base_price),
 	 is_digital = COALESCE($7,is_digital), is_active = COALESCE($8,is_active), updated_at = now()
@@ -348,8 +346,8 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 
 	// get attribute values
 	query = `
-		SELECT a.name,av.value FROM product_variant_attributes pva 
-		LEFT JOIN attributes a ON pva.attribute_id = a.id 
+		SELECT a.name,av.value FROM product_variant_attributes pva
+		LEFT JOIN attributes a ON pva.attribute_id = a.id
 		LEFT JOIN attribute_values av ON pva.attribute_value_id = av.id
 		WHERE pva.id = $1
 	`
@@ -401,8 +399,8 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 
 	// get variant attributes
 	query = `
-		SELECT a.name,av.value FROM product_variant_attributes pva 
-		LEFT JOIN attributes a ON pva.attribute_id = a.id 
+		SELECT a.name,av.value FROM product_variant_attributes pva
+		LEFT JOIN attributes a ON pva.attribute_id = a.id
 		LEFT JOIN attribute_values av ON pva.attribute_value_id = av.id
 		WHERE pva.id = $1
 	`
@@ -480,8 +478,8 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 	// get variant attributes
 	for i := range productvariants.Variants {
 		query = `
-		SELECT pva.id,a.name as attribute,av.value as value FROM product_variant_attributes pva 
-		LEFT JOIN attributes a ON pva.attribute_id = a.id 
+		SELECT pva.id,a.name as attribute,av.value as value FROM product_variant_attributes pva
+		LEFT JOIN attributes a ON pva.attribute_id = a.id
 		LEFT JOIN attribute_values av ON pva.attribute_value_id = av.id
 		WHERE pva.product_variant_id = $1
 	`
@@ -592,7 +590,7 @@ func (repo *ProductRepository) AddAttributeValues(ctx context.Context, attribute
 
 func (repo *ProductRepository) GetAttributes(ctx context.Context, activeOnly bool) ([]*domain.Attribute, error) {
 	query := `
-	SELECT 
+	SELECT
 		a.id,
 		a.name,
 		a.data_type,
@@ -632,7 +630,7 @@ func (repo *ProductRepository) GetAttributes(ctx context.Context, activeOnly boo
 
 func (repo *ProductRepository) GetAttributeByID(ctx context.Context, id int64, activeOnly bool) (*domain.Attribute, error) {
 	query := `
-	SELECT 
+	SELECT
 		a.id,
 		a.name,
 		a.data_type,

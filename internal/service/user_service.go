@@ -172,7 +172,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 		IsVerified:       user.IsVerified,
 		DefaultAddressID: user.DefaultAddressID,
 		Status:           user.Status,
-		CreatedAt:        user.CreatedAt,
+		CreatedAt:        &user.CreatedAt,
 
 		Addresses: addresses,
 	}

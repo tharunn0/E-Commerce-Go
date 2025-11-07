@@ -68,9 +68,9 @@ func (repo *AdminRepository) GetUsersByName(ctx context.Context, name string) ([
 	return users, nil
 }
 
-func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserFilter) ([]*domain.User, error) {
+func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserFilter) ([]*domain.UserProfile, error) {
 	query := `
-		SELECT id, email, phone, password, first_name, last_name, role, is_verified, status, created_at, updated_at
+		SELECT id, email, COALESCE(phone,''), first_name, last_name, role, is_verified, status, created_at, updated_at
 		FROM users
 		WHERE 1=1
 	`
@@ -118,11 +118,11 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 	}
 	defer rows.Close()
 
-	var users []*domain.User
+	var users []*domain.UserProfile
 	for rows.Next() {
-		var user domain.User
+		var user domain.UserProfile
 		if err = rows.Scan(
-			&user.ID, &user.Email, &user.Phone, &user.Password,
+			&user.ID, &user.Email, &user.Phone,
 			&user.FirstName, &user.LastName, &user.Role,
 			&user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt,
 		); err != nil {
@@ -130,9 +130,44 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 		}
 		users = append(users, &user)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	// 	type UserAddress struct {
+	// 		ID           int64     `json:"id"`
+	// 		UserID       int64     `json:"user_id"`
+	// 		Label        string    `json:"label,omitempty"`
+	// 		AddressLine  string    `json:"address_line"`
+	// 		AddressLine2 string    `json:"address_line_2,omitempty"`
+	// 		Pincode      string    `json:"pincode"`
+	// 		City         string    `json:"city"`
+	// 		State        string    `json:"state,omitempty"`
+	// 		Country      string    `json:"country"`
+	// 		CreatedAt    time.Time `json:"created_at"`
+	// 		UpdatedAt    time.Time `json:"updated_at"`
+	// }
+
+	query = `SELECT id,label, address_line, address_line, pincode, city, state, country, created_at, updated_at
+	 FROM user_addresses WHERE user_id = $1`
+
+	for _, u := range users {
+		var userAddr []*domain.UserAddress
+		rows, err = repo.DB.Query(ctx, query, u.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		for rows.Next() {
+			var addr domain.UserAddress
+			if err = rows.Scan(&addr.ID, &addr.Label, &addr.AddressLine,
+				&addr.AddressLine2, &addr.Pincode, &addr.City, &addr.State, &addr.Country, &addr.CreatedAt, &addr.UpdatedAt,
+			); err != nil {
+				return nil, err
+			}
+			userAddr = append(userAddr, &addr)
+		}
+		u.Addresses = userAddr
 	}
 
 	return users, nil

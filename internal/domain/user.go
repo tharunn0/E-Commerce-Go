@@ -20,8 +20,7 @@ type AdminRepository interface {
 	// GetUserByEmail(ctx context.Context, email string) (*User, error)
 	// GetUsersByName(ctx context.Context, name string) ([]*User, error)
 
-	ListUsers(ctx context.Context, filter *UserFilter) ([]*User, error)
-	// CountUsers(ctx context.Context, filter *UserFilter) (int64, error)
+	ListUsers(ctx context.Context, filter *UserFilter) ([]*UserProfile, error)
 
 	UpdateUserStatus(ctx context.Context, req *UserStatusUpdateRequest) error
 }
@@ -40,6 +39,34 @@ type User struct {
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
 	DeletedAt        *time.Time `json:"deletedAt,omitempty"`
+}
+type UserProfile struct {
+	ID               int64      `json:"id"`
+	Email            string     `json:"email"`
+	FirstName        string     `json:"firstName"`
+	LastName         string     `json:"lastName"`
+	Phone            *string    `json:"phone"`
+	Role             string     `json:"role"`
+	IsVerified       bool       `json:"isVerified"`
+	Status           string     `json:"status"`
+	DefaultAddressID *int64     `json:"defaultAddressId,omitempty"`
+	CreatedAt        *time.Time `json:"createdAt"`
+	UpdatedAt        *time.Time `json:"updatedAt"`
+
+	Addresses []*UserAddress `json:"addresses"`
+}
+type UserAddress struct {
+	ID           int64     `json:"id"`
+	UserID       int64     `json:"user_id"`
+	Label        string    `json:"label,omitempty"`
+	AddressLine  string    `json:"address_line"`
+	AddressLine2 string    `json:"address_line_2,omitempty"`
+	Pincode      string    `json:"pincode"`
+	City         string    `json:"city"`
+	State        string    `json:"state,omitempty"`
+	Country      string    `json:"country"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
@@ -92,32 +119,6 @@ type PasswordResetData struct {
 type PasswordResetToken struct {
 	Token    string    `json:"token" validate:"required"`
 	ExpiryAt time.Time `json:"expiryAt" validate:"required"`
-}
-
-type UserProfile struct {
-	ID               int64     `json:"id"`
-	Email            string    `json:"email"`
-	FirstName        string    `json:"firstName"`
-	LastName         string    `json:"lastName"`
-	IsVerified       bool      `json:"isVerified"`
-	Status           string    `json:"status"`
-	DefaultAddressID *int64    `json:"defaultAddressId,omitempty"`
-	CreatedAt        time.Time `json:"createdAt"`
-
-	Addresses []*UserAddress `json:"addresses"`
-}
-type UserAddress struct {
-	ID           int64     `json:"id"`
-	UserID       int64     `json:"user_id"`
-	Label        string    `json:"label,omitempty"`
-	AddressLine  string    `json:"address_line"`
-	AddressLine2 string    `json:"address_line_2,omitempty"`
-	Pincode      string    `json:"pincode"`
-	City         string    `json:"city"`
-	State        string    `json:"state,omitempty"`
-	Country      string    `json:"country"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type UserStatusUpdateRequest struct {

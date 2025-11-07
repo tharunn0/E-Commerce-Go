@@ -24,7 +24,6 @@ func NewAdminService(adminRepo domain.AdminRepository, logger *zap.Logger) *Admi
 }
 
 func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginResponse, *apperror.APIError) {
-
 	ctx := context.Background()
 
 	if !utils.IsValidEmail(req.Email) {
@@ -85,9 +84,10 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 	return resp, nil
 }
 
-func (serv *AdminService) GetAllUsers(ctx context.Context, req *domain.UserFilter) ([]*domain.User, *apperror.APIError) {
+func (serv *AdminService) GetAllUsers(ctx context.Context, req *domain.UserFilter) ([]*domain.UserProfile, *apperror.APIError) {
 	users, err := serv.repo.ListUsers(ctx, req)
 	if err != nil {
+		serv.log.Error("failed to retrive users", zap.String("Function", "repo.ListUsers"), zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "",
 			Message: "Failed to retrieve users",
@@ -98,7 +98,6 @@ func (serv *AdminService) GetAllUsers(ctx context.Context, req *domain.UserFilte
 }
 
 func (serv *AdminService) UpdateUserStatus(ctx context.Context, req *domain.UserStatusUpdateRequest) *apperror.APIError {
-
 	if !utils.IsValidStatus(req.Status) {
 		return &apperror.APIError{
 			Code:    "INVALID_STATUS",
