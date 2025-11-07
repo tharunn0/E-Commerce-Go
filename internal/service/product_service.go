@@ -161,6 +161,11 @@ func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*doma
 			Message: "Failed to get product",
 		}
 	}
+	if activeOnly {
+		product.IsActive = nil
+		product.CreatedAt = nil
+		product.UpdatedAt = nil
+	}
 	return product, nil
 }
 
@@ -186,6 +191,25 @@ func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequ
 
 	return updatedProduct, nil
 
+}
+
+func (serv *ProductService) UpdateProductStatus(ctx context.Context, req *domain.ProductStatusRequest) *apperror.APIError {
+
+	if req.ID <= 0 {
+		return &apperror.APIError{
+			Code:    "VALIDATION_ERROR",
+			Message: "Invalid product ID provided",
+		}
+	}
+
+	err := serv.repo.ToggleProductStatus(ctx, req)
+	if err != nil {
+		return &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: err.Error(),
+		}
+	}
+	return nil
 }
 
 func (serv *ProductService) DeleteProduct(ctx context.Context, id int64) *apperror.APIError {

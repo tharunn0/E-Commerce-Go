@@ -162,7 +162,7 @@ func (h *ProductHandler) GetProductByID(c *gin.Context) {
 }
 
 func (h *ProductHandler) UpdateProduct(c *gin.Context) {
-	ctx := context.Background()
+	ctx := c.Request.Context()
 	var updateProductRequest domain.UpdateProductRequest
 	if err := c.ShouldBindJSON(&updateProductRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -174,6 +174,25 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "product": updatedProduct})
+}
+
+func (h *ProductHandler) UpdateProductStatus(c *gin.Context) {
+	ctx := c.Request.Context()
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+
+	var req domain.ProductStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invaild product status"})
+		return
+	}
+	req.ID = id
+
+	if apierr := h.service.UpdateProductStatus(ctx, &req); apierr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, gin.H{"message": "Product status updated !"})
 }
 
 func (h *ProductHandler) DeleteProduct(c *gin.Context) {

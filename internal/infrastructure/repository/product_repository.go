@@ -105,7 +105,6 @@ func (repo *ProductRepository) DeleteBrand(ctx context.Context, id int64) error 
 
 // Product operations
 // //////////////////////////////////////////////////////////
-// //////////////////////////////////////////////////////////
 func (repo *ProductRepository) CreateProduct(ctx context.Context, product *domain.CreateProductRequest) (*domain.Product, error) {
 	query := `
 		INSERT INTO products (name, brand_id, description, category_id, base_price, is_digital, is_active, image_url)
@@ -198,40 +197,47 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		}
 		products = append(products, &p)
 	}
+
+	query = `SELECT MIN(price_different) FROM product_variants WHERE product_id = $1`
+	var pricediff float64
+	for _, p := range products {
+		err = repo.DB.QueryRow(ctx, query, p.ID).Scan(&pricediff)
+		if err != nil || pricediff == 0 {
+			p.MinPrice = p.BasePrice
+		}
+
+		p.MinPrice = p.BasePrice + pricediff
+	}
+
 	return products, total, nil
 }
 
 func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, activeOnly bool) (*domain.ProductResponse, error) {
 	query := `
-		SELECT id, name, brand_id,brands.name as brand_name, COALESCE(description, ''), category_id,categories.name as category_name, base_price, is_digital, is_active, image_url, created_at, updated_at
-		FROM products LEFT JOIN brands ON products.brand_id = brands.id LEFT JOIN categories ON products.category_id = categories.id
-		WHERE id = $1
+		SELECT p.id, p.name, p.brand_id,b.name as brand_name, COALESCE(p.description, ''), p.category_id,c.name as category_name,
+	 	p.base_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at FROM products p
+		LEFT JOIN brands b ON p.brand_id = b.id
+		LEFT JOIN categories c ON p.category_id = c.id
+		WHERE p.id = $1
 	`
 	if activeOnly {
-		query += " AND is_active = true"
+		query += " AND p.is_active = true"
 	}
 	var p domain.ProductResponse
 
-	rows, err := repo.DB.Query(ctx, query, id)
+	err := repo.DB.QueryRow(ctx, query, id).Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID,
+		&p.Category.Name, &p.BasePrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
 
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("PRODUCT_DOES_NOT_EXIST")
-	}
-	if err != nil {
-		return nil, err
+	var pricediff float64
+	query = `SELECT MIN(price_different) FROM product_variants WHERE product_id = $1`
+	err = repo.DB.QueryRow(ctx, query, p.ID).Scan(&pricediff)
+	if err != nil || pricediff == 0 {
+		p.MinPrice = p.BasePrice
 	}
 
-	defer rows.Close()
+	p.MinPrice = p.BasePrice + pricediff
 
-	if rows.Next() {
-		err := rows.Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID,
-			&p.Category.Name, &p.BasePrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		return &p, nil
-	}
-	return nil, fmt.Errorf("PRODUCT_NOT_FOUND")
+	return &p, nil
 }
 
 func (repo *ProductRepository) UpdateProduct(ctx context.Context, product *domain.UpdateProductRequest) error {
@@ -249,6 +255,21 @@ func (repo *ProductRepository) UpdateProduct(ctx context.Context, product *domai
 	if cmdTag.RowsAffected() == 0 {
 		return fmt.Errorf("PRODUCT_NOT_FOUND")
 	}
+	return nil
+}
+
+func (repo *ProductRepository) ToggleProductStatus(ctx context.Context, req *domain.ProductStatusRequest) error {
+
+	query := `UPDATE products SET is_active = $1 WHERE id = $2`
+
+	cmdTag, err := repo.DB.Exec(ctx, query, req.Status, req.ID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("Failed to update status. Product not found")
+	}
+
 	return nil
 }
 

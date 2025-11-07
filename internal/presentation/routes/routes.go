@@ -95,8 +95,9 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		//productOpenRoute.GET("/:id/reviews", h.Product.GetProductReviews)
 
 		productProtectedRoute := productRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
-		productProtectedRoute.POST("/", h.Product.CreateProduct)
-		productProtectedRoute.PUT("/", h.Product.UpdateProduct)
+		productProtectedRoute.POST("/:id", h.Product.CreateProduct)
+		productProtectedRoute.PUT("/:id", h.Product.UpdateProduct)
+		productProtectedRoute.PATCH("/:id", h.Product.UpdateProductStatus)
 		productProtectedRoute.DELETE("/:id", h.Product.DeleteProduct)
 	}
 

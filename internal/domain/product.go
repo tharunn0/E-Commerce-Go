@@ -18,6 +18,7 @@ type ProductRepository interface {
 	GetProducts(ctx context.Context, filter *ProductFilter, activeOnly bool) ([]*ProductResponse, int64, error)
 	GetProductByID(ctx context.Context, id int64, activeOnly bool) (*ProductResponse, error)
 	UpdateProduct(ctx context.Context, updateProductRequest *UpdateProductRequest) error
+	ToggleProductStatus(ctx context.Context, req *ProductStatusRequest) error
 	DeleteProduct(ctx context.Context, id int64) error
 
 	// Variant operations
@@ -92,6 +93,11 @@ type CreateProductRequest struct {
 	ImageURL    string  `json:"image_url"`
 }
 
+type ProductStatusRequest struct {
+	ID     int64
+	Status bool `json:"is_active"`
+}
+
 type UpdateProductRequest struct {
 	ID          int64    `json:"id"`
 	Name        *string  `json:"name"`
@@ -111,6 +117,7 @@ type ProductResponse struct {
 	Category    ProductCategoryResponse `json:"category"`
 	Description string                  `json:"description"`
 	BasePrice   float64                 `json:"base_price"`
+	MinPrice    float64                 `json:"min_price"`
 	IsDigital   bool                    `json:"is_digital"`
 	IsActive    *bool                   `json:"is_active,omitempty"`
 	ImageURL    string                  `json:"image_url"`
