@@ -27,6 +27,7 @@ type ProductRepository interface {
 	GetVariantsByProductID(ctx context.Context, productID int64, activeOnly bool) (*ProductVariantBaseResponse, error)
 	GetProductVariantByID(ctx context.Context, id int64, activeOnly bool) (*ProductVariantResponse, error)
 	UpdateProductVariant(ctx context.Context, productVariant *UpdateProductVariantRequest) (*ProductVariant, error)
+	ToggleVariantStatus(ctx context.Context, req *VariantStatusRequest) error
 	DeleteProductVariant(ctx context.Context, id int64) error
 
 	// Attribute operations
@@ -144,27 +145,4 @@ type ProductFilter struct {
 	Order      string  `form:"order"`
 	MinPrice   float64 `form:"min_price"`
 	MaxPrice   float64 `form:"max_price"`
-}
-
-type VariantBaseResponse struct {
-	ID              int64                    `json:"id"`
-	SKU             string                   `json:"sku"`
-	PriceDifference float64                  `json:"price_difference"`
-	TotalPrice      float64                  `json:"total_price"`
-	Stock           int                      `json:"stock"`
-	IsActive        bool                     `json:"is_active"`
-	Images          []string                 `json:"images"`
-	Attributes      []AttributeValueResponse `json:"attributes"`
-	CreatedAt       time.Time                `json:"created_at"`
-}
-
-type ProductVariantBaseResponse struct {
-	ProductID   int64                 `json:"product_id"`
-	ProductName string                `json:"product_name"`
-	BrandName   string                `json:"brand_name"`
-	BasePrice   float64               `json:"base_price"`
-	IsDigital   bool                  `json:"is_digital"`
-	Variants    []VariantBaseResponse `json:"variants"`
-	ImageURL    string                `json:"image_url"`
-	CreatedAt   time.Time             `json:"created_at"`
 }

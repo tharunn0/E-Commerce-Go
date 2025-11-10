@@ -188,7 +188,7 @@ func (h *ProductHandler) UpdateProductStatus(c *gin.Context) {
 	req.ID = id
 
 	if apierr := h.service.UpdateProductStatus(ctx, &req); apierr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": apierr.Code, "message": apierr.Message})
+		c.JSON(http.StatusNotFound, gin.H{"error": apierr.Code, "message": apierr.Message})
 		return
 	}
 
@@ -259,12 +259,14 @@ func (h *ProductHandler) GetVariantsByProductID(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "variants": variants})
-
 }
 
 func (h *ProductHandler) UpdateProductVariant(c *gin.Context) {
-	ctx := context.Background()
+	ctx := c.Request.Context()
+
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	var updateProductVariantRequest domain.UpdateProductVariantRequest
+	updateProductVariantRequest.ID = id
 	if err := c.ShouldBindJSON(&updateProductVariantRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -275,6 +277,27 @@ func (h *ProductHandler) UpdateProductVariant(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "product_variant": updatedProductVariant})
+}
+
+func (h *ProductHandler) UpdateVariantStatus(c *gin.Context) {
+	ctx := c.Request.Context()
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+
+	var req domain.VariantStatusRequest
+	req.ID = id
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product variant status"})
+		return
+	}
+
+	err := h.service.UpdateProductVariantStatus(ctx, &req)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Code, "message": err.Message})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, gin.H{"message": "Variant status updated !s"})
 }
 
 func (h *ProductHandler) DeleteProductVariant(c *gin.Context) {
@@ -336,3 +359,19 @@ func (h *ProductHandler) GetAttributeByID(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "attribute": attribute})
 }
+
+func (h *ProductHandler) DeleteAttribute(c *gin.Context) {
+
+	ctx := c.Request.Context()
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+
+	var deletereq domain.DeleteAttributeRequest
+	deletereq.ID = id
+
+	apierr := h.service.DeleteAttribute(ctx, &deletereq)
+	if apierr != nil {
+
+	}
+}
+
+func (h *ProductHandler) DeleteAttributeValues(c *gin.Context) {}

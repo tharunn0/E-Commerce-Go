@@ -49,6 +49,11 @@ type UpdateProductVariantRequest struct {
 	IsActive        *bool    `json:"is_active,omitempty"`
 }
 
+type VariantStatusRequest struct {
+	ID     int64
+	Status bool `json:"is_active"`
+}
+
 type ProductVariantResponse struct {
 	ID              int64                    `json:"id"`
 	BaseProduct     BaseProduct              `json:"base_product"`
@@ -72,6 +77,29 @@ type BaseProduct struct {
 	Name      string               `json:"name"`
 	Brand     ProductBrandResponse `json:"brand"`
 	BasePrice float64              `json:"base_price"`
+}
+
+type VariantBaseResponse struct {
+	ID              int64                    `json:"id"`
+	SKU             string                   `json:"sku"`
+	PriceDifference float64                  `json:"price_difference"`
+	TotalPrice      float64                  `json:"total_price"`
+	Stock           int                      `json:"stock"`
+	IsActive        bool                     `json:"is_active"`
+	Images          []string                 `json:"images"`
+	Attributes      []AttributeValueResponse `json:"attributes"`
+	CreatedAt       time.Time                `json:"created_at"`
+}
+
+type ProductVariantBaseResponse struct {
+	ProductID   int64                 `json:"product_id"`
+	ProductName string                `json:"product_name"`
+	BrandName   string                `json:"brand_name"`
+	BasePrice   float64               `json:"base_price"`
+	IsDigital   bool                  `json:"is_digital"`
+	Variants    []VariantBaseResponse `json:"variants"`
+	ImageURL    string                `json:"image_url"`
+	CreatedAt   time.Time             `json:"created_at"`
 }
 
 // Attribute models
@@ -104,6 +132,9 @@ type AddAttributeValuesRequest struct {
 	Values      []string `json:"values"`
 }
 
+type DeleteAttributeRequest struct {
+	ID int64
+}
 type DeleteAttributeValuesRequest struct {
 	ValueIDs []int64 `json:"value_ids"`
 }

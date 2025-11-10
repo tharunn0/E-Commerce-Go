@@ -190,7 +190,6 @@ func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequ
 	}
 
 	return updatedProduct, nil
-
 }
 
 func (serv *ProductService) UpdateProductStatus(ctx context.Context, req *domain.ProductStatusRequest) *apperror.APIError {
@@ -307,6 +306,25 @@ func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProd
 	return productVariant, nil
 }
 
+func (serv *ProductService) UpdateProductVariantStatus(ctx context.Context, req *domain.VariantStatusRequest) *apperror.APIError {
+
+	if req.ID <= 0 {
+		return &apperror.APIError{
+			Code:    "VALIDATION_ERROR",
+			Message: "Invalid product variant ID provided",
+		}
+	}
+
+	err := serv.repo.ToggleVariantStatus(ctx, req)
+	if err != nil {
+		return &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: err.Error(),
+		}
+	}
+	return nil
+}
+
 func (serv *ProductService) DeleteProductVariant(ctx context.Context, id int64) *apperror.APIError {
 	err := serv.repo.DeleteProductVariant(ctx, id)
 	if err != nil {
@@ -400,8 +418,16 @@ func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*do
 	return attribute, nil
 }
 
-func (serv *ProductService) DeleteAttribute(ctx context.Context, id int64) *apperror.APIError {
-	err := serv.repo.DeleteAttribute(ctx, id)
+func (serv *ProductService) DeleteAttribute(ctx context.Context, req *domain.DeleteAttributeRequest) *apperror.APIError {
+
+	if req.ID <= 0 {
+		return &apperror.APIError{
+			Code:    "INVALID_DELETE_REQUEST",
+			Message: "Provide a valid attribute id",
+		}
+	}
+
+	err := serv.repo.DeleteAttribute(ctx, req.ID)
 	if err != nil {
 		serv.log.Debug("failed to delete attribute", zap.Error(err))
 		return &apperror.APIError{

@@ -107,12 +107,11 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		productVariantOpenRoute := productVariantRoute.Group("/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
 		productVariantOpenRoute.GET("/:id", h.Product.GetProductVariantByID)
 		// productVariantOpenRoute.GET("/", h.Product.GetProductVariants)
-		// productVariantOpenRoute.GET("/:id", h.Product.GetProductVariantByID)
 
 		productVariantProtectedRoute := productVariantRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		productVariantProtectedRoute.POST("/", h.Product.CreateProductVariant)
-		// productVariantProtectedRoute.POST("/", h.Product.CreateProductVariant)
-		// productVariantProtectedRoute.PUT("/", h.Product.UpdateProductVariant)
+		productVariantProtectedRoute.PATCH("/:id", h.Product.UpdateVariantStatus)
+		productVariantProtectedRoute.PUT("/:id", h.Product.UpdateProductVariant)
 		productVariantProtectedRoute.DELETE("/:id", h.Product.DeleteProductVariant)
 
 	}
@@ -120,11 +119,11 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 	{
 		// Variant attribute routes
 		variantAttributeRoute := g.Group("/api/v1/attributes")
-		// Variant attribute routes
 		variantAttributeProtectedRoute := variantAttributeRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		variantAttributeProtectedRoute.POST("/", h.Product.CreateAttribute)
 		// variantAttributeProtectedRoute.PUT("/", h.Product.UpdateVariantAttribute)
-		// variantAttributeProtectedRoute.DELETE("/:id", h.Product.DeleteVariantAttribute)
+		variantAttributeProtectedRoute.DELETE("/:id", h.Product.DeleteAttribute)
+		variantAttributeProtectedRoute.DELETE("/values", h.Product.DeleteAttributeValues)
 
 		variantAttributeOpenRoute := variantAttributeRoute.Group("/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
 		variantAttributeOpenRoute.GET("/", h.Product.GetAttributes)
