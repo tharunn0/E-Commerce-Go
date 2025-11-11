@@ -46,7 +46,7 @@ func (h *AdminHandler) LoginUser(c *gin.Context) {
 }
 
 func (h *AdminHandler) GetAllUsers(c *gin.Context) {
-	ctx := context.Background()
+	ctx := c.Request.Context()
 
 	var filters domain.UserFilter
 	filters.Status = c.Query("status")
@@ -54,12 +54,18 @@ func (h *AdminHandler) GetAllUsers(c *gin.Context) {
 	filters.Search = c.Query("search")
 	filters.Page, _ = strconv.Atoi(c.Query("page"))
 	filters.Limit, _ = strconv.Atoi(c.Query("limit"))
+
 	users, apierr := h.service.GetAllUsers(ctx, &filters)
 	if apierr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"users": users})
+	c.JSON(http.StatusOK, gin.H{
+		"users":       users,
+		"page":        filters.Page,
+		"limit":       filters.Limit,
+		"total_users": filters.Total,
+	})
 }
 
 func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
@@ -76,4 +82,36 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "User status updated successfully"})
+}
+
+func (h *AdminHandler) GetUserByID(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+
+	user, err := h.service.GetUserByID(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Code, "message": err.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+
+}
+
+func (h *AdminHandler) DeleteUser(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+
+	err := h.service.DeleteUser(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Code, "message": err.Message})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, gin.H{"msg": "User successfully deleted"})
+
 }

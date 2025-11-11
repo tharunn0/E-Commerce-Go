@@ -35,7 +35,10 @@ func main() {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pg.User, pg.Password, pg.Host, pg.Port, pg.DB)
 	pgdb := database.InitDB(dsn, log)
 
-	mailer := mailer.NewGoMailer(smtp.Port, smtp.Host, smtp.User, smtp.Pass, smtp.User)
+	mailer, err := mailer.NewGoMailer(smtp.Port, smtp.Host, smtp.User, smtp.Pass, smtp.User)
+	if err != nil {
+		log.Fatal("Failed to initialize mailer", zap.String("function", "main"), zap.Error(err))
+	}
 
 	oauth := config.NewOAuthConfig(google.ClientID, google.ClientSecret, google.RedirectURL)
 

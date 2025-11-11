@@ -66,6 +66,7 @@ func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
 	toAddr = strings.ToLower(toAddr)
 
 	if err := serv.sender.SendMail(ctx, "./pkg/mailer/verification-mail-template.html", toAddr, "Email Verification", data); err != nil {
+		serv.log.Error("SEND_OTP_FAILED", zap.String("service", "auth-service"), zap.String("function", "sendotp"), zap.Error(err))
 		return &apperror.APIError{
 			Code:    "OTP_EMAIL_FAILED",
 			Message: "Could not send OTP email. Please try again.",

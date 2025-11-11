@@ -44,28 +44,38 @@ func (repo *AdminRepository) GetUserByEmail(ctx context.Context, email string) (
 	return user, nil
 }
 
-func (repo *AdminRepository) GetUsersByName(ctx context.Context, name string) ([]domain.User, error) {
-	rows, err := repo.DB.Query(ctx,
-		`SELECT id, email, phone, password, first_name, last_name, role, is_verified, status, created_at, updated_at
-		 FROM users WHERE (first_name ILIKE $1 OR last_name ILIKE $1) AND status = 'active'
-		 ORDER BY created_at DESC`,
-		"%"+name+"%")
+func (repo *AdminRepository) GetUsersByID(ctx context.Context, id int64) (*domain.UserProfile, error) {
+
+	user := &domain.UserProfile{}
+
+	query := `SELECT id, email,COALESCE(phone,''), first_name, last_name, role, is_verified, status, created_at, updated_at FROM users
+	WHERE id = $1`
+
+	err := repo.DB.QueryRow(ctx, query, id).Scan(&user.ID, &user.Email, &user.Phone, &user.FirstName,
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var users []domain.User
+	query = `SELECT id,label, address_line, address_line, pincode, city, state, country, created_at, updated_at
+	FROM user_addresses WHERE user_id = $1`
+
+	rows, err := repo.DB.Query(ctx, query, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	var addr = &domain.UserAddress{}
 	for rows.Next() {
-		var user domain.User
-		err := rows.Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
-			&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt)
+		err = rows.Scan(&addr.ID, &addr.Label, &addr.AddressLine, &addr.AddressLine2, &addr.Pincode, &addr.City,
+			&addr.State, &addr.Country, &addr.CreatedAt, &addr.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
-		users = append(users, user)
+
+		user.Addresses = append(user.Addresses, addr)
 	}
-	return users, nil
+
+	return user, nil
 }
 
 func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserFilter) ([]*domain.UserProfile, error) {
@@ -134,74 +144,13 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 		return nil, err
 	}
 
-	// 	type UserAddress struct {
-	// 		ID           int64     `json:"id"`
-	// 		UserID       int64     `json:"user_id"`
-	// 		Label        string    `json:"label,omitempty"`
-	// 		AddressLine  string    `json:"address_line"`
-	// 		AddressLine2 string    `json:"address_line_2,omitempty"`
-	// 		Pincode      string    `json:"pincode"`
-	// 		City         string    `json:"city"`
-	// 		State        string    `json:"state,omitempty"`
-	// 		Country      string    `json:"country"`
-	// 		CreatedAt    time.Time `json:"created_at"`
-	// 		UpdatedAt    time.Time `json:"updated_at"`
-	// }
-
-	query = `SELECT id,label, address_line, address_line, pincode, city, state, country, created_at, updated_at
-	 FROM user_addresses WHERE user_id = $1`
-
-	for _, u := range users {
-		var userAddr []*domain.UserAddress
-		rows, err = repo.DB.Query(ctx, query, u.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		for rows.Next() {
-			var addr domain.UserAddress
-			if err = rows.Scan(&addr.ID, &addr.Label, &addr.AddressLine,
-				&addr.AddressLine2, &addr.Pincode, &addr.City, &addr.State, &addr.Country, &addr.CreatedAt, &addr.UpdatedAt,
-			); err != nil {
-				return nil, err
-			}
-			userAddr = append(userAddr, &addr)
-		}
-		u.Addresses = userAddr
+	query = `SELECT COUNT(id) FROM USERS`
+	err = repo.DB.QueryRow(ctx, query).Scan(&filter.Total)
+	if err != nil {
+		filter.Total = -1
 	}
 
 	return users, nil
-}
-
-func (repo *AdminRepository) CountUsers(ctx context.Context, filter *domain.UserFilter) (int64, error) {
-	query := `SELECT COUNT(*) FROM users WHERE 1=1`
-	args := []interface{}{}
-	argIndex := 1
-
-	if filter != nil {
-		if filter.Status != "" {
-			query += fmt.Sprintf(" AND status = $%d", argIndex)
-			args = append(args, filter.Status)
-			argIndex++
-		}
-		if filter.Role != "" {
-			query += fmt.Sprintf(" AND role = $%d", argIndex)
-			args = append(args, filter.Role)
-			argIndex++
-		}
-		if filter.Search != "" {
-			query += fmt.Sprintf(" AND (first_name ILIKE $%d OR last_name ILIKE $%d OR email ILIKE $%d)", argIndex, argIndex, argIndex)
-			args = append(args, "%"+filter.Search+"%")
-			argIndex++
-		}
-	}
-
-	var count int64
-	err := repo.DB.QueryRow(ctx, query, args...).Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-	return count, nil
 }
 
 func (repo *AdminRepository) UpdateUserStatus(ctx context.Context, req *domain.UserStatusUpdateRequest) error {
@@ -211,6 +160,17 @@ func (repo *AdminRepository) UpdateUserStatus(ctx context.Context, req *domain.U
 	if err != nil {
 		fmt.Println("Error updating user status: ", err)
 		return err
+	}
+	return nil
+}
+
+func (repo *AdminRepository) DeleteUser(ctx context.Context, id int64) error {
+	cmdTag, err := repo.DB.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("User does not exist")
 	}
 	return nil
 }

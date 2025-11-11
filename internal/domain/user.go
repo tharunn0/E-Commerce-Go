@@ -18,11 +18,10 @@ type AdminRepository interface {
 	GetAdmin(ctx context.Context, email string) (*User, error)
 
 	// GetUserByEmail(ctx context.Context, email string) (*User, error)
-	// GetUsersByName(ctx context.Context, name string) ([]*User, error)
-
+	GetUsersByID(ctx context.Context, id int64) (*UserProfile, error)
 	ListUsers(ctx context.Context, filter *UserFilter) ([]*UserProfile, error)
-
 	UpdateUserStatus(ctx context.Context, req *UserStatusUpdateRequest) error
+	DeleteUser(ctx context.Context, id int64) error
 }
 
 type User struct {
@@ -53,7 +52,7 @@ type UserProfile struct {
 	CreatedAt        *time.Time `json:"createdAt"`
 	UpdatedAt        *time.Time `json:"updatedAt"`
 
-	Addresses []*UserAddress `json:"addresses"`
+	Addresses []*UserAddress `json:"addresses,omitempty"`
 }
 type UserAddress struct {
 	ID           int64     `json:"id"`
@@ -106,6 +105,7 @@ type UserFilter struct {
 	Search string `json:"search,omitempty"`
 	Limit  int    `json:"limit,omitempty"`
 	Page   int    `json:"page,omitempty"`
+	Total  int    `json:"total,omitempty`
 }
 
 type PasswordResetRequest struct {

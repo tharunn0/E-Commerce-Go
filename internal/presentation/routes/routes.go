@@ -39,7 +39,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		userAuth.POST("/reset-password-link", h.User.SendPasswordResetLink)
 		userAuth.POST("/reset-password/", h.User.ResetPassword)
 		userAuth.GET("/google", h.User.GoogleSignIn)
-		userAuth.GET("/google/callbacr", h.User.GoogleCallback)
+		userAuth.GET("/google/callback", h.User.GoogleCallback)
 	}
 
 	{
@@ -54,7 +54,9 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 	adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 	adminProtectedRoute.GET("/users", h.Admin.GetAllUsers)
+	adminProtectedRoute.GET("/users/:id", h.Admin.GetUserByID)
 	adminProtectedRoute.PUT("/users", h.Admin.UpdateUserStatus)
+	adminProtectedRoute.DELETE("/users/:id", h.Admin.DeleteUser)
 	{
 		// Category routes
 		categoryOpenRoute := g.Group("/api/v1/categories/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
@@ -95,7 +97,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		//productOpenRoute.GET("/:id/reviews", h.Product.GetProductReviews)
 
 		productProtectedRoute := productRoute.Group("/").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
-		productProtectedRoute.POST("/:id", h.Product.CreateProduct)
+		productProtectedRoute.POST("/", h.Product.CreateProduct)
 		productProtectedRoute.PUT("/:id", h.Product.UpdateProduct)
 		productProtectedRoute.PATCH("/:id", h.Product.UpdateProductStatus)
 		productProtectedRoute.DELETE("/:id", h.Product.DeleteProduct)

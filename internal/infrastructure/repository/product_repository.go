@@ -134,10 +134,14 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 
 	query = `
 		SELECT p.id, p.name,b.id as brand_id, b.name as brand_name, COALESCE(p.description, ''),
-		 c.id as category_id, c.name as category_name, p.base_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at
+		 c.id as category_id, c.name as category_name,COALESCE(r.avg_rating,0) as rating, p.base_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at
 		FROM products p
 		LEFT JOIN brands b ON p.brand_id = b.id
 		LEFT JOIN categories c ON p.category_id = c.id
+		LEFT JOIN (
+			SELECT product_id,AVG(rating) as avg_rating FROM reviews
+			GROUP BY product_id	
+		) r ON r.product_id = p.id
 		WHERE 1=1
 	`
 	if activeOnly {
@@ -168,7 +172,11 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 	}
 
 	if filter.Sort != "" {
-		query += fmt.Sprintf(" ORDER BY p.%s %s", filter.Sort, filter.Order)
+		if filter.Sort == "rating" {
+			query += fmt.Sprintf(" ORDER BY %s %s", filter.Sort, filter.Order)
+		} else {
+			query += fmt.Sprintf(" ORDER BY p.%s %s", filter.Sort, filter.Order)
+		}
 	}
 	if filter.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIndex)
@@ -187,26 +195,41 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		return nil, 0, err
 	}
 	defer rows.Close()
-
+	pids := []int64{}
 	products := []*domain.ProductResponse{}
 	for rows.Next() {
 		var p domain.ProductResponse
 		if err := rows.Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID, &p.Category.Name,
-			&p.BasePrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.Rating, &p.BasePrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
+		pids = append(pids, p.ID)
 		products = append(products, &p)
 	}
 
-	query = `SELECT MIN(price_different) FROM product_variants WHERE product_id = $1`
-	var pricediff float64
-	for _, p := range products {
-		err = repo.DB.QueryRow(ctx, query, p.ID).Scan(&pricediff)
-		if err != nil || pricediff == 0 {
-			p.MinPrice = p.BasePrice
-		}
+	fmt.Println(pids)
 
-		p.MinPrice = p.BasePrice + pricediff
+	query = `SELECT product_id, MIN(price_difference) FROM product_variants WHERE product_id = ANY($1) GROUP BY product_id`
+	rows, err = repo.DB.Query(ctx, query, pids)
+	if err != nil {
+		return nil, 0, err
+	}
+	m := make(map[int64]float64)
+	var id int64
+	var pricediff float64
+	for rows.Next() {
+
+		err = rows.Scan(&id, &pricediff)
+		if err != nil {
+			return nil, 0, err
+		}
+		fmt.Println(id, pricediff)
+		m[id] = pricediff
+	}
+	fmt.Println("m", m)
+
+	for _, p := range products {
+		p.MinPrice = m[p.ID]
 	}
 
 	return products, total, nil

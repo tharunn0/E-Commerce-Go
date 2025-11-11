@@ -160,6 +160,7 @@ func IsFiltersValid(f *domain.ProductFilter) bool {
 		"base_price": {},
 		"name":       {},
 		"created_at": {},
+		"rating":     {},
 	}
 
 	if _, ok := validOrder[f.Order]; !ok {

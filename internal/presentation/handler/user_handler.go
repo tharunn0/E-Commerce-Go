@@ -118,7 +118,11 @@ func (h *UserHandler) LoginUser(c *gin.Context) {
 
 func (h *UserHandler) SendOTP(c *gin.Context) {
 
-	email := c.Value(domain.KeyEmail).(string)
+	email, ok := c.Request.Context().Value(domain.KeyEmail).(string)
+	if !ok {
+		fmt.Println("failed to extract email from key ,")
+	}
+	fmt.Println("email ", email)
 
 	apiErr := h.authserv.SendOTP(email)
 	if apiErr != nil {
@@ -245,6 +249,8 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 func (h *UserHandler) GoogleSignIn(c *gin.Context) {
 
+	fmt.Println("received request for google signin")
+
 	state := utils.GenerateState()
 	if state == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -257,13 +263,15 @@ func (h *UserHandler) GoogleSignIn(c *gin.Context) {
 
 	redirectURL := h.oauth.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
-	fmt.Println(redirectURL)
+	fmt.Println("redirect url :", redirectURL)
 
 	c.Redirect(http.StatusFound, redirectURL)
 
 }
 
 func (h *UserHandler) GoogleCallback(c *gin.Context) {
+
+	fmt.Println("received callback from google ")
 
 	code := c.Query("code")
 	state, err := c.Cookie("oauth_state")
@@ -306,13 +314,19 @@ func (h *UserHandler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	email, _ := payload.Claims["email"].(string)
+	verified, _ := payload.Claims["email_verified"].(bool)
+	firstName, _ := payload.Claims["given_name"].(string)
+	lastName, _ := payload.Claims["family_name"].(string)
+	sub, _ := payload.Claims["sub"].(string)
+
 	req := &domain.GoogleSignInRequest{
-		Email:     payload.Claims["email"].(string),
+		Email:     email,
 		Token:     rawIDToken,
-		Verified:  payload.Claims["email_verified"].(bool),
-		FirstName: payload.Claims["given_name"].(string),
-		LastName:  payload.Claims["family_name"].(string),
-		Sub:       payload.Claims["sub"].(string),
+		Verified:  verified,
+		FirstName: firstName,
+		LastName:  lastName,
+		Sub:       sub,
 	}
 
 	user, apiErr := h.service.OAuthSignIn(c.Request.Context(), req)

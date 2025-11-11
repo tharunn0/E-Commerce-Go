@@ -73,7 +73,7 @@ func LoadConfig() *AppConfig {
 			Host: getEnv("SMTP_HOST", ""),
 			Port: getEnvAsInt("SMTP_PORT", 587),
 			User: getEnv("SMTP_USER", ""),
-			Pass: getEnv("SMTP_PASS", ""),
+			Pass: getEnv("SMTP_PASSWORD", ""),
 		},
 
 		Redis: RedisSettings{

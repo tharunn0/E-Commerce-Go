@@ -89,6 +89,10 @@ func JWTMiddleware(role string, log *zap.Logger, jwtsecret string) gin.HandlerFu
 		// c.Set("role", claims["role"])
 		// c.Set("verified", claims["verified"])
 
+		for k, v := range claims {
+			fmt.Println(k, v)
+		}
+
 		ctx := c.Request.Context()
 		ctx = context.WithValue(ctx, domain.KeyUserID, claims["user_id"])
 		ctx = context.WithValue(ctx, domain.KeyRole, claims["role"])

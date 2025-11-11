@@ -3,6 +3,7 @@ package mailer
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"html/template"
 	"time"
 
@@ -14,9 +15,12 @@ type MailSender struct {
 	From   string
 }
 
-func NewGoMailer(port int, host, username, password, from string) *MailSender {
+func NewGoMailer(port int, host, username, password, from string) (*MailSender, error) {
+	if username == "" || password == "" || from == "" {
+		return nil, fmt.Errorf("Please provide valid credentials")
+	}
 	d := gomail.NewDialer(host, port, username, password)
-	return &MailSender{Dialer: d, From: from}
+	return &MailSender{Dialer: d, From: from}, nil
 }
 
 func (m *MailSender) SendMail(ctx context.Context, templatePath, to, subject string, data interface{}) error {

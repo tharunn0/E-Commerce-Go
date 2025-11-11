@@ -121,3 +121,47 @@ func (serv *AdminService) UpdateUserStatus(ctx context.Context, req *domain.User
 	}
 	return nil
 }
+
+func (serv *AdminService) GetUserByID(ctx context.Context, id int64) (*domain.UserProfile, *apperror.APIError) {
+
+	if id <= 0 {
+		return nil, &apperror.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID. Please provide a valid user ID.",
+		}
+	}
+
+	user, err := serv.repo.GetUsersByID(ctx, id)
+	if err != nil {
+		serv.log.Warn("")
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to fetch user",
+		}
+	}
+
+	return user, nil
+
+}
+
+func (serv *AdminService) DeleteUser(ctx context.Context, id int64) *apperror.APIError {
+
+	if id <= 0 {
+		return &apperror.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID. Please provide a valid user ID.",
+		}
+	}
+
+	err := serv.repo.DeleteUser(ctx, id)
+	if err != nil {
+		serv.log.Warn("")
+		return &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to delte user",
+		}
+	}
+
+	return nil
+
+}
