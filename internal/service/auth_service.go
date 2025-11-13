@@ -43,6 +43,7 @@ func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
 		}
 	}
 
+	otpHash := utils.HashOTP(otp)
 	expiresAt := time.Now().Add(time.Duration(exp) * time.Minute)
 	if err := serv.repo.InsertOTP(ctx, toAddr, otp, expiresAt); err != nil {
 		return &apperror.APIError{
@@ -51,14 +52,12 @@ func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
 		}
 	}
 
-	// body := fmt.Sprintf("Your OTP is %s. Use within 5 minutes.", otp)
-
 	data := struct {
 		OTP    string
 		Expiry int
 		Year   string
 	}{
-		OTP:    otp,
+		OTP:    otpHash,
 		Expiry: exp,
 		Year:   strconv.Itoa(time.Now().Year()),
 	}
@@ -88,17 +87,17 @@ func (serv *AuthService) VerifyOTP(email, otp string) *apperror.APIError {
 		}
 	}
 
+	if !utils.VerifyOTP(otpRecord.OTP, otp) {
+		return &apperror.APIError{
+			Code:    "INVALID_OTP",
+			Message: "The OTP you entered is incorrect. Please try again.",
+		}
+	}
+
 	if time.Now().After(otpRecord.ExpiresAt) {
 		return &apperror.APIError{
 			Code:    "OTP_EXPIRED",
 			Message: "Your OTP has expired. Please request a new one.",
-		}
-	}
-
-	if otpRecord.OTP != otp {
-		return &apperror.APIError{
-			Code:    "INVALID_OTP",
-			Message: "The OTP you entered is incorrect. Please try again.",
 		}
 	}
 

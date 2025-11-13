@@ -19,8 +19,6 @@ import (
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-var validSortColumns = []string{"name", "created_at", "min_price"}
-var validOrders = []string{"DESC", "ASC"}
 
 func HashPassword(pass string) string {
 	res, er := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
@@ -30,17 +28,29 @@ func HashPassword(pass string) string {
 	return string(res)
 }
 
+func VerifyPassword(hash, pass string) bool {
+	er := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass))
+	return er == nil
+}
+
+func HashOTP(otp string) string {
+	res, er := bcrypt.GenerateFromPassword([]byte(otp), bcrypt.DefaultCost)
+	if er != nil {
+		return ""
+	}
+	return string(res)
+}
+func VerifyOTP(hash, otp string) bool {
+	er := bcrypt.CompareHashAndPassword([]byte(hash), []byte(otp))
+	return er == nil
+}
+
 func GenerateState() string {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return ""
 	}
 	return base64.URLEncoding.EncodeToString(b)
-}
-
-func VerifyPassword(hash, pass string) bool {
-	er := bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass))
-	return er == nil
 }
 
 func IsValidEmail(email string) bool {

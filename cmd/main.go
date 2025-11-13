@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
@@ -21,6 +22,7 @@ import (
 func main() {
 
 	log := logger.InitLogger()
+	ctx := context.Background()
 
 	err := godotenv.Load()
 	if err != nil {
@@ -31,9 +33,11 @@ func main() {
 	smtp := cfg.SMTP
 	app := cfg.App
 	google := cfg.Google
+	redis := cfg.Redis
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pg.User, pg.Password, pg.Host, pg.Port, pg.DB)
 	pgdb := database.InitDB(dsn, log)
+	redisdb := database.InitRedis(ctx, redis, log)
 
 	mailer, err := mailer.NewGoMailer(smtp.Port, smtp.Host, smtp.User, smtp.Pass, smtp.User)
 	if err != nil {
@@ -43,7 +47,7 @@ func main() {
 	oauth := config.NewOAuthConfig(google.ClientID, google.ClientSecret, google.RedirectURL)
 
 	userRepo := repository.NewUserRepository(pgdb)
-	authRepo := repository.NewAuthRepository(pgdb)
+	authRepo := repository.NewAuthRepository(pgdb, redisdb)
 	adminRepo := repository.NewAdminRepository(pgdb)
 	categoryRepo := repository.NewCategoryRepository(pgdb)
 	productRepo := repository.NewProductRepository(pgdb)

@@ -6,17 +6,20 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/redis/go-redis/v9"
 )
 
 type AuthRepository struct {
-	DB *pgxpool.Pool
+	DB    *pgxpool.Pool
+	Redis *redis.Client
 }
 
-func NewAuthRepository(db *pgxpool.Pool) *AuthRepository {
-	return &AuthRepository{DB: db}
+func NewAuthRepository(db *pgxpool.Pool, redis *redis.Client) *AuthRepository {
+	return &AuthRepository{DB: db, Redis: redis}
 }
 
 func (r *AuthRepository) InsertOTP(ctx context.Context, email, otp string, expiresAt time.Time) error {
