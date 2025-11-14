@@ -139,14 +139,46 @@ func (repo *AuthRepository) GetPasswordResetToken(ctx context.Context, token str
 	return &passwordResetToken, nil
 }
 
-func (repo *AuthRepository) InvalidatePasswordResetToken(ctx context.Context, token string) error {
-	query := `UPDATE password_reset_tokens SET is_used = TRUE WHERE token = $1`
-	cmdTag, err := repo.DB.Exec(ctx, query, token)
+func (repo *AuthRepository) SetEmailVerificationToken(ctx context.Context, req *domain.AuthTokenData) error {
+	bytes, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal email update token: %w", err)
+	}
+
+	key := domain.EmailVerificationTokenPrefix + req.Token
+	err = repo.Redis.Set(ctx, key, bytes, time.Until(req.ExpiryAt)).Err()
+	if err != nil {
+		return fmt.Errorf("failed to set email update token: %w", err)
+	}
+	return nil
+}
+
+func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token string) (*domain.AuthTokenData, error) {
+	key := domain.EmailVerificationTokenPrefix + token
+	bytes, err := repo.Redis.Get(ctx, key).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, errors.New("INVALID_OR_EXPIRED_TOKEN")
+		}
+		return nil, fmt.Errorf("failed to get email verification token: %w", err)
+	}
+	var authTokenData domain.AuthTokenData
+	err = json.Unmarshal(bytes, &authTokenData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal email verification token: %w", err)
+	}
+	return &authTokenData, nil
+}
+
+func (repo *AuthRepository) UpdateEmail(ctx context.Context, currentEmail string, req *domain.AuthTokenData) error {
+
+	query := `UPDATE users SET email = $1 WHERE email = $2`
+	cmdTag, err := repo.DB.Exec(ctx, query, req.Email, currentEmail)
 	if err != nil {
 		return err
 	}
 	if cmdTag.RowsAffected() == 0 {
-		return errors.New("FAILED_TO_INVALIDATE_PASSWORD_RESET_TOKEN")
+		return errors.New("FAILED_TO_UPDATE_EMAIL")
 	}
 	return nil
 }

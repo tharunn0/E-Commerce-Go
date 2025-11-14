@@ -46,6 +46,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 	{
 		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		userProtected.POST("/email", h.User.UpdateUserEmail)
+		userProtected.GET("/email/verify-reset", h.User.VerifyEmailReset)
 		userProtected.GET("/profile", h.User.GetProfile)
 	}
 

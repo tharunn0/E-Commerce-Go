@@ -241,29 +241,6 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 	})
 }
 
-func (h *UserHandler) GetProfile(c *gin.Context) {
-	ctx := c.Request.Context()
-
-	userID, ok := ctx.Value(domain.KeyUserID).(float64)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "INVALID_REQUEST",
-			"message": "User ID not found",
-		})
-		return
-	}
-
-	userProfile, apiErr := h.service.GetUserProfile(ctx, int64(userID))
-	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   apiErr.Code,
-			"message": apiErr.Message,
-		})
-		return
-	}
-	c.JSON(http.StatusOK, userProfile)
-}
-
 func (h *UserHandler) GoogleSignIn(c *gin.Context) {
 
 	state := utils.GenerateState()
@@ -351,4 +328,78 @@ func (h *UserHandler) GoogleCallback(c *gin.Context) {
 
 	c.JSON(http.StatusOK, user)
 
+}
+
+func (h *UserHandler) UpdateUserEmail(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req domain.UpdateEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("invalid update email request payload", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid email address.",
+		})
+		return
+	}
+
+	apiErr := h.authserv.SendEmailVerificationLink(ctx, &req)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Email reset link sent successfully",
+	})
+}
+
+func (h *UserHandler) VerifyEmailReset(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req domain.VerifyEmailRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Url contains invalid token.",
+		})
+		return
+	}
+
+	apiErr := h.authserv.GetEmailTokenAndUpdateEmail(ctx, &req)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Email updated successfully",
+	})
+}
+
+func (h *UserHandler) GetProfile(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, ok := ctx.Value(domain.KeyUserID).(float64)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "User ID not found",
+		})
+		return
+	}
+
+	userProfile, apiErr := h.service.GetUserProfile(ctx, int64(userID))
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, userProfile)
 }

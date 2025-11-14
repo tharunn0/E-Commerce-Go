@@ -100,6 +100,13 @@ func IssueJWT(uid int64, email, role string, isverified bool, log *zap.Logger) (
 
 }
 
+func GetEmailFromContext(ctx context.Context) string {
+	if email, ok := ctx.Value(domain.KeyEmail).(string); ok {
+		return email
+	}
+	return ""
+}
+
 func GenerateOTP() (string, error) {
 	max := big.NewInt(900000)
 

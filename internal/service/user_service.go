@@ -85,7 +85,6 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 
 // login user
 func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest) (*domain.User, *apperror.APIError) {
-	serv.log.Info("login attempt started", zap.String("email", req.Email))
 
 	if !utils.IsValidEmail(req.Email) {
 		serv.log.Warn("invalid email format", zap.String("email", req.Email))
@@ -130,14 +129,6 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 			Message: "Invalid email or password.",
 		}
 	}
-
-	serv.log.Info("login successful",
-		zap.Int64("user_id", fetchedUser.ID),
-		zap.String("email", fetchedUser.Email),
-		zap.String("first_name", fetchedUser.FirstName),
-		zap.String("last_name", fetchedUser.LastName),
-		zap.String("role", string(fetchedUser.Role)),
-	)
 
 	return fetchedUser, nil
 }

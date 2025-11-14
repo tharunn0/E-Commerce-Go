@@ -230,10 +230,103 @@ func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.Passwor
 		}
 	}
 
-	err = serv.repo.InvalidatePasswordResetToken(ctx, data.Token)
-	if err != nil {
+	serv.log.Info("password reset successful", zap.String("email", data.Email))
+	return nil
+}
+
+func (serv *AuthService) SendEmailVerificationLink(ctx context.Context, req *domain.UpdateEmailRequest) *apperror.APIError {
+	if !utils.IsValidEmail(req.Email) {
+		return &apperror.APIError{
+			Code:    "INVALID_EMAIL",
+			Message: "Please provide a valid email address.",
+		}
 	}
 
-	serv.log.Info("password reset successful", zap.String("email", data.Email))
+	// generate token
+	token, err := utils.GenerateToken(16)
+	if err != nil {
+		return &apperror.APIError{
+			Code:    "TOKEN_GENERATION_FAILED",
+			Message: "Something went wrong generating a token.",
+		}
+	}
+
+	expiryTime := serv.cfg.EmailVerificationExpiry
+	expiryAt := time.Now().Add(time.Duration(expiryTime) * time.Minute)
+
+	// set token in redis
+	tokenData := &domain.AuthTokenData{
+		Email:    req.Email,
+		Token:    token,
+		ExpiryAt: expiryAt,
+	}
+	err = serv.repo.SetEmailVerificationToken(ctx, tokenData)
+	if err != nil {
+		serv.log.Error("Failed to set email reset token", zap.String("email", req.Email), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "TOKEN_SET_FAILED",
+			Message: "Could not set email reset token. Please try again.",
+		}
+	}
+
+	// send email verification link
+	verificationLink := "/verify-email?token=" + token
+	emailData := struct {
+		VerificationLink string
+		ExpiryInMinutes  int
+		Year             string
+	}{
+		VerificationLink: verificationLink,
+		ExpiryInMinutes:  expiryTime,
+		Year:             strconv.Itoa(time.Now().Year()),
+	}
+	err = serv.sender.SendMail(ctx, "./pkg/mailer/update-mail.html", req.Email, "Email Verification", emailData)
+	if err != nil {
+		serv.log.Error("Failed to send email reset link", zap.String("email", req.Email), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "SEND_RESET_EMAIL_FAILED",
+			Message: "Failed to send email reset link. Please try again.",
+		}
+	}
+	serv.log.Info("Email reset link sent successfully", zap.String("email", req.Email))
+	return nil
+}
+
+func (serv *AuthService) GetEmailTokenAndUpdateEmail(ctx context.Context, req *domain.VerifyEmailRequest) *apperror.APIError {
+	tokenData, err := serv.repo.GetEmailVerificationToken(ctx, req.Token)
+	if err != nil {
+		if err == apperror.ErrTokenInvalid {
+			return &apperror.APIError{
+				Code:    "INVALID_OR_EXPIRED_TOKEN",
+				Message: "Email reset token is invalid or expired.",
+			}
+		}
+		serv.log.Error("Failed to get email reset token", zap.String("token", req.Token), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "TOKEN_FETCH_FAILED",
+			Message: "Something went wrong. Please try again.",
+		}
+	}
+
+	// get current email from context
+	currentEmail := utils.GetEmailFromContext(ctx)
+	if currentEmail == "" {
+		return &apperror.APIError{
+			Code:    "EMAIL_NOT_FOUND",
+			Message: "Email not found in context.",
+		}
+	}
+
+	// update email
+	err = serv.repo.UpdateEmail(ctx, currentEmail, tokenData)
+	if err != nil {
+		serv.log.Error("Failed to update email", zap.String("email", tokenData.Email), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "EMAIL_UPDATE_FAILED",
+			Message: "Failed to update email. Please try again.",
+		}
+	}
+
+	serv.log.Info("Email updated successfully", zap.String("email", tokenData.Email))
 	return nil
 }

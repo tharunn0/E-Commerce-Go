@@ -49,10 +49,11 @@ type PostgresSettings struct {
 }
 
 type SecuritySettings struct {
-	JWTSecret           string
-	JWTExpiryMinutes    int
-	OTPExpiryMinutes    int
-	PasswordResetExpiry int
+	JWTSecret               string
+	JWTExpiryMinutes        int
+	OTPExpiryMinutes        int
+	PasswordResetExpiry     int
+	EmailVerificationExpiry int
 }
 
 func LoadConfig() *AppConfig {
@@ -92,10 +93,11 @@ func LoadConfig() *AppConfig {
 		},
 
 		Security: SecuritySettings{
-			JWTSecret:           getEnv("JWT_SECRET", ""),
-			JWTExpiryMinutes:    getEnvAsInt("JWT_EXPIRY", 60),
-			OTPExpiryMinutes:    getEnvAsInt("OTP_EXPIRY", 5),
-			PasswordResetExpiry: getEnvAsInt("PASSWORD_RESET_EXPIRY", 15),
+			JWTSecret:               getEnv("JWT_SECRET", ""),
+			JWTExpiryMinutes:        getEnvAsInt("JWT_EXPIRY", 60),
+			OTPExpiryMinutes:        getEnvAsInt("OTP_EXPIRY", 5),
+			PasswordResetExpiry:     getEnvAsInt("PASSWORD_RESET_EXPIRY", 15),
+			EmailVerificationExpiry: getEnvAsInt("EMAIL_VERIFICATION_EXPIRY", 15),
 		},
 	}
 }
