@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 
 	"github.com/jackc/pgx/v5"
@@ -22,40 +24,42 @@ func NewAuthRepository(db *pgxpool.Pool, redis *redis.Client) *AuthRepository {
 	return &AuthRepository{DB: db, Redis: redis}
 }
 
-func (r *AuthRepository) InsertOTP(ctx context.Context, email, otp string, expiresAt time.Time) error {
+func (r *AuthRepository) InsertOTP(ctx context.Context, otpdata *domain.OTP) error {
 
-	query := `INSERT INTO otps (email, otp, expiry_at, created_at)
-	VALUES ($1, $2, $3, now())`
-	cmdTag, err := r.DB.Exec(ctx, query, email, otp, expiresAt)
-
-	fmt.Println("cmdTag", cmdTag, email, otp, expiresAt, err)
-
-	if cmdTag.RowsAffected() == 0 {
-		return fmt.Errorf("failed to insert OTP")
+	bytes, err := json.Marshal(otpdata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal OTP data: %w", err)
 	}
 
-	return err
+	key := "auth:otp:" + otpdata.Email
+
+	err = r.Redis.Set(ctx, key, bytes, time.Until(otpdata.ExpiresAt)).Err()
+	if err != nil {
+		return fmt.Errorf("failed to set OTP in Redis: %w", err)
+	}
+
+	return nil
 }
 
 func (r *AuthRepository) GetLatestOTP(email string) (*domain.OTP, error) {
 
-	var otp domain.OTP
-	query := `SELECT id, email, otp, expiry_at, is_used, created_at
-              FROM otps WHERE email = $1 ORDER BY created_at DESC LIMIT 1`
-	err := r.DB.QueryRow(context.Background(), query, email).Scan(
-		&otp.ID,
-		&otp.Email,
-		&otp.OTP,
-		&otp.ExpiresAt,
-		&otp.Verified,
-		&otp.CreatedAt,
-	)
+	key := "auth:otp:" + email
 
+	bytes, err := r.Redis.Get(context.Background(), key).Bytes()
 	if err != nil {
-		return nil, err
+		if err == redis.Nil {
+			return nil, apperror.ErrOTPExpired
+		}
+		return nil, fmt.Errorf("failed to get OTP from Redis: %w", err)
 	}
 
-	return &otp, nil
+	var otpdata domain.OTP
+	err = json.Unmarshal(bytes, &otpdata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal OTP data: %w", err)
+	}
+
+	return &otpdata, nil
 }
 
 func (r *AuthRepository) MarkVerified(id int64) error {
@@ -64,17 +68,24 @@ func (r *AuthRepository) MarkVerified(id int64) error {
 }
 
 func (r *AuthRepository) UpdateOTP(email, otp string, expiresAt time.Time) error {
-	query := `UPDATE otps 
-		SET otp = $1, expires_at = $2, created_at = now() 
-		WHERE email = $3`
+	// query := `UPDATE otps
+	// 	SET otp = $1, expires_at = $2, created_at = now()
+	// 	WHERE email = $3`
 
-	cmdTag, err := r.DB.Exec(context.Background(), query, otp, expiresAt, email)
+	// cmdTag, err := r.DB.Exec(context.Background(), query, otp, expiresAt, email)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to update OTP: %w", err)
+	// }
+
+	// if cmdTag.RowsAffected() == 0 {
+	// 	return fmt.Errorf("no OTP record found for email: %s", email)
+	// }
+
+	// return nil
+
+	err := r.Redis.Set(context.Background(), email, otp, expiresAt.Sub(time.Now())).Err()
 	if err != nil {
 		return fmt.Errorf("failed to update OTP: %w", err)
-	}
-
-	if cmdTag.RowsAffected() == 0 {
-		return fmt.Errorf("no OTP record found for email: %s", email)
 	}
 
 	return nil

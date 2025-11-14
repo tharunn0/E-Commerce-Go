@@ -64,7 +64,7 @@ func main() {
 	productHandler := handler.NewProductHandler(productServ, log)
 
 	r := gin.New()
-	r.Use(gin.Recovery(), gin.Logger(), middleware.RequestLogger(log))
+	r.Use(gin.Recovery(), middleware.RequestLogger(log))
 
 	handler := routes.NewHandler(userHandler, adminHandler, categoryHandler, productHandler)
 

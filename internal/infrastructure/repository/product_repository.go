@@ -207,8 +207,6 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		products = append(products, &p)
 	}
 
-	fmt.Println(pids)
-
 	query = `SELECT product_id, MIN(price_difference) FROM product_variants WHERE product_id = ANY($1) GROUP BY product_id`
 	rows, err = repo.DB.Query(ctx, query, pids)
 	if err != nil {
@@ -223,10 +221,8 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		if err != nil {
 			return nil, 0, err
 		}
-		fmt.Println(id, pricediff)
 		m[id] = pricediff
 	}
-	fmt.Println("m", m)
 
 	for _, p := range products {
 		p.MinPrice = m[p.ID]

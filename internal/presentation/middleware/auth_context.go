@@ -46,8 +46,8 @@ func AuthContextMiddleware(log *zap.Logger, jwtsecret string) gin.HandlerFunc {
 					if r, ok := claims["role"].(string); ok && (r == roleAdmin || r == roleUser) {
 						role = r
 					}
-					if uid, ok := claims["user_id"].(int); ok {
-						userID = uid
+					if uid, ok := claims["user_id"].(float64); ok {
+						userID = int(uid)
 					}
 					verified = claims["verified"] == true
 					log.Debug("JWT validated", zap.Int("userId", userID), zap.String("role", role))

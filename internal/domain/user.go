@@ -31,7 +31,7 @@ type User struct {
 	Password         string     `json:"password"`
 	FirstName        string     `json:"firstName"`
 	LastName         string     `json:"lastName"`
-	Role             string     `json:"role"`
+	Role             string     `json:"role,omitempty"`
 	IsVerified       bool       `json:"isVerified"`
 	Status           string     `json:"status"`
 	DefaultAddressID *int64     `json:"defaultAddressId,omitempty"`
@@ -50,7 +50,7 @@ type UserProfile struct {
 	Status           string     `json:"status"`
 	DefaultAddressID *int64     `json:"defaultAddressId,omitempty"`
 	CreatedAt        *time.Time `json:"createdAt"`
-	UpdatedAt        *time.Time `json:"updatedAt"`
+	UpdatedAt        *time.Time `json:"updatedAt,omitempty"`
 
 	Addresses []*UserAddress `json:"addresses,omitempty"`
 }

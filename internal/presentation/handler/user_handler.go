@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -118,16 +117,25 @@ func (h *UserHandler) LoginUser(c *gin.Context) {
 
 func (h *UserHandler) SendOTP(c *gin.Context) {
 
-	email, ok := c.Request.Context().Value(domain.KeyEmail).(string)
-	if !ok {
-		fmt.Println("failed to extract email from key ,")
+	type SendOTPReq struct {
+		Email string `json:"email" validate:"required,email"`
 	}
-	fmt.Println("email ", email)
+	var req SendOTPReq
 
-	apiErr := h.authserv.SendOTP(email)
+	ctx := c.Request.Context()
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("invalid send OTP request payload", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid email address.",
+		})
+		return
+	}
+
+	apiErr := h.authserv.SendOTP(ctx, req.Email)
 	if apiErr != nil {
 		h.logger.Warn("OTP send failed",
-			zap.String("email", email),
+			zap.String("email", req.Email),
 			zap.String("code", apiErr.Code),
 			zap.String("message", apiErr.Message),
 		)
@@ -214,6 +222,7 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 			"error":   "INVALID_REQUEST",
 			"message": "Please provide a valid email and token.",
 		})
+		return
 	}
 
 	req.Token = token
@@ -234,9 +243,17 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	ctx := c.Request.Context()
-	userID := c.Value(domain.KeyUserID).(int64)
 
-	userProfile, apiErr := h.service.GetUserProfile(ctx, userID)
+	userID, ok := ctx.Value(domain.KeyUserID).(float64)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "User ID not found",
+		})
+		return
+	}
+
+	userProfile, apiErr := h.service.GetUserProfile(ctx, int64(userID))
 	if apiErr != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   apiErr.Code,
@@ -248,8 +265,6 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 }
 
 func (h *UserHandler) GoogleSignIn(c *gin.Context) {
-
-	fmt.Println("received request for google signin")
 
 	state := utils.GenerateState()
 	if state == "" {
@@ -263,15 +278,11 @@ func (h *UserHandler) GoogleSignIn(c *gin.Context) {
 
 	redirectURL := h.oauth.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
-	fmt.Println("redirect url :", redirectURL)
-
 	c.Redirect(http.StatusFound, redirectURL)
 
 }
 
 func (h *UserHandler) GoogleCallback(c *gin.Context) {
-
-	fmt.Println("received callback from google ")
 
 	code := c.Query("code")
 	state, err := c.Cookie("oauth_state")

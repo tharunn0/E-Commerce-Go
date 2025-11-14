@@ -31,12 +31,11 @@ func NewAuthService(Repo domain.AuthRepository, Sender *mailer.MailSender, logge
 	}
 }
 
-func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
-	ctx := context.Background()
-	exp := serv.cfg.OTPExpiryMinutes
+func (serv *AuthService) SendOTP(ctx context.Context, toAddr string) *apperror.APIError {
 
 	otp, err := utils.GenerateOTP()
 	if err != nil {
+		serv.log.Error("OTP generation failed", zap.String("service", "auth-service"), zap.String("function", "sendotp"), zap.Error(err))
 		return &apperror.APIError{
 			Code:    "OTP_GENERATION_FAILED",
 			Message: "Could not generate OTP. Please try again.",
@@ -44,8 +43,15 @@ func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
 	}
 
 	otpHash := utils.HashOTP(otp)
+	exp := serv.cfg.OTPExpiryMinutes
 	expiresAt := time.Now().Add(time.Duration(exp) * time.Minute)
-	if err := serv.repo.InsertOTP(ctx, toAddr, otp, expiresAt); err != nil {
+	otpdata := &domain.OTP{
+		Email:     toAddr,
+		OTP:       otpHash,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+	}
+	if err := serv.repo.InsertOTP(ctx, otpdata); err != nil {
 		return &apperror.APIError{
 			Code:    "OTP_SAVE_FAILED",
 			Message: "Could not save OTP. Please try again.",
@@ -53,13 +59,13 @@ func (serv *AuthService) SendOTP(toAddr string) *apperror.APIError {
 	}
 
 	data := struct {
-		OTP    string
-		Expiry int
-		Year   string
+		OTP             string
+		ExpiryInMinutes int
+		Year            string
 	}{
-		OTP:    otpHash,
-		Expiry: exp,
-		Year:   strconv.Itoa(time.Now().Year()),
+		OTP:             otp,
+		ExpiryInMinutes: exp,
+		Year:            strconv.Itoa(time.Now().Year()),
 	}
 
 	toAddr = strings.ToLower(toAddr)
@@ -80,6 +86,12 @@ func (serv *AuthService) VerifyOTP(email, otp string) *apperror.APIError {
 
 	otpRecord, err := serv.repo.GetLatestOTP(email)
 	if err != nil {
+		if err == apperror.ErrOTPExpired {
+			return &apperror.APIError{
+				Code:    "OTP_EXPIRED",
+				Message: "Your OTP has expired. Please request a new one.",
+			}
+		}
 		serv.log.Error("OTP verification failed", zap.String("email", email), zap.Error(err))
 		return &apperror.APIError{
 			Code:    "OTP_FETCH_FAILED",
@@ -154,13 +166,13 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 
 	resetLink := "/reset-password?token=" + token
 	emailData := struct {
-		ResetLink string
-		Expiry    int
-		Year      string
+		ResetLink       string
+		ExpiryInMinutes int
+		Year            string
 	}{
-		ResetLink: resetLink,
-		Expiry:    expiryTime,
-		Year:      strconv.Itoa(time.Now().Year()),
+		ResetLink:       resetLink,
+		ExpiryInMinutes: expiryTime,
+		Year:            strconv.Itoa(time.Now().Year()),
 	}
 	// "./pkg/mailer/verification-mail-template.html"
 

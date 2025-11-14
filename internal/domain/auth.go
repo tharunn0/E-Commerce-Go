@@ -6,7 +6,7 @@ import (
 )
 
 type AuthRepository interface {
-	InsertOTP(ctx context.Context, email, otpHash string, expiresAt time.Time) error
+	InsertOTP(ctx context.Context, otpdata *OTP) error
 	GetLatestOTP(email string) (*OTP, error)
 	MarkVerified(id int64) error
 	UpdateOTP(email, otp string, expiresAt time.Time) error
@@ -19,7 +19,7 @@ type AuthRepository interface {
 
 type OTP struct {
 	ID        int64
-	Email     string
+	Email     string `json:"email" validate:"required,email"`
 	OTP       string
 	ExpiresAt time.Time
 	Verified  bool

@@ -158,7 +158,6 @@ func (repo *AdminRepository) UpdateUserStatus(ctx context.Context, req *domain.U
 		`UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`,
 		req.Status, req.UserID)
 	if err != nil {
-		fmt.Println("Error updating user status: ", err)
 		return err
 	}
 	return nil

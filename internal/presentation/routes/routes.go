@@ -40,13 +40,13 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		userAuth.POST("/reset-password/", h.User.ResetPassword)
 		userAuth.GET("/google", h.User.GoogleSignIn)
 		userAuth.GET("/google/callback", h.User.GoogleCallback)
+		userAuth.POST("/verify-otp", h.User.VerifyOTP)
+		userAuth.POST("/send-otp", h.User.SendOTP)
 	}
 
 	{
 		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
 		userProtected.GET("/profile", h.User.GetProfile)
-		userProtected.POST("/verify-otp", h.User.VerifyOTP)
-		userProtected.POST("/send-otp", h.User.SendOTP)
 	}
 
 	adminAuth := g.Group("/api/v1/auth/admin/")

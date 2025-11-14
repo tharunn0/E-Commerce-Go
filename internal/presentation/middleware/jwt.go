@@ -55,7 +55,6 @@ func JWTMiddleware(role string, log *zap.Logger, jwtsecret string) gin.HandlerFu
 		})
 
 		if err != nil || !token.Valid {
-			fmt.Println(err, token.Valid)
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "INVALID_TOKEN",
 				"message": "Invalid or expired token",
@@ -74,6 +73,15 @@ func JWTMiddleware(role string, log *zap.Logger, jwtsecret string) gin.HandlerFu
 			return
 		}
 
+		if claims["verified"] == false {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "UNVERIFIED_ACCOUNT",
+				"message": "Unauthorized. Please verify your account.",
+			})
+			c.Abort()
+			return
+		}
+
 		userRole, ok := claims["role"].(string)
 		if !ok || userRole != role {
 			c.JSON(http.StatusForbidden, gin.H{
@@ -83,16 +91,6 @@ func JWTMiddleware(role string, log *zap.Logger, jwtsecret string) gin.HandlerFu
 			c.Abort()
 			return
 		}
-
-		// c.Set("user_id", claims["user_id"])
-		// c.Set("email", claims["email"])
-		// c.Set("role", claims["role"])
-		// c.Set("verified", claims["verified"])
-
-		for k, v := range claims {
-			fmt.Println(k, v)
-		}
-
 		ctx := c.Request.Context()
 		ctx = context.WithValue(ctx, domain.KeyUserID, claims["user_id"])
 		ctx = context.WithValue(ctx, domain.KeyRole, claims["role"])

@@ -33,6 +33,7 @@ var (
 	ErrTokenExpired   = errors.New("Token expired")
 	ErrTokenInvalid   = errors.New("Invalid token")
 	ErrSessionExpired = errors.New("Session expired")
+	ErrOTPExpired     = errors.New("OTP has expired")
 )
 
 // Business rule errors (optional)

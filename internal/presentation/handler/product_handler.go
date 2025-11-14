@@ -121,16 +121,8 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_QUERY_PARAMETERS", "message": err})
+		return
 	}
-
-	// filter.Page, _ = strconv.Atoi(c.Query("page"))
-	// filter.Limit, _ = strconv.Atoi(c.Query("limit"))
-	// filter.Search = c.Query("search")
-	// filter.Sort = c.Query("sort")
-	// filter.Order = c.Query("order")
-	// tmax, _ := strconv.Atoi(c.Query("max_price"))
-	// tmin, _ := strconv.Atoi(c.Query("min_price"))
-	// filter.MaxPrice, filter.MinPrice = float64(tmax), float64(tmin)
 
 	products, total, apierr := h.service.GetProducts(ctx, &filter)
 	if apierr != nil {

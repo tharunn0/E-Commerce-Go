@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -169,12 +168,13 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 		Email:            user.Email,
 		FirstName:        user.FirstName,
 		LastName:         user.LastName,
+		Phone:            &user.Phone,
+		Role:             user.Role,
 		IsVerified:       user.IsVerified,
 		DefaultAddressID: user.DefaultAddressID,
 		Status:           user.Status,
 		CreatedAt:        &user.CreatedAt,
-
-		Addresses: addresses,
+		Addresses:        addresses,
 	}
 
 	return &userProfile, nil
@@ -226,16 +226,17 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 
 	token, err := utils.IssueJWT(user.ID, user.Email, user.Role, user.IsVerified, serv.log)
 	if err != nil {
-		fmt.Println(err)
+		serv.log.Error("Failed to issue jwt", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
-			Code:    "TOKEN_GENERATION_FAILED",
-			Message: "Could not generate token.",
+			Code:    "JWT_GENERATION_FAILED",
+			Message: "Could not generate token. Please try again.",
 		}
 	}
 
 	resp := domain.LoginResponse{
 		Token: token,
 	}
+
 	resp.User.ID = user.ID
 	resp.User.Email = user.Email
 	resp.User.FirstName = user.FirstName
