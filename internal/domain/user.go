@@ -12,6 +12,7 @@ type UserRepository interface {
 	GoogleSignIn(ctx context.Context, req *GoogleSignInRequest) (*User, error)
 	InsertUserAddress(ctx context.Context, address *UserAddress) error
 	GetUserAddresses(ctx context.Context, userID int64) ([]*UserAddress, error)
+	UpdateUserProfile(ctx context.Context, userID int64, req *UpdateUserProfileRequest) (*UserProfile, error)
 }
 
 type AdminRepository interface {
@@ -45,9 +46,9 @@ type UserProfile struct {
 	FirstName        string     `json:"firstName"`
 	LastName         string     `json:"lastName"`
 	Phone            *string    `json:"phone"`
-	Role             string     `json:"role"`
+	Role             *string    `json:"role,omitempty"`
 	IsVerified       bool       `json:"isVerified"`
-	Status           string     `json:"status"`
+	Status           *string    `json:"status,omitempty"`
 	DefaultAddressID *int64     `json:"defaultAddressId,omitempty"`
 	CreatedAt        *time.Time `json:"createdAt"`
 	UpdatedAt        *time.Time `json:"updatedAt,omitempty"`
@@ -124,4 +125,9 @@ type PasswordResetToken struct {
 type UserStatusUpdateRequest struct {
 	UserID int64  `json:"user_id" validate:"required"`
 	Status string `json:"status" validate:"required,oneof=active inactive"`
+}
+type UpdateUserProfileRequest struct {
+	FirstName *string `json:"firstName" validate:"omitempty"`
+	LastName  *string `json:"lastName" validate:"omitempty"`
+	Phone     *string `json:"phone" validate:"omitempty"`
 }

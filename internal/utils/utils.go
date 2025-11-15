@@ -107,6 +107,13 @@ func GetEmailFromContext(ctx context.Context) string {
 	return ""
 }
 
+func GetUserIDFromContext(ctx context.Context) (int64, error) {
+	if userID, ok := ctx.Value(domain.KeyUserID).(float64); ok {
+		return int64(userID), nil
+	}
+	return 0, fmt.Errorf("user ID not found in context")
+}
+
 func GenerateOTP() (string, error) {
 	max := big.NewInt(900000)
 

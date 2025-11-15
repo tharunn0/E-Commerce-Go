@@ -49,6 +49,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		userProtected.POST("/email", h.User.UpdateUserEmail)
 		userProtected.GET("/email/verify-reset", h.User.VerifyEmailReset)
 		userProtected.GET("/profile", h.User.GetProfile)
+		userProtected.PATCH("/profile", h.User.UpdateUserProfile)
 	}
 
 	adminAuth := g.Group("/api/v1/auth/admin/")

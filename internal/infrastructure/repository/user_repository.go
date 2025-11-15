@@ -175,3 +175,30 @@ func (repo *UserRepository) GetDefaultUserAddress(ctx context.Context, addressID
 	}
 	return &userAddress, nil
 }
+
+func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, error) {
+	query := `
+	UPDATE users SET
+        first_name = COALESCE($1, first_name),
+        last_name  = COALESCE($2, last_name),
+        phone      = COALESCE($3, phone)
+    WHERE id = $4
+    RETURNING id, email, first_name, last_name, phone, is_verified, created_at`
+
+	var updatedProfile domain.UserProfile
+	err := repo.DB.QueryRow(ctx, query, req.FirstName, req.LastName, req.Phone, userID).Scan(
+		&updatedProfile.ID, &updatedProfile.Email, &updatedProfile.FirstName, &updatedProfile.LastName,
+		&updatedProfile.Phone, &updatedProfile.IsVerified, &updatedProfile.CreatedAt)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.ConstraintName {
+			case "users_phone_key":
+				return nil, apperror.ErrPhoneExists
+			}
+		}
+		return nil, err
+	}
+	return &updatedProfile, nil
+}

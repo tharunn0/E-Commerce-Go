@@ -133,70 +133,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	return fetchedUser, nil
 }
 
-// get user profile
-func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*domain.UserProfile, *apperror.APIError) {
-
-	user, err := serv.repo.GetUserByID(ctx, userID)
-	if err != nil {
-		serv.log.Debug("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
-		return nil, &apperror.APIError{
-			Code:    "DB_ERROR",
-			Message: "Failed to fetch user profile.",
-		}
-	}
-
-	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
-	if err != nil {
-		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
-		return nil, &apperror.APIError{
-			Code:    "DB_ERROR",
-			Message: "Failed to fetch user addresses.",
-		}
-	}
-
-	var userProfile = domain.UserProfile{
-		ID:               user.ID,
-		Email:            user.Email,
-		FirstName:        user.FirstName,
-		LastName:         user.LastName,
-		Phone:            &user.Phone,
-		Role:             user.Role,
-		IsVerified:       user.IsVerified,
-		DefaultAddressID: user.DefaultAddressID,
-		Status:           user.Status,
-		CreatedAt:        &user.CreatedAt,
-		Addresses:        addresses,
-	}
-
-	return &userProfile, nil
-}
-
-// add user address
-func (serv *UserService) AddUserAddress(ctx context.Context, address *domain.UserAddress) *apperror.APIError {
-	err := serv.repo.InsertUserAddress(ctx, address)
-	if err != nil {
-		serv.log.Debug("failed to insert user address into db", zap.Int64("user_id", address.UserID), zap.Error(err))
-		return &apperror.APIError{
-			Code:    "DB_ERROR",
-			Message: "Failed to add user address.",
-		}
-	}
-	return nil
-}
-
-// get user addresses
-func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, *apperror.APIError) {
-	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
-	if err != nil {
-		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
-		return nil, &apperror.APIError{
-			Code:    "DB_ERROR",
-			Message: "Failed to fetch user addresses.",
-		}
-	}
-	return addresses, nil
-}
-
+// oauth sign in
 func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSignInRequest) (*domain.LoginResponse, *apperror.APIError) {
 
 	user, err := serv.repo.GoogleSignIn(ctx, req)
@@ -235,4 +172,95 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 	resp.User.Role = string(user.Role)
 
 	return &resp, nil
+}
+
+// get user profile
+func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*domain.UserProfile, *apperror.APIError) {
+
+	user, err := serv.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		serv.log.Debug("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to fetch user profile.",
+		}
+	}
+
+	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
+	if err != nil {
+		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to fetch user addresses.",
+		}
+	}
+
+	var userProfile = domain.UserProfile{
+		ID:               user.ID,
+		Email:            user.Email,
+		FirstName:        user.FirstName,
+		LastName:         user.LastName,
+		Phone:            &user.Phone,
+		Role:             &user.Role,
+		IsVerified:       user.IsVerified,
+		DefaultAddressID: user.DefaultAddressID,
+		Status:           &user.Status,
+		CreatedAt:        &user.CreatedAt,
+		Addresses:        addresses,
+	}
+
+	return &userProfile, nil
+}
+
+// update user profile
+func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, *apperror.APIError) {
+
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
+	updatedProfile, err := serv.repo.UpdateUserProfile(ctx, userID, req)
+	if err != nil {
+		if err == apperror.ErrPhoneExists {
+			return nil, &apperror.APIError{
+				Code:    "PHONE_ALREADY_EXISTS",
+				Message: "A user with this phone number already exists.",
+			}
+		}
+		serv.log.Debug("failed to update user profile in db", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to update user profile.",
+		}
+	}
+	return updatedProfile, nil
+}
+
+// add user address
+func (serv *UserService) AddUserAddress(ctx context.Context, address *domain.UserAddress) *apperror.APIError {
+	err := serv.repo.InsertUserAddress(ctx, address)
+	if err != nil {
+		serv.log.Debug("failed to insert user address into db", zap.Int64("user_id", address.UserID), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to add user address.",
+		}
+	}
+	return nil
+}
+
+// get user addresses
+func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, *apperror.APIError) {
+	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
+	if err != nil {
+		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to fetch user addresses.",
+		}
+	}
+	return addresses, nil
 }

@@ -403,3 +403,26 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, userProfile)
 }
+
+func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req domain.UpdateUserProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("invalid update user profile request payload", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid user profile.",
+		})
+		return
+	}
+	userProfile, apiErr := h.service.UpdateUserProfile(ctx, &req)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	h.logger.Info("user profile updated successfully", zap.Int64("user_id", userProfile.ID), zap.String("email", userProfile.Email))
+	c.JSON(http.StatusOK, userProfile)
+}
