@@ -106,15 +106,23 @@ func (repo *ProductRepository) DeleteBrand(ctx context.Context, id int64) error 
 // Product operations
 // //////////////////////////////////////////////////////////
 func (repo *ProductRepository) CreateProduct(ctx context.Context, product *domain.CreateProductRequest) (*domain.Product, error) {
+
+	if product.MinPrice == nil {
+		*product.MinPrice = 0
+	}
+	if product.MaxPrice == nil {
+		*product.MaxPrice = 0
+	}
+
 	query := `
-		INSERT INTO products (name, brand_id, description, category_id, base_price, is_digital, is_active, image_url)
+		INSERT INTO products (name, brand_id, description, category_id, min_price, max_price, is_digital, is_active, image_url)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, name, brand_id, description, category_id, base_price, is_digital, is_active, image_url, created_at, updated_at
+		RETURNING id, name, brand_id, description, category_id, min_price, max_price, is_digital, is_active, image_url, created_at, updated_at
 	`
 	var created domain.Product
 	err := repo.DB.QueryRow(ctx, query, product.Name, product.BrandID, product.Description, product.CategoryId,
-		product.BasePrice, product.IsDigital, product.IsActive, product.ImageURL).Scan(&created.ID, &created.Name, &created.BrandID, &created.Description,
-		&created.CategoryId, &created.BasePrice, &created.IsDigital, &created.IsActive, &created.ImageURL, &created.CreatedAt, &created.UpdatedAt)
+		product.MinPrice, product.MaxPrice, product.IsDigital, product.IsActive, product.ImageURL).Scan(&created.ID, &created.Name, &created.BrandID, &created.Description,
+		&created.CategoryId, &created.MinPrice, &created.MaxPrice, &created.IsDigital, &created.IsActive, &created.ImageURL, &created.CreatedAt, &created.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +142,7 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 
 	query = `
 		SELECT p.id, p.name,b.id as brand_id, b.name as brand_name, COALESCE(p.description, ''),
-		 c.id as category_id, c.name as category_name,COALESCE(r.avg_rating,0) as rating, p.base_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at
+		 c.id as category_id, c.name as category_name,COALESCE(r.avg_rating,0) as rating, p.min_price, p.max_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at
 		FROM products p
 		LEFT JOIN brands b ON p.brand_id = b.id
 		LEFT JOIN categories c ON p.category_id = c.id
@@ -165,10 +173,10 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 	}
 
 	if filter.MinPrice > 0 {
-		query += fmt.Sprintf(" AND p.base_price > %.2f", filter.MinPrice)
+		query += fmt.Sprintf(" AND p.min_price > %.2f", filter.MinPrice)
 	}
 	if filter.MaxPrice > 0 {
-		query += fmt.Sprintf(" AND p.base_price < %.2f", filter.MaxPrice)
+		query += fmt.Sprintf(" AND p.max_price < %.2f", filter.MaxPrice)
 	}
 
 	if filter.Sort != "" {
@@ -200,7 +208,7 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 	for rows.Next() {
 		var p domain.ProductResponse
 		if err := rows.Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID, &p.Category.Name,
-			&p.Rating, &p.BasePrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.Rating, &p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		pids = append(pids, p.ID)
@@ -234,7 +242,7 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, activeOnly bool) (*domain.ProductResponse, error) {
 	query := `
 		SELECT p.id, p.name, p.brand_id,b.name as brand_name, COALESCE(p.description, ''), p.category_id,c.name as category_name,
-	 	p.base_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at FROM products p
+	 	p.min_price, p.max_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at FROM products p
 		LEFT JOIN brands b ON p.brand_id = b.id
 		LEFT JOIN categories c ON p.category_id = c.id
 		WHERE p.id = $1
@@ -245,16 +253,10 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 	var p domain.ProductResponse
 
 	err := repo.DB.QueryRow(ctx, query, id).Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID,
-		&p.Category.Name, &p.BasePrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
-
-	var pricediff float64
-	query = `SELECT MIN(price_different) FROM product_variants WHERE product_id = $1`
-	err = repo.DB.QueryRow(ctx, query, p.ID).Scan(&pricediff)
-	if err != nil || pricediff == 0 {
-		p.MinPrice = p.BasePrice
+		&p.Category.Name, &p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
+	if err != nil {
+		return nil, err
 	}
-
-	p.MinPrice = p.BasePrice + pricediff
 
 	return &p, nil
 }
@@ -262,12 +264,12 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 func (repo *ProductRepository) UpdateProduct(ctx context.Context, product *domain.UpdateProductRequest) error {
 	query := `UPDATE products
 	SET name = COALESCE($1,name), brand_id = COALESCE($2,brand_id), description = COALESCE($3,description),
-	 category_id = COALESCE($4,category_id), image_url = COALESCE($5,image_url), base_price = COALESCE($6,base_price),
-	 is_digital = COALESCE($7,is_digital), is_active = COALESCE($8,is_active), updated_at = now()
+	 category_id = COALESCE($4,category_id), image_url = COALESCE($5,image_url), min_price = COALESCE($6,min_price), max_price = COALESCE($7,max_price),
+	 is_digital = COALESCE($8,is_digital), is_active = COALESCE($9,is_active), updated_at = now()
 	WHERE id = $9
 	`
 	cmdTag, err := repo.DB.Exec(ctx, query, product.Name, product.BrandID, product.Description,
-		product.CategoryId, product.ImageURL, product.BasePrice, product.IsDigital, product.IsActive, product.ID)
+		product.CategoryId, product.ImageURL, product.MinPrice, product.MaxPrice, product.IsDigital, product.IsActive, product.ID)
 	if err != nil {
 		return err
 	}

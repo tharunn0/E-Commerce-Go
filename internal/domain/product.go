@@ -75,7 +75,8 @@ type Product struct {
 	BrandID     *int64    `json:"brand_id,omitempty"`
 	Description string    `json:"description" binding:"required"`
 	CategoryId  *int64    `json:"category_id" binding:"required"`
-	BasePrice   float64   `json:"base_price" binding:"required"`
+	MinPrice    float64   `json:"min_price" binding:"required"`
+	MaxPrice    float64   `json:"max_price" binding:"required"`
 	IsDigital   bool      `json:"is_digital"`
 	IsActive    bool      `json:"is_active"`
 	ImageURL    string    `json:"image_url"`
@@ -84,14 +85,15 @@ type Product struct {
 }
 
 type CreateProductRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	BrandID     *int64  `json:"brand_id,omitempty"`
-	Description string  `json:"description" binding:"required"`
-	CategoryId  *int64  `json:"category_id" binding:"required"`
-	BasePrice   float64 `json:"base_price" binding:"required"`
-	IsDigital   bool    `json:"is_digital"`
-	IsActive    bool    `json:"is_active"`
-	ImageURL    string  `json:"image_url"`
+	Name        string   `json:"name" binding:"required"`
+	BrandID     *int64   `json:"brand_id,omitempty"`
+	Description string   `json:"description" binding:"required"`
+	CategoryId  *int64   `json:"category_id" binding:"required"`
+	MinPrice    *float64 `json:"min_price,omitempty"`
+	MaxPrice    *float64 `json:"max_price,omitempty"`
+	IsDigital   bool     `json:"is_digital"`
+	IsActive    bool     `json:"is_active"`
+	ImageURL    string   `json:"image_url"`
 }
 
 type ProductStatusRequest struct {
@@ -105,7 +107,8 @@ type UpdateProductRequest struct {
 	BrandID     *int64   `json:"brand_id,omitempty"`
 	Description *string  `json:"description,omitempty"`
 	CategoryId  *int64   `json:"category_id,omitempty"`
-	BasePrice   *float64 `json:"base_price,omitempty"`
+	MinPrice    *float64 `json:"min_price,omitempty"`
+	MaxPrice    *float64 `json:"max_price,omitempty"`
 	IsDigital   *bool    `json:"is_digital,omitempty"`
 	IsActive    *bool    `json:"is_active,omitempty"`
 	ImageURL    *string  `json:"image_url,omitempty"`
@@ -117,8 +120,8 @@ type ProductResponse struct {
 	Brand       ProductBrandResponse    `json:"brand"`
 	Category    ProductCategoryResponse `json:"category"`
 	Description string                  `json:"description"`
-	BasePrice   float64                 `json:"base_price"`
 	MinPrice    float64                 `json:"min_price"`
+	MaxPrice    float64                 `json:"max_price"`
 	IsDigital   bool                    `json:"is_digital"`
 	IsActive    *bool                   `json:"is_active,omitempty"`
 	ImageURL    string                  `json:"image_url"`
