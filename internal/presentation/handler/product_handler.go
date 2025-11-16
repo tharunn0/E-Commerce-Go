@@ -205,7 +205,7 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 
 // Product variant operations
 func (h *ProductHandler) CreateProductVariant(c *gin.Context) {
-	ctx := context.Background()
+	ctx := c.Request.Context()
 	var createProductVariantRequest domain.CreateProductVariantRequest
 	if err := c.ShouldBindJSON(&createProductVariantRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Provide valid product variant details"})

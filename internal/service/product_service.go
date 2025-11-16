@@ -261,8 +261,8 @@ func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domai
 		}
 	}
 
-	if req.SalePrice == nil {
-		*req.SalePrice = 0
+	if *req.SalePrice == 0 {
+		req.SalePrice = nil
 	}
 
 	productVariant, err := serv.repo.CreateProductVariant(ctx, req)
@@ -296,6 +296,10 @@ func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64)
 		}
 	}
 
+	if *productVariant.SalePrice == 0 {
+		productVariant.SalePrice = nil
+	}
+
 	return productVariant, nil
 }
 
@@ -313,6 +317,7 @@ func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productI
 }
 
 func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProductVariantRequest *domain.UpdateProductVariantRequest) (*domain.ProductVariant, *apperror.APIError) {
+
 	productVariant, err := serv.repo.UpdateProductVariant(ctx, updateProductVariantRequest)
 	if err != nil {
 		serv.log.Debug("failed to update product variant", zap.Error(err))

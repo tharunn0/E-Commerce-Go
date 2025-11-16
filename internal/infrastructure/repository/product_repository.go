@@ -320,7 +320,7 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 	// insert product variant
 	query := `
 		INSERT INTO product_variants (product_id, sku, original_price, sale_price, stock)
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, product_id, sku, original_price, sale_price, stock, created_at`
 	err = tx.QueryRow(ctx, query, req.ProductID, req.SKU, req.OriginalPrice, req.SalePrice, req.Stock).Scan(
 		&created.ID, &created.BaseProduct.ID, &created.SKU, &created.OriginalPrice, &created.SalePrice, &created.Stock, &created.CreatedAt)
@@ -523,6 +523,10 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 				return nil, err
 			}
 			productvariants.Variants[i].Images = append(productvariants.Variants[i].Images, image)
+		}
+
+		if *productvariants.Variants[i].SalePrice == 0 {
+			productvariants.Variants[i].SalePrice = nil
 		}
 	}
 

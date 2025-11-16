@@ -7,7 +7,7 @@ type ProductVariant struct {
 	ProductID     int64     `json:"product_id"`
 	SKU           string    `json:"sku"`
 	OriginalPrice float64   `json:"original_price"`
-	SalePrice     *float64  `json:"sale_price,omitempty"`
+	SalePrice     *float64  `json:"sale_price"`
 	Stock         int       `json:"stock"`
 	IsActive      bool      `json:"is_active"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -29,7 +29,7 @@ type CreateProductVariantRequest struct {
 	ProductID         int64                            `json:"product_id"`
 	SKU               string                           `json:"sku"`
 	OriginalPrice     float64                          `json:"original_price"`
-	SalePrice         *float64                         `json:"sale_price,omitempty"`
+	SalePrice         *float64                         `json:"sale_price"`
 	Stock             int                              `json:"stock"`
 	Images            []string                         `json:"images"`
 	VariantAttributes []ProductVariantAttributeRequest `json:"attributes"`
@@ -47,7 +47,7 @@ type UpdateProductVariantRequest struct {
 	ProductID     *int64   `json:"product_id,omitempty"`
 	SKU           *string  `json:"sku,omitempty"`
 	OriginalPrice *float64 `json:"original_price,omitempty"`
-	SalePrice     *float64 `json:"sale_price,omitempty"`
+	SalePrice     *float64 `json:"sale_price"`
 	Stock         *int     `json:"stock,omitempty"`
 	IsActive      *bool    `json:"is_active,omitempty"`
 }
@@ -62,7 +62,7 @@ type ProductVariantResponse struct {
 	BaseProduct   BaseProduct              `json:"base_product"`
 	SKU           string                   `json:"sku"`
 	OriginalPrice float64                  `json:"original_price"`
-	SalePrice     *float64                 `json:"sale_price,omitempty"`
+	SalePrice     *float64                 `json:"sale_price"`
 	Stock         int                      `json:"stock"`
 	VariantImages []string                 `json:"variant_images"`
 	Attributes    []AttributeValueResponse `json:"attributes"`
@@ -85,7 +85,7 @@ type VariantBaseResponse struct {
 	ID            int64                    `json:"id"`
 	SKU           string                   `json:"sku"`
 	OriginalPrice float64                  `json:"original_price"`
-	SalePrice     *float64                 `json:"sale_price,omitempty"`
+	SalePrice     *float64                 `json:"sale_price"`
 	Stock         int                      `json:"stock"`
 	IsActive      bool                     `json:"is_active"`
 	Images        []string                 `json:"images"`
