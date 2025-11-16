@@ -23,6 +23,28 @@ func NewAdminHandler(srv *service.AdminService, log *zap.Logger) *AdminHandler {
 	}
 }
 
+func (h *AdminHandler) RegisterAdmin(c *gin.Context) {
+
+	ctx := c.Request.Context()
+	var req domain.AdminRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Invalid request payload.",
+		})
+	}
+
+	apiErr := h.service.RegisterAdmin(ctx, &req)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Admin has been successfully created"})
+}
+
 func (h *AdminHandler) LoginUser(c *gin.Context) {
 	var req domain.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

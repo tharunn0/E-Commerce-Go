@@ -2,9 +2,12 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 )
 
@@ -16,6 +19,30 @@ func NewAdminRepository(db *pgxpool.Pool) *AdminRepository {
 	return &AdminRepository{
 		DB: db,
 	}
+}
+
+func (repo *AdminRepository) CreateAdmin(ctx context.Context, req *domain.AdminRegisterRequest) error {
+	query := `INSERT INTO users (email, phone, password, first_name, last_name, role,is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	cmdTag, err := repo.DB.Exec(ctx, query, req.Email, req.Phone, req.Password, req.FirstName, req.LastName, "admin", true)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" {
+				switch pgErr.ConstraintName {
+				case "users_email_key":
+					return apperror.ErrEmailExists
+				case "users_phone_key":
+					return apperror.ErrPhoneExists
+				}
+			}
+		}
+		return err
+	}
+	if cmdTag.RowsAffected() != 1 {
+		return fmt.Errorf("FAILED_TO_CREATE_ADMIN")
+	}
+
+	return nil
 }
 
 func (repo *AdminRepository) GetAdmin(ctx context.Context, email string) (*domain.User, error) {

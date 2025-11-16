@@ -247,19 +247,38 @@ func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domai
 			}
 		}
 	}
-	if req.SKU == "" || req.PriceDifference <= 0 || req.Stock <= 0 {
+	if req.SKU == "" {
 		return nil, &apperror.APIError{
 			Code:    "INVALID_REQUEST",
 			Message: "SKU is required",
 		}
 	}
 
+	if req.OriginalPrice < 0 {
+		return nil, &apperror.APIError{
+			Code:    "INVALID_REQUEST",
+			Message: "Original price cannot be negative",
+		}
+	}
+
+	if req.SalePrice == nil {
+		*req.SalePrice = 0
+	}
+
 	productVariant, err := serv.repo.CreateProductVariant(ctx, req)
 	if err != nil {
-		serv.log.Debug("failed to create product variant", zap.Error(err))
+		serv.log.Error("failed to create product variant", zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to create product variant",
+		}
+	}
+	err = serv.repo.UpdateProductMinMaxPrice(ctx, req.ProductID)
+	if err != nil {
+		serv.log.Error("failed to update product min max price", zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to update product min max price",
 		}
 	}
 	return productVariant, nil
@@ -303,6 +322,15 @@ func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProd
 		}
 	}
 
+	err = serv.repo.UpdateProductMinMaxPrice(ctx, productVariant.ProductID)
+	if err != nil {
+		serv.log.Error("failed to update product min max price", zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to update product min max price",
+		}
+	}
+
 	return productVariant, nil
 }
 
@@ -334,6 +362,7 @@ func (serv *ProductService) DeleteProductVariant(ctx context.Context, id int64) 
 			Message: "Failed to delete product variant",
 		}
 	}
+
 	return nil
 }
 

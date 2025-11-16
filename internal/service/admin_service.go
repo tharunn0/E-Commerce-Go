@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"os"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -21,6 +22,63 @@ func NewAdminService(adminRepo domain.AdminRepository, logger *zap.Logger) *Admi
 		repo: adminRepo,
 		log:  logger,
 	}
+}
+
+func (serv *AdminService) RegisterAdmin(ctx context.Context, req *domain.AdminRegisterRequest) *apperror.APIError {
+
+	if !utils.IsValidEmail(req.Email) {
+		return &apperror.APIError{
+			Code:    "INVALID_EMAIL",
+			Message: "Please provide a valid email address.",
+		}
+	}
+
+	if !utils.IsValidPassword(req.Password) {
+		return &apperror.APIError{
+			Code:    "INVALID_PASSWORD",
+			Message: "Please provide a valid password.",
+		}
+	}
+
+	hashedPass := utils.HashPassword(req.Password)
+	if len(hashedPass) == 0 {
+		return &apperror.APIError{
+			Code:    "HASHING_FAILED",
+			Message: "Could not process password. Please try again.",
+		}
+	}
+	req.Password = hashedPass
+
+	if req.AdminCode != os.Getenv("ADMIN_CODE") {
+		return &apperror.APIError{
+			Code:    "INVALID_ADMIN_CODE",
+			Message: "Invalid admin code. Please try again.",
+		}
+	}
+
+	err := serv.repo.CreateAdmin(ctx, req)
+	if err != nil {
+		if errors.Is(err, apperror.ErrEmailExists) {
+			return &apperror.APIError{
+				Code:    "EMAIL_ALREADY_EXISTS",
+				Message: "An account with this email already exists.",
+			}
+		}
+		if errors.Is(err, apperror.ErrPhoneExists) {
+			return &apperror.APIError{
+				Code:    "PHONE_ALREADY_EXISTS",
+				Message: "An account with this phone number already exists.",
+			}
+		}
+		serv.log.Error("failed to create admin", zap.String("email", req.Email), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Something went wrong. Please try again later.",
+		}
+	}
+
+	return nil
+
 }
 
 func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginResponse, *apperror.APIError) {

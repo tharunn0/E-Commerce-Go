@@ -16,6 +16,7 @@ type UserRepository interface {
 }
 
 type AdminRepository interface {
+	CreateAdmin(ctx context.Context, req *AdminRegisterRequest) error
 	GetAdmin(ctx context.Context, email string) (*User, error)
 
 	// GetUserByEmail(ctx context.Context, email string) (*User, error)
@@ -78,6 +79,15 @@ type RegisterRequest struct {
 	Password  string `json:"password" validate:"required,min=8"`
 	FirstName string `json:"firstName" validate:"required"`
 	LastName  string `json:"lastName" validate:"required"`
+}
+
+type AdminRegisterRequest struct {
+	Email     string `json:"email" validate:"required,email"`
+	Phone     string `json:"phone" validate:"omitempty"`
+	Password  string `json:"password" validate:"required,min=8"`
+	FirstName string `json:"first_name" validate:"required"`
+	LastName  string `json:"last_name" validate:"required"`
+	AdminCode string `json:"admin_code"`
 }
 
 type GoogleSignInRequest struct {

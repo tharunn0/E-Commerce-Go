@@ -310,7 +310,6 @@ func (repo *ProductRepository) DeleteProduct(ctx context.Context, id int64) erro
 func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *domain.CreateProductVariantRequest) (*domain.ProductVariantResponse, error) {
 
 	var created domain.ProductVariantResponse
-	var _ domain.AttributeValueResponse
 	// start transaction
 	tx, err := repo.DB.Begin(ctx)
 	if err != nil {
@@ -320,11 +319,11 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 
 	// insert product variant
 	query := `
-		INSERT INTO product_variants (product_id, sku, price_difference, stock)
+		INSERT INTO product_variants (product_id, sku, original_price, sale_price, stock)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, product_id, sku, price_difference, stock, created_at`
-	err = tx.QueryRow(ctx, query, req.ProductID, req.SKU, req.PriceDifference, req.Stock).Scan(
-		&created.ID, &created.BaseProduct.ID, &created.SKU, &created.PriceDifference, &created.Stock, &created.CreatedAt)
+		RETURNING id, product_id, sku, original_price, sale_price, stock, created_at`
+	err = tx.QueryRow(ctx, query, req.ProductID, req.SKU, req.OriginalPrice, req.SalePrice, req.Stock).Scan(
+		&created.ID, &created.BaseProduct.ID, &created.SKU, &created.OriginalPrice, &created.SalePrice, &created.Stock, &created.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +368,7 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 	}
 
 	// get base product
-	query = `SELECT p.id,p.name,b.id,b.name,p.base_price FROM products p
+	query = `SELECT p.id,p.name,b.id,b.name FROM products p
 	LEFT JOIN brands b ON p.brand_id = b.id
 	WHERE p.id = $1
 	`
@@ -377,14 +376,10 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 		&created.BaseProduct.ID,
 		&created.BaseProduct.Name,
 		&created.BaseProduct.Brand.ID,
-		&created.BaseProduct.Brand.Name,
-		&created.BaseProduct.BasePrice)
+		&created.BaseProduct.Brand.Name)
 	if err != nil {
 		return nil, err
 	}
-
-	// get total price
-	created.TotalPrice = created.BaseProduct.BasePrice + created.PriceDifference
 
 	// get attribute values
 	query = `
@@ -410,12 +405,12 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 	var variant domain.ProductVariantResponse
 	// get variant
 	query := `
-		SELECT id, product_id, sku, price_difference, stock, created_at FROM product_variants WHERE id = $1
+		SELECT id, product_id, sku, original_price, sale_price, stock, created_at FROM product_variants WHERE id = $1
 		`
 	if activeOnly {
 		query += " AND is_active = true"
 	}
-	err := repo.DB.QueryRow(ctx, query, id).Scan(&variant.ID, &variant.BaseProduct.ID, &variant.SKU, &variant.PriceDifference, &variant.Stock, &variant.CreatedAt)
+	err := repo.DB.QueryRow(ctx, query, id).Scan(&variant.ID, &variant.BaseProduct.ID, &variant.SKU, &variant.OriginalPrice, &variant.SalePrice, &variant.Stock, &variant.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, err
@@ -461,16 +456,16 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 		variant.Attributes = append(variant.Attributes, attrVal)
 	}
 	// get base product
-	query = `SELECT p.name, p.base_price, br.id, br.name FROM products p
+	query = `SELECT p.name, br.id, br.name FROM products p
 			LEFT JOIN brands br ON br.id = p.brand_id
 			WHERE p.id = $1`
 	err = repo.DB.QueryRow(ctx, query, variant.BaseProduct.ID).Scan(
-		&variant.BaseProduct.Name, &variant.BaseProduct.BasePrice, &variant.BaseProduct.Brand.ID, &variant.BaseProduct.Brand.Name,
-	)
+		&variant.BaseProduct.Name, &variant.BaseProduct.Brand.ID, &variant.BaseProduct.Brand.Name)
 	if err != nil {
 		return nil, err
 	}
-	variant.TotalPrice = variant.PriceDifference + variant.BaseProduct.BasePrice
+
+	// update min and max price
 
 	return &variant, nil
 }
@@ -479,14 +474,15 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 	var productvariants domain.ProductVariantBaseResponse
 
 	query := `
-		SELECT p.id, p.name as product_name, b.name as brand_name, p.base_price, p.is_digital,p.image_url, p.created_at FROM products p
+		SELECT p.id, p.name as product_name, b.name as brand_name,p.min_price, p.max_price, p.is_digital,p.image_url, p.created_at FROM products p
 		 LEFT JOIN brands b ON p.brand_id = b.id WHERE p.id = $1 AND p.is_active = true
 	`
 	err := repo.DB.QueryRow(ctx, query, productID).Scan(
 		&productvariants.ProductID,
 		&productvariants.ProductName,
 		&productvariants.BrandName,
-		&productvariants.BasePrice,
+		&productvariants.MinPrice,
+		&productvariants.MaxPrice,
 		&productvariants.IsDigital,
 		&productvariants.ImageURL,
 		&productvariants.CreatedAt)
@@ -494,9 +490,8 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 		return nil, err
 	}
 	// get variants
-
 	query = `
-		SELECT id, sku, price_difference, stock, is_active, created_at FROM product_variants WHERE product_id = $1 AND is_active = true
+		SELECT id, sku, original_price, sale_price, stock, is_active, created_at FROM product_variants WHERE product_id = $1 AND is_active = true
 	`
 	rows, err := repo.DB.Query(ctx, query, productID)
 	if err != nil {
@@ -505,11 +500,10 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 	defer rows.Close()
 	for rows.Next() {
 		var variant domain.VariantBaseResponse
-		err := rows.Scan(&variant.ID, &variant.SKU, &variant.PriceDifference, &variant.Stock, &variant.IsActive, &variant.CreatedAt)
+		err := rows.Scan(&variant.ID, &variant.SKU, &variant.OriginalPrice, &variant.SalePrice, &variant.Stock, &variant.IsActive, &variant.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
-		variant.TotalPrice = productvariants.BasePrice + variant.PriceDifference
 		productvariants.Variants = append(productvariants.Variants, variant)
 	}
 
@@ -558,13 +552,19 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 }
 
 func (repo *ProductRepository) UpdateProductVariant(ctx context.Context, productVariant *domain.UpdateProductVariantRequest) (*domain.ProductVariant, error) {
-	query := `UPDATE product_variants SET sku = COALESCE($1,sku), price_difference = COALESCE($2,price_difference),
-	 stock = COALESCE($3,stock), is_active = COALESCE($4,is_active), updated_at = now() WHERE id = $5
-	RETURNING id, product_id, sku, price_difference, stock, is_active, created_at
+	query := `UPDATE product_variants SET sku = COALESCE($1,sku), original_price = COALESCE($2,original_price), sale_price = COALESCE($3,sale_price),
+	 stock = COALESCE($4,stock), is_active = COALESCE($5,is_active), updated_at = now() WHERE id = $6
+	RETURNING id, product_id, sku, original_price, sale_price, stock, is_active, created_at
 	`
 	var updated domain.ProductVariant
-	err := repo.DB.QueryRow(ctx, query, productVariant.SKU, productVariant.PriceDifference, productVariant.Stock, productVariant.IsActive, productVariant.ID).Scan(
-		&updated.ID, &updated.ProductID, &updated.SKU, &updated.PriceDifference, &updated.Stock, &updated.IsActive, &updated.CreatedAt)
+	err := repo.DB.QueryRow(ctx, query,
+		productVariant.SKU,
+		productVariant.OriginalPrice,
+		productVariant.SalePrice,
+		productVariant.Stock,
+		productVariant.IsActive,
+		productVariant.ID).Scan(
+		&updated.ID, &updated.ProductID, &updated.SKU, &updated.OriginalPrice, &updated.SalePrice, &updated.Stock, &updated.IsActive, &updated.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -594,6 +594,21 @@ func (repo *ProductRepository) DeleteProductVariant(ctx context.Context, id int6
 	return nil
 }
 
+func (repo *ProductRepository) UpdateProductMinMaxPrice(ctx context.Context, productID int64) error {
+	query := `
+		UPDATE products SET min_price = (SELECT MIN(original_price) FROM product_variants WHERE product_id = $1),
+		max_price = (SELECT MAX(original_price) FROM product_variants WHERE product_id = $1) WHERE id = $1
+	`
+	cmdTag, err := repo.DB.Exec(ctx, query, productID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("PRODUCT_NOT_FOUND")
+	}
+	return nil
+}
+
 // Attribute operations
 // //////////////////////////////////////////////////////////
 func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *domain.CreateAttributeRequest) (*domain.Attribute, error) {
@@ -607,10 +622,10 @@ func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *d
 	query := `
 		INSERT INTO attributes (name, data_type)
 		VALUES ($1, $2)
-		RETURNING id, name, data_type, is_active, created_at
+		RETURNING id, name, data_type, is_active
 	`
 	err = tx.QueryRow(ctx, query, attribute.Name, attribute.DataType).Scan(
-		&created.ID, &created.Name, &created.DataType, &created.IsActive, &created.CreatedAt)
+		&created.ID, &created.Name, &created.DataType, &created.IsActive)
 	if err != nil {
 		return nil, err
 	}
@@ -621,10 +636,10 @@ func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *d
 		query = `
 			INSERT INTO attribute_values (attribute_id, value)
 			VALUES ($1, $2)
-			RETURNING id, attribute_id, value, is_active, created_at
+			RETURNING id, attribute_id, value, is_active
 		`
 		err = tx.QueryRow(ctx, query, created.ID, value.Value).Scan(
-			&val.ID, &val.AttributeID, &val.Value, &val.IsActive, &val.CreatedAt)
+			&val.ID, &val.AttributeID, &val.Value, &val.IsActive)
 		if err != nil {
 			return nil, err
 		}

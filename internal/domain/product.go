@@ -30,6 +30,8 @@ type ProductRepository interface {
 	ToggleVariantStatus(ctx context.Context, req *VariantStatusRequest) error
 	DeleteProductVariant(ctx context.Context, id int64) error
 
+	UpdateProductMinMaxPrice(ctx context.Context, productID int64) error
+
 	// Attribute operations
 	//------------------
 	CreateAttribute(ctx context.Context, attribute *CreateAttributeRequest) (*Attribute, error)
