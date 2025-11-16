@@ -31,6 +31,7 @@ func NewAuthService(Repo domain.AuthRepository, Sender *mailer.MailSender, logge
 	}
 }
 
+// account verification
 func (serv *AuthService) SendOTP(ctx context.Context, toAddr string) *apperror.APIError {
 
 	otp, err := utils.GenerateOTP()
@@ -131,6 +132,7 @@ func (serv *AuthService) VerifyOTP(email, otp string) *apperror.APIError {
 	return nil
 }
 
+// password reset
 func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.PasswordResetRequest) *apperror.APIError {
 
 	if !utils.IsValidEmail(req.Email) {
@@ -234,7 +236,8 @@ func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.Passwor
 	return nil
 }
 
-func (serv *AuthService) SendEmailVerificationLink(ctx context.Context, req *domain.UpdateEmailRequest) *apperror.APIError {
+// email reset
+func (serv *AuthService) SendEmailChangeLink(ctx context.Context, req *domain.UpdateEmailRequest) *apperror.APIError {
 	if !utils.IsValidEmail(req.Email) {
 		return &apperror.APIError{
 			Code:    "INVALID_EMAIL",
@@ -255,7 +258,7 @@ func (serv *AuthService) SendEmailVerificationLink(ctx context.Context, req *dom
 	expiryAt := time.Now().Add(time.Duration(expiryTime) * time.Minute)
 
 	// set token in redis
-	tokenData := &domain.AuthTokenData{
+	tokenData := &domain.EmailVerificationTokenData{
 		Email:    req.Email,
 		Token:    token,
 		ExpiryAt: expiryAt,
@@ -292,7 +295,7 @@ func (serv *AuthService) SendEmailVerificationLink(ctx context.Context, req *dom
 	return nil
 }
 
-func (serv *AuthService) GetEmailTokenAndUpdateEmail(ctx context.Context, req *domain.VerifyEmailRequest) *apperror.APIError {
+func (serv *AuthService) VerifyEmailChangeRequest(ctx context.Context, req *domain.VerifyEmailRequest) *apperror.APIError {
 	tokenData, err := serv.repo.GetEmailVerificationToken(ctx, req.Token)
 	if err != nil {
 		if err == apperror.ErrTokenInvalid {

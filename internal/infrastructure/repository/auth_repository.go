@@ -24,6 +24,7 @@ func NewAuthRepository(db *pgxpool.Pool, redis *redis.Client) *AuthRepository {
 	return &AuthRepository{DB: db, Redis: redis}
 }
 
+// user verification
 func (r *AuthRepository) InsertOTP(ctx context.Context, otpdata *domain.OTP) error {
 
 	bytes, err := json.Marshal(otpdata)
@@ -98,6 +99,8 @@ func (r *AuthRepository) MarkUserVerified(email string) error {
 	}
 	return err
 }
+
+// password reset
 func (repo *AuthRepository) PasswordReset(ctx context.Context, req *domain.PasswordResetData) error {
 	query := `UPDATE users SET password = $1 WHERE email = $2`
 	cmdTag, err := repo.DB.Exec(ctx, query, req.NewPassword, req.Email)
@@ -139,7 +142,8 @@ func (repo *AuthRepository) GetPasswordResetToken(ctx context.Context, token str
 	return &passwordResetToken, nil
 }
 
-func (repo *AuthRepository) SetEmailVerificationToken(ctx context.Context, req *domain.AuthTokenData) error {
+// email reset
+func (repo *AuthRepository) SetEmailVerificationToken(ctx context.Context, req *domain.EmailVerificationTokenData) error {
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal email update token: %w", err)
@@ -153,7 +157,7 @@ func (repo *AuthRepository) SetEmailVerificationToken(ctx context.Context, req *
 	return nil
 }
 
-func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token string) (*domain.AuthTokenData, error) {
+func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token string) (*domain.EmailVerificationTokenData, error) {
 	key := domain.EmailVerificationTokenPrefix + token
 	bytes, err := repo.Redis.Get(ctx, key).Bytes()
 	if err != nil {
@@ -162,15 +166,15 @@ func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token
 		}
 		return nil, fmt.Errorf("failed to get email verification token: %w", err)
 	}
-	var authTokenData domain.AuthTokenData
-	err = json.Unmarshal(bytes, &authTokenData)
+	var emailVerificationTokenData domain.EmailVerificationTokenData
+	err = json.Unmarshal(bytes, &emailVerificationTokenData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal email verification token: %w", err)
 	}
-	return &authTokenData, nil
+	return &emailVerificationTokenData, nil
 }
 
-func (repo *AuthRepository) UpdateEmail(ctx context.Context, currentEmail string, req *domain.AuthTokenData) error {
+func (repo *AuthRepository) UpdateEmail(ctx context.Context, currentEmail string, req *domain.EmailVerificationTokenData) error {
 
 	query := `UPDATE users SET email = $1 WHERE email = $2`
 	cmdTag, err := repo.DB.Exec(ctx, query, req.Email, currentEmail)

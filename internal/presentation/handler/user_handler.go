@@ -61,7 +61,7 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 
 func (h *UserHandler) LoginUser(c *gin.Context) {
 
-	ctx := context.Background()
+	ctx := c.Request.Context()
 	var req domain.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid login payload", zap.Error(err))
@@ -86,33 +86,13 @@ func (h *UserHandler) LoginUser(c *gin.Context) {
 		return
 	}
 
-	// Issue JWT
-	token, err := utils.IssueJWT(user.ID, user.Email, user.Role, user.IsVerified, h.logger)
-	if len(token) == 0 {
-		h.logger.Error("failed to issue jwt", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "TOKEN_GENERATION_FAILED",
-			"message": "Could not generate token.",
-		})
-		return
-	}
-
-	resp := domain.LoginResponse{
-		Token: token,
-	}
-	resp.User.ID = user.ID
-	resp.User.Email = user.Email
-	resp.User.FirstName = user.FirstName
-	resp.User.LastName = user.LastName
-	resp.User.Role = string(user.Role)
-
 	h.logger.Info("user logged in successfully",
-		zap.Int64("user_id", user.ID),
-		zap.String("email", user.Email),
-		zap.String("role", string(user.Role)),
+		zap.Int64("user_id", user.User.ID),
+		zap.String("email", user.User.Email),
+		zap.String("role", user.User.Role),
 	)
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, user)
 }
 
 func (h *UserHandler) SendOTP(c *gin.Context) {
@@ -330,7 +310,7 @@ func (h *UserHandler) GoogleCallback(c *gin.Context) {
 
 }
 
-func (h *UserHandler) UpdateUserEmail(c *gin.Context) {
+func (h *UserHandler) EmailChangeRequest(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req domain.UpdateEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -342,7 +322,7 @@ func (h *UserHandler) UpdateUserEmail(c *gin.Context) {
 		return
 	}
 
-	apiErr := h.authserv.SendEmailVerificationLink(ctx, &req)
+	apiErr := h.authserv.SendEmailChangeLink(ctx, &req)
 	if apiErr != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   apiErr.Code,
@@ -356,7 +336,7 @@ func (h *UserHandler) UpdateUserEmail(c *gin.Context) {
 	})
 }
 
-func (h *UserHandler) VerifyEmailReset(c *gin.Context) {
+func (h *UserHandler) VerifyEmailChangeRequest(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req domain.VerifyEmailRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -367,7 +347,7 @@ func (h *UserHandler) VerifyEmailReset(c *gin.Context) {
 		return
 	}
 
-	apiErr := h.authserv.GetEmailTokenAndUpdateEmail(ctx, &req)
+	apiErr := h.authserv.VerifyEmailChangeRequest(ctx, &req)
 	if apiErr != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   apiErr.Code,

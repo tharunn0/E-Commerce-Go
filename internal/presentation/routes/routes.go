@@ -36,6 +36,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		userAuth := g.Group("/api/v1/auth/users/")
 		userAuth.POST("/register", h.User.RegisterUser)
 		userAuth.POST("/login", h.User.LoginUser)
+		// userAuth.POST("/refresh", h.User.UserRefreshToken).Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
 		userAuth.POST("/reset-password-link", h.User.SendPasswordResetLink)
 		userAuth.POST("/reset-password/", h.User.ResetPassword)
 		userAuth.GET("/google", h.User.GoogleSignIn)
@@ -46,8 +47,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 	{
 		userProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
-		userProtected.POST("/email", h.User.UpdateUserEmail)
-		userProtected.GET("/email/verify-reset", h.User.VerifyEmailReset)
+		userProtected.POST("/email", h.User.EmailChangeRequest)
+		userProtected.GET("/email/verify-reset", h.User.VerifyEmailChangeRequest)
 		userProtected.GET("/profile", h.User.GetProfile)
 		userProtected.PATCH("/profile", h.User.UpdateUserProfile)
 	}

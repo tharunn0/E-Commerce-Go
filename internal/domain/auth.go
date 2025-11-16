@@ -26,9 +26,18 @@ type AuthRepository interface {
 	GetPasswordResetToken(ctx context.Context, token string) (*PasswordResetToken, error)
 
 	// email verification
-	SetEmailVerificationToken(ctx context.Context, req *AuthTokenData) error
-	GetEmailVerificationToken(ctx context.Context, token string) (*AuthTokenData, error)
-	UpdateEmail(ctx context.Context, currentEmail string, req *AuthTokenData) error
+	SetEmailVerificationToken(ctx context.Context, req *EmailVerificationTokenData) error
+	GetEmailVerificationToken(ctx context.Context, token string) (*EmailVerificationTokenData, error)
+	UpdateEmail(ctx context.Context, currentEmail string, req *EmailVerificationTokenData) error
+
+	// refresh token
+	SetRefreshToken(ctx context.Context, req *RefreshToken) error
+	GetRefreshToken(ctx context.Context, token string) (*RefreshToken, error)
+}
+
+type RefreshToken struct {
+	Token    string    `json:"token" validate:"required"`
+	ExpiryAt time.Time `json:"expiryAt" validate:"required"`
 }
 
 type OTP struct {
@@ -52,7 +61,7 @@ type VerifyEmailRequest struct {
 	Token string `form:"token" validate:"required"`
 }
 
-type AuthTokenData struct {
+type EmailVerificationTokenData struct {
 	Email    string
 	Token    string
 	ExpiryAt time.Time

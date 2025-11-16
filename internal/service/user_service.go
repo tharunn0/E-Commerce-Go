@@ -84,7 +84,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 }
 
 // login user
-func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest) (*domain.User, *apperror.APIError) {
+func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest) (*domain.LoginResponse, *apperror.APIError) {
 
 	if !utils.IsValidEmail(req.Email) {
 		serv.log.Warn("invalid email format", zap.String("email", req.Email))
@@ -129,8 +129,31 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 			Message: "Invalid email or password.",
 		}
 	}
+	resp := domain.LoginResponse{}
+	resp.User.ID = fetchedUser.ID
+	resp.User.Email = fetchedUser.Email
+	resp.User.FirstName = fetchedUser.FirstName
+	resp.User.LastName = fetchedUser.LastName
+	resp.User.Role = string(fetchedUser.Role)
 
-	return fetchedUser, nil
+	resp.AccessToken, err = utils.IssueJWT(fetchedUser.ID, fetchedUser.Email, fetchedUser.Role, fetchedUser.IsVerified, serv.log)
+	if err != nil {
+		serv.log.Error("Failed to issue jwt", zap.String("service", "UserService"), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "JWT_GENERATION_FAILED",
+			Message: "Could not generate token. Please try again.",
+		}
+	}
+	resp.RefreshToken, err = utils.GenerateToken(32)
+	if err != nil {
+		serv.log.Error("Failed to generate refresh token", zap.String("service", "UserService"), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "REFRESH_TOKEN_GENERATION_FAILED",
+			Message: "Could not generate refresh token. Please try again.",
+		}
+	}
+
+	return &resp, nil
 }
 
 // oauth sign in
@@ -152,7 +175,8 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 		}
 	}
 
-	token, err := utils.IssueJWT(user.ID, user.Email, user.Role, user.IsVerified, serv.log)
+	authTokens := domain.AuthTokens{}
+	authTokens.AccessToken, err = utils.IssueJWT(user.ID, user.Email, user.Role, user.IsVerified, serv.log)
 	if err != nil {
 		serv.log.Error("Failed to issue jwt", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -160,9 +184,18 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 			Message: "Could not generate token. Please try again.",
 		}
 	}
+	authTokens.RefreshToken, err = utils.GenerateToken(32)
+	if err != nil {
+		serv.log.Error("Failed to generate refresh token", zap.String("service", "UserService"), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "REFRESH_TOKEN_GENERATION_FAILED",
+			Message: "Could not generate refresh token. Please try again.",
+		}
+	}
 
 	resp := domain.LoginResponse{
-		Token: token,
+		AccessToken:  authTokens.AccessToken,
+		RefreshToken: authTokens.RefreshToken,
 	}
 
 	resp.User.ID = user.ID

@@ -26,6 +26,11 @@ type AdminRepository interface {
 	DeleteUser(ctx context.Context, id int64) error
 }
 
+type AuthTokens struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
 type User struct {
 	ID               int64      `json:"id"`
 	Email            string     `json:"email"`
@@ -107,7 +112,8 @@ type LoginResponse struct {
 		LastName  string `json:"lastName"`
 		Role      string `json:"role"`
 	} `json:"user"`
-	Token string `json:"token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type UserFilter struct {

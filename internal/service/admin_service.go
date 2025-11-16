@@ -119,10 +119,17 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 			Message: "Invalid email or password.",
 		}
 	}
+	resp := &domain.LoginResponse{}
+
+	resp.User.ID = fetchedUser.ID
+	resp.User.Email = fetchedUser.Email
+	resp.User.FirstName = fetchedUser.FirstName
+	resp.User.LastName = fetchedUser.LastName
+	resp.User.Role = string(fetchedUser.Role)
 
 	// Issue JWT
-	token, err := utils.IssueJWT(fetchedUser.ID, fetchedUser.Email, fetchedUser.Role, fetchedUser.IsVerified, serv.log)
-	if len(token) == 0 || err != nil {
+	resp.AccessToken, err = utils.IssueJWT(fetchedUser.ID, fetchedUser.Email, fetchedUser.Role, fetchedUser.IsVerified, serv.log)
+	if resp.AccessToken == "" || err != nil {
 		serv.log.Error("failed to issue jwt", zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "TOKEN_GENERATION_FAILED",
@@ -130,14 +137,14 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 		}
 	}
 
-	resp := &domain.LoginResponse{
-		Token: token,
+	resp.RefreshToken, err = utils.GenerateToken(32)
+	if resp.RefreshToken == "" || err != nil {
+		serv.log.Error("failed to generate refresh token", zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "TOKEN_GENERATION_FAILED",
+			Message: "Could not generate refresh token.",
+		}
 	}
-	resp.User.ID = fetchedUser.ID
-	resp.User.Email = fetchedUser.Email
-	resp.User.FirstName = fetchedUser.FirstName
-	resp.User.LastName = fetchedUser.LastName
-	resp.User.Role = string(fetchedUser.Role)
 
 	return resp, nil
 }
