@@ -95,6 +95,33 @@ func (h *UserHandler) LoginUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+func (h *UserHandler) LogoutUser(c *gin.Context) {
+	ctx := c.Request.Context()
+	header := c.GetHeader("Authorization")
+	token, err := utils.ExtractAuthToken(header)
+	if err != nil {
+		h.logger.Error("Failed to extract refresh token", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid refresh token.",
+		})
+		return
+	}
+
+	apiErr := h.authserv.RevokeRefreshToken(ctx, token)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User logged out successfully",
+	})
+}
+
 func (h *UserHandler) SendOTP(c *gin.Context) {
 
 	type SendOTPReq struct {
@@ -359,6 +386,32 @@ func (h *UserHandler) VerifyEmailChangeRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Email updated successfully",
 	})
+}
+
+func (h *UserHandler) RefreshToken(c *gin.Context) {
+	ctx := c.Request.Context()
+	var token string
+
+	header := c.GetHeader("Authorization")
+	token, err := utils.ExtractAuthToken(header)
+	if err != nil {
+		h.logger.Error("Failed to extract refresh token", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid refresh token.",
+		})
+		return
+	}
+
+	authTokens, apiErr := h.authserv.VerifyRefreshToken(ctx, token)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, authTokens)
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {

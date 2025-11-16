@@ -32,12 +32,27 @@ type AuthRepository interface {
 
 	// refresh token
 	SetRefreshToken(ctx context.Context, req *RefreshToken) error
-	GetRefreshToken(ctx context.Context, token string) (*RefreshToken, error)
+	GetRefreshToken(ctx context.Context, token string) (*RefreshToken, *RefreshTokenUserData, error)
+	RevokeRefreshToken(ctx context.Context, token string) error
 }
 
 type RefreshToken struct {
-	Token    string    `json:"token" validate:"required"`
-	ExpiryAt time.Time `json:"expiryAt" validate:"required"`
+	UserID   int64     `json:"user_id" `
+	Token    string    `form:"token" `
+	Revoked  bool      `json:"revoked" `
+	ExpiryAt time.Time `json:"expiryAt" `
+}
+
+type RefreshTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshTokenUserData struct {
+	UserID     int64  `json:"user_id" `
+	Email      string `json:"email" `
+	Role       string `json:"role" `
+	IsVerified bool   `json:"isVerified" `
 }
 
 type OTP struct {

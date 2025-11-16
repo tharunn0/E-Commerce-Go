@@ -333,3 +333,70 @@ func (serv *AuthService) VerifyEmailChangeRequest(ctx context.Context, req *doma
 	serv.log.Info("Email updated successfully", zap.String("email", tokenData.Email))
 	return nil
 }
+
+// refresh token
+func (serv *AuthService) VerifyRefreshToken(ctx context.Context, token string) (*domain.RefreshTokenResponse, *apperror.APIError) {
+
+	refreshToken, userData, err := serv.repo.GetRefreshToken(ctx, token)
+	if err != nil {
+		serv.log.Error("Failed to get refresh token", zap.String("token", token), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "REFRESH_TOKEN_NOT_FOUND",
+			Message: "Refresh token not found.",
+		}
+	}
+
+	refreshToken.UserID = userData.UserID
+	err = utils.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Code:    "REFRESH_TOKEN_INVALID",
+			Message: err.Error(),
+		}
+	}
+
+	accessToken, err := utils.IssueJWT(userData.UserID, userData.Email, userData.Role, userData.IsVerified, serv.log)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Code:    "ACCESS_TOKEN_ISSUANCE_FAILED",
+			Message: "Failed to issue access token.",
+		}
+	}
+	newrefreshToken, expiryAt, err := utils.GenerateTokenWithExpiry(32, 15*1440)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Code:    "REFRESH_TOKEN_GENERATION_FAILED",
+			Message: "Failed to generate refresh token.",
+		}
+	}
+	err = serv.repo.SetRefreshToken(ctx, &domain.RefreshToken{
+		UserID:   userData.UserID,
+		Token:    newrefreshToken,
+		ExpiryAt: expiryAt,
+		Revoked:  false,
+	})
+	if err != nil {
+		serv.log.Error("Failed to set refresh token", zap.String("token", newrefreshToken), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "REFRESH_TOKEN_SET_FAILED",
+			Message: "Failed to set refresh token.",
+		}
+	}
+	return &domain.RefreshTokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newrefreshToken,
+	}, nil
+}
+
+// revoke refresh token
+func (serv *AuthService) RevokeRefreshToken(ctx context.Context, token string) *apperror.APIError {
+	err := serv.repo.RevokeRefreshToken(ctx, token)
+	if err != nil {
+		serv.log.Error("Failed to revoke refresh token", zap.String("token", token), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "REFRESH_TOKEN_REVOKING_FAILED",
+			Message: "Failed to revoke refresh token.",
+		}
+	}
+	return nil
+}

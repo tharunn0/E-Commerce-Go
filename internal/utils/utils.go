@@ -114,6 +114,18 @@ func GetUserIDFromContext(ctx context.Context) (int64, error) {
 	return 0, fmt.Errorf("user ID not found in context")
 }
 
+func ValidateRefreshToken(token *domain.RefreshToken) error {
+
+	fmt.Println("token", token)
+	if time.Now().After(token.ExpiryAt) {
+		return fmt.Errorf("refresh token expired")
+	}
+	if token.Revoked {
+		return fmt.Errorf("refresh token revoked")
+	}
+	return nil
+}
+
 func GenerateOTP() (string, error) {
 	max := big.NewInt(900000)
 
@@ -140,6 +152,20 @@ func GenerateToken(len int) (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
+func GenerateTokenWithExpiry(len int, timeInMinutes int) (string, time.Time, error) {
+	if len < 8 {
+		len = 8
+	}
+	if timeInMinutes < 1 {
+		timeInMinutes = 1
+	}
+	token, err := GenerateToken(len)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	expiryAt := time.Now().Add(time.Duration(timeInMinutes) * time.Minute)
+	return token, expiryAt, nil
+}
 func GetUserRole(ctx context.Context) string {
 	if role, ok := ctx.Value(domain.KeyRole).(string); ok {
 		return role
@@ -195,4 +221,17 @@ func IsFiltersValid(f *domain.ProductFilter) bool {
 	}
 
 	return true
+}
+
+func ExtractAuthToken(rawtoken string) (string, error) {
+
+	if rawtoken == "" {
+		return "", fmt.Errorf("authorization header missing")
+	}
+
+	parts := strings.SplitN(rawtoken, " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return "", fmt.Errorf("invalid authorization header format")
+	}
+	return parts[1], nil
 }

@@ -186,3 +186,48 @@ func (repo *AuthRepository) UpdateEmail(ctx context.Context, currentEmail string
 	}
 	return nil
 }
+
+// refresh token
+func (repo *AuthRepository) SetRefreshToken(ctx context.Context, req *domain.RefreshToken) error {
+	query := `INSERT INTO refresh_tokens (user_id, token, revoked,expiry_at) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id) DO UPDATE SET token = $2, revoked = $3, expiry_at = $4
+	`
+	cmdTag, err := repo.DB.Exec(ctx, query, req.UserID, req.Token, "false", req.ExpiryAt)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return errors.New("FAILED_TO_SET_REFRESH_TOKEN")
+	}
+	return nil
+}
+
+func (repo *AuthRepository) GetRefreshToken(ctx context.Context, token string) (*domain.RefreshToken, *domain.RefreshTokenUserData, error) {
+
+	var refreshToken domain.RefreshToken
+	var userData domain.RefreshTokenUserData
+
+	query := `SELECT u.id as user_id, u.email, u.role, u.is_verified, r.token, r.revoked, r.expiry_at FROM refresh_tokens r
+	 JOIN users u ON r.user_id = u.id WHERE r.token = $1`
+	rows := repo.DB.QueryRow(ctx, query, token)
+
+	err := rows.Scan(&userData.UserID, &userData.Email, &userData.Role, &userData.IsVerified, &refreshToken.Token, &refreshToken.Revoked, &refreshToken.ExpiryAt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &refreshToken, &userData, nil
+
+}
+
+func (repo *AuthRepository) RevokeRefreshToken(ctx context.Context, token string) error {
+	query := `UPDATE refresh_tokens SET revoked = true WHERE token = $1`
+	cmdTag, err := repo.DB.Exec(ctx, query, token)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return errors.New("FAILED_TO_REVOKE_REFRESH_TOKEN")
+	}
+	return nil
+}

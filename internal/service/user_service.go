@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -144,7 +145,8 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 			Message: "Could not generate token. Please try again.",
 		}
 	}
-	resp.RefreshToken, err = utils.GenerateToken(32)
+	var expiryAt time.Time
+	resp.RefreshToken, expiryAt, err = utils.GenerateTokenWithExpiry(32, 15*1440)
 	if err != nil {
 		serv.log.Error("Failed to generate refresh token", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -153,6 +155,19 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 		}
 	}
 
+	err = serv.auth.SetRefreshToken(ctx, &domain.RefreshToken{
+		UserID:   fetchedUser.ID,
+		Token:    resp.RefreshToken,
+		ExpiryAt: expiryAt,
+		Revoked:  false,
+	})
+	if err != nil {
+		serv.log.Error("Failed to set refresh token", zap.String("service", "UserService"), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "REFRESH_TOKEN_SET_FAILED",
+			Message: "Failed to set refresh token. Please try again.",
+		}
+	}
 	return &resp, nil
 }
 
