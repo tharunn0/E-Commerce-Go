@@ -8,18 +8,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
+	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type AdminHandler struct {
-	service *service.AdminService
-	log     *zap.Logger
+	service  *service.AdminService
+	log      *zap.Logger
+	authserv *service.AuthService
 }
 
-func NewAdminHandler(srv *service.AdminService, log *zap.Logger) *AdminHandler {
+func NewAdminHandler(srv *service.AdminService, log *zap.Logger, authserv *service.AuthService) *AdminHandler {
 	return &AdminHandler{
-		service: srv,
-		log:     log,
+		service:  srv,
+		log:      log,
+		authserv: authserv,
 	}
 }
 
@@ -65,6 +68,33 @@ func (h *AdminHandler) LoginUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, admin)
+}
+
+func (h *AdminHandler) RefreshToken(c *gin.Context) {
+	ctx := c.Request.Context()
+	var token string
+
+	header := c.GetHeader("Authorization")
+	token, err := utils.ExtractAuthToken(header)
+
+	if err != nil {
+		h.log.Error("Failed to extract refresh token", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid refresh token.",
+		})
+		return
+	}
+
+	authTokens, apiErr := h.authserv.VerifyRefreshToken(ctx, token)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, authTokens)
 }
 
 func (h *AdminHandler) GetAllUsers(c *gin.Context) {

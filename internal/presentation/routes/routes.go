@@ -56,6 +56,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 	adminAuth := g.Group("/api/v1/auth/admin/")
 	adminAuth.POST("/login", h.Admin.LoginUser)
+	adminAuth.POST("/refresh", h.Admin.RefreshToken)
 	adminAuth.POST("/register", h.Admin.RegisterAdmin)
 
 	adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))

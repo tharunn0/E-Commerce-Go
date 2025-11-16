@@ -93,7 +93,7 @@ func (s *CategoryService) DeleteCategory(ctx context.Context, id int64) *apperro
 }
 
 func (s *CategoryService) GetCategoryByID(ctx context.Context, id int64) (*domain.Category, *apperror.APIError) {
-	activeOnly := utils.IsAdmin(ctx)
+	activeOnly := !utils.IsAdmin(ctx)
 	category, err := s.repo.GetCategoryByID(ctx, id, activeOnly)
 	if err != nil {
 		s.log.Debug("failed to get category by id", zap.Error(err))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -15,12 +16,14 @@ import (
 type AdminService struct {
 	repo domain.AdminRepository
 	log  *zap.Logger
+	auth domain.AuthRepository
 }
 
-func NewAdminService(adminRepo domain.AdminRepository, logger *zap.Logger) *AdminService {
+func NewAdminService(adminRepo domain.AdminRepository, logger *zap.Logger, auth domain.AuthRepository) *AdminService {
 	return &AdminService{
 		repo: adminRepo,
 		log:  logger,
+		auth: auth,
 	}
 }
 
@@ -137,12 +140,28 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 		}
 	}
 
-	resp.RefreshToken, err = utils.GenerateToken(32)
+	var expiryAt time.Time
+	resp.RefreshToken, expiryAt, err = utils.GenerateTokenWithExpiry(32, 15*1440)
 	if resp.RefreshToken == "" || err != nil {
 		serv.log.Error("failed to generate refresh token", zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "TOKEN_GENERATION_FAILED",
 			Message: "Could not generate refresh token.",
+		}
+	}
+
+	// Set refresh token
+	err = serv.auth.SetRefreshToken(ctx, &domain.RefreshToken{
+		UserID:   fetchedUser.ID,
+		Token:    resp.RefreshToken,
+		ExpiryAt: expiryAt,
+		Revoked:  false,
+	})
+	if err != nil {
+		serv.log.Error("failed to set refresh token", zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "TOKEN_SET_FAILED",
+			Message: "Could not set refresh token. Please try again.",
 		}
 	}
 

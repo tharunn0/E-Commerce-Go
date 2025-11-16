@@ -53,13 +53,13 @@ func main() {
 	productRepo := repository.NewProductRepository(pgdb)
 
 	userServ := service.NewUserService(userRepo, authRepo, log, mailer)
-	adminServ := service.NewAdminService(adminRepo, log)
+	adminServ := service.NewAdminService(adminRepo, log, authRepo)
 	authServ := service.NewAuthService(authRepo, mailer, log, &cfg.Security)
 	catergoryServ := service.NewCategoryService(categoryRepo, log)
 	productServ := service.NewProductService(productRepo, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
-	adminHandler := handler.NewAdminHandler(adminServ, log)
+	adminHandler := handler.NewAdminHandler(adminServ, log, authServ)
 	categoryHandler := handler.NewCategoryHandler(catergoryServ, log)
 	productHandler := handler.NewProductHandler(productServ, log)
 
