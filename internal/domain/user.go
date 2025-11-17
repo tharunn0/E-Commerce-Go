@@ -20,6 +20,8 @@ type UserRepository interface {
 	GetUserAddresses(ctx context.Context, userID int64) ([]*UserAddress, error)
 	GetDefaultUserAddress(ctx context.Context, userID int64) (*UserAddress, error)
 	UpdateDefaultUserAddress(ctx context.Context, userID int64, addressID int64) error
+	UpdateUserAddress(ctx context.Context, userID int64, req *UpdateUserAddressRequest) (*UserAddress, error)
+	DeleteUserAddress(ctx context.Context, userID int64, addressID int64) error
 }
 
 type AdminRepository interface {
@@ -70,7 +72,7 @@ type UserProfile struct {
 }
 type UserAddress struct {
 	ID           int64      `json:"id"`
-	UserID       int64      `json:"user_id"`
+	UserID       int64      `json:"user_id,omitempty"`
 	Label        string     `json:"label,omitempty"`
 	AddressLine  string     `json:"address_line"`
 	AddressLine2 string     `json:"address_line_2,omitempty"`
@@ -78,21 +80,20 @@ type UserAddress struct {
 	City         string     `json:"city"`
 	State        string     `json:"state,omitempty"`
 	Country      string     `json:"country"`
-	CreatedAt    time.Time  `json:"created_at"`
+	CreatedAt    *time.Time `json:"created_at,omitempty"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
 }
 
-// type UserAddressResponse struct {
-// 	ID           int64  `json:"id"`
-// 	UserID       int64  `json:"user_id"`
-// 	Label        string `json:"label" validate:"required"`
-// 	AddressLine  string `json:"address_line"`
-// 	AddressLine2 string `json:"address_line_2,omitempty"`
-// 	Pincode      string `json:"pincode"`
-// 	City         string `json:"city"`
-// 	State        string `json:"state,omitempty"`
-// 	Country      string `json:"country"`
-// }
+type UpdateUserAddressRequest struct {
+	ID           int64   `json:"id"`
+	Label        *string `json:"label,omitempty"`
+	AddressLine  *string `json:"address_line,omitempty"`
+	AddressLine2 *string `json:"address_line_2,omitempty"`
+	Pincode      *string `json:"pincode,omitempty"`
+	City         *string `json:"city,omitempty"`
+	State        *string `json:"state,omitempty"`
+	Country      *string `json:"country,omitempty"`
+}
 
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`

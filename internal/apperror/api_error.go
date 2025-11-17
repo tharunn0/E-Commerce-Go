@@ -28,6 +28,11 @@ var (
 	ErrInvalidPassword = errors.New("Invalid password")
 )
 
+// Address-related errors
+var (
+	ErrAddressNotFoundForUser = errors.New("Address not found for user")
+)
+
 // Auth / Token errors
 var (
 	ErrTokenExpired   = errors.New("Token expired")

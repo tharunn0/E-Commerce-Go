@@ -219,3 +219,57 @@ func (repo *UserRepository) UpdateDefaultUserAddress(ctx context.Context, userID
 	}
 	return nil
 }
+
+func (repo *UserRepository) UpdateUserAddress(ctx context.Context, userID int64, req *domain.UpdateUserAddressRequest) (*domain.UserAddress, error) {
+
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM user_addresses WHERE user_id = $1 AND id = $2)`
+	err := repo.DB.QueryRow(ctx, query, userID, req.ID).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, apperror.ErrAddressNotFoundForUser
+	}
+	query = `UPDATE user_addresses SET
+		label = COALESCE($1, label),
+		address_line = COALESCE($2, address_line),
+		address_line_2 = COALESCE($3, address_line_2),
+		pincode = COALESCE($4, pincode),
+		city = COALESCE($5, city),
+		state = COALESCE($6, state),
+		country = COALESCE($7, country)
+	WHERE id = $8 
+	RETURNING id, label, address_line, address_line_2, pincode, city, state, country
+	`
+	var updatedAddress domain.UserAddress
+	err = repo.DB.QueryRow(ctx, query, req.Label, req.AddressLine, req.AddressLine2, req.Pincode, req.City, req.State, req.Country, req.ID).Scan(
+		&updatedAddress.ID, &updatedAddress.Label, &updatedAddress.AddressLine, &updatedAddress.AddressLine2, &updatedAddress.Pincode, &updatedAddress.City, &updatedAddress.State, &updatedAddress.Country)
+	if err != nil {
+		return nil, err
+	}
+	return &updatedAddress, nil
+}
+
+func (repo *UserRepository) DeleteUserAddress(ctx context.Context, userID int64, addressID int64) error {
+
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM user_addresses WHERE user_id = $1 AND id = $2)`
+	err := repo.DB.QueryRow(ctx, query, userID, addressID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return apperror.ErrAddressNotFoundForUser
+	}
+
+	query = `DELETE FROM user_addresses WHERE user_id = $1 AND id = $2`
+	cmdTag, err := repo.DB.Exec(ctx, query, userID, addressID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() != 1 {
+		return errors.New("FAILED_TO_DELETE_USER_ADDRESS")
+	}
+	return nil
+}

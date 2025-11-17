@@ -535,3 +535,62 @@ func (h *UserHandler) UpdateDefaultUserAddress(c *gin.Context) {
 		"message":          "Default user address updated successfully",
 	})
 }
+
+func (h *UserHandler) UpdateUserAddress(c *gin.Context) {
+	ctx := c.Request.Context()
+	addressID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Address ID not found",
+		})
+		return
+	}
+
+	var req domain.UpdateUserAddressRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("invalid update user address request payload", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid user address.",
+		})
+		return
+	}
+
+	req.ID = addressID
+	updatedAddress, apiErr := h.service.UpdateUserAddress(ctx, &req)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"address": updatedAddress,
+		"message": "User address updated successfully",
+	})
+}
+
+func (h *UserHandler) DeleteUserAddress(c *gin.Context) {
+	ctx := c.Request.Context()
+	addressID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Address ID not found",
+		})
+		return
+	}
+	apiErr := h.service.DeleteUserAddress(ctx, addressID)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "User address deleted successfully",
+	})
+}

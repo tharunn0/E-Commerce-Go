@@ -374,3 +374,57 @@ func (serv *UserService) UpdateDefaultUserAddress(ctx context.Context, addressID
 	}
 	return nil
 }
+
+// update user address
+func (serv *UserService) UpdateUserAddress(ctx context.Context, req *domain.UpdateUserAddressRequest) (*domain.UserAddress, *apperror.APIError) {
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
+
+	updatedAddress, err := serv.repo.UpdateUserAddress(ctx, userID, req)
+	if err != nil {
+		serv.log.Debug("failed to update user address in db", zap.Int64("user_id", userID), zap.Int64("address_id", req.ID), zap.Error(err))
+
+		if errors.Is(err, apperror.ErrAddressNotFoundForUser) {
+			return nil, &apperror.APIError{
+				Code:    "ADDRESS_NOT_FOUND",
+				Message: "Address not found for user.",
+			}
+		}
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to update user address.",
+		}
+	}
+	return updatedAddress, nil
+}
+
+// delete user address
+func (serv *UserService) DeleteUserAddress(ctx context.Context, addressID int64) *apperror.APIError {
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return &apperror.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
+	err = serv.repo.DeleteUserAddress(ctx, userID, addressID)
+	if err != nil {
+		if errors.Is(err, apperror.ErrAddressNotFoundForUser) {
+			return &apperror.APIError{
+				Code:    "ADDRESS_NOT_FOUND",
+				Message: "Address not found for user.",
+			}
+		}
+		serv.log.Debug("failed to delete user address in db", zap.Int64("user_id", userID), zap.Int64("address_id", addressID), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to delete user address.",
+		}
+	}
+	return nil
+}

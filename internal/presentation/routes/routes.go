@@ -58,8 +58,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		userAddressProtected.POST("/addresses", h.User.CreateUserAddress)
 		userAddressProtected.GET("/:id/addresses", h.User.GetUserAddresses)
 		userAddressProtected.PATCH("/addresses/:id/default", h.User.UpdateDefaultUserAddress)
-		// userAddressProtected.PUT("/:id", h.User.UpdateUserAddress)
-		// userAddressProtected.DELETE("/:id", h.User.DeleteUserAddress)
+		userAddressProtected.PUT("/addresses/:id", h.User.UpdateUserAddress)
+		userAddressProtected.DELETE("/addresses/:id", h.User.DeleteUserAddress)
 	}
 
 	adminAuth := g.Group("/api/v1/auth/admin/")
