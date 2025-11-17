@@ -6,13 +6,20 @@ import (
 )
 
 type UserRepository interface {
+	// auth operations
 	RegisterUser(ctx context.Context, req *RegisterRequest) error
 	GetUser(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	GoogleSignIn(ctx context.Context, req *GoogleSignInRequest) (*User, error)
+
+	// profile operations
+	UpdateUserProfile(ctx context.Context, userID int64, req *UpdateUserProfileRequest) (*UserProfile, error)
+
+	// address operations
 	InsertUserAddress(ctx context.Context, address *UserAddress) error
 	GetUserAddresses(ctx context.Context, userID int64) ([]*UserAddress, error)
-	UpdateUserProfile(ctx context.Context, userID int64, req *UpdateUserProfileRequest) (*UserProfile, error)
+	GetDefaultUserAddress(ctx context.Context, userID int64) (*UserAddress, error)
+	UpdateDefaultUserAddress(ctx context.Context, userID int64, addressID int64) error
 }
 
 type AdminRepository interface {
@@ -62,18 +69,31 @@ type UserProfile struct {
 	Addresses []*UserAddress `json:"addresses,omitempty"`
 }
 type UserAddress struct {
-	ID           int64     `json:"id"`
-	UserID       int64     `json:"user_id"`
-	Label        string    `json:"label,omitempty"`
-	AddressLine  string    `json:"address_line"`
-	AddressLine2 string    `json:"address_line_2,omitempty"`
-	Pincode      string    `json:"pincode"`
-	City         string    `json:"city"`
-	State        string    `json:"state,omitempty"`
-	Country      string    `json:"country"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           int64      `json:"id"`
+	UserID       int64      `json:"user_id"`
+	Label        string     `json:"label,omitempty"`
+	AddressLine  string     `json:"address_line"`
+	AddressLine2 string     `json:"address_line_2,omitempty"`
+	Pincode      string     `json:"pincode"`
+	City         string     `json:"city"`
+	State        string     `json:"state,omitempty"`
+	Country      string     `json:"country"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
 }
+
+// type UserAddressResponse struct {
+// 	ID           int64  `json:"id"`
+// 	UserID       int64  `json:"user_id"`
+// 	Label        string `json:"label" validate:"required"`
+// 	AddressLine  string `json:"address_line"`
+// 	AddressLine2 string `json:"address_line_2,omitempty"`
+// 	Pincode      string `json:"pincode"`
+// 	City         string `json:"city"`
+// 	State        string `json:"state,omitempty"`
+// 	Country      string `json:"country"`
+// }
+
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`

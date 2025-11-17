@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -458,4 +459,79 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 	}
 	h.logger.Info("user profile updated successfully", zap.Int64("user_id", userProfile.ID), zap.String("email", userProfile.Email))
 	c.JSON(http.StatusOK, userProfile)
+}
+
+//user address
+
+func (h *UserHandler) CreateUserAddress(c *gin.Context) {
+	ctx := c.Request.Context()
+	var req domain.UserAddress
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("invalid create user address request payload", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid user address.",
+		})
+		return
+	}
+	apiErr := h.service.CreateUserAddress(ctx, &req)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "User address created successfully",
+	})
+}
+
+func (h *UserHandler) GetUserAddresses(c *gin.Context) {
+	ctx := c.Request.Context()
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "User ID not found",
+		})
+		return
+	}
+
+	addresses, defaultAddressID, apiErr := h.service.GetUserAddresses(ctx, id)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"defaultAddressID": defaultAddressID,
+		"addresses":        addresses,
+	})
+}
+
+func (h *UserHandler) UpdateDefaultUserAddress(c *gin.Context) {
+	ctx := c.Request.Context()
+	addressID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Address ID not found",
+		})
+		return
+	}
+	apiErr := h.service.UpdateDefaultUserAddress(ctx, addressID)
+	if apiErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"defaultAddressID": addressID,
+		"message":          "Default user address updated successfully",
+	})
 }

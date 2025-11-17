@@ -225,6 +225,8 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 // get user profile
 func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*domain.UserProfile, *apperror.APIError) {
 
+	isAdmin := utils.IsAdmin(ctx)
+
 	user, err := serv.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		serv.log.Debug("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
@@ -251,10 +253,24 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 		Phone:            &user.Phone,
 		Role:             &user.Role,
 		IsVerified:       user.IsVerified,
-		DefaultAddressID: user.DefaultAddressID,
 		Status:           &user.Status,
 		CreatedAt:        &user.CreatedAt,
+		DefaultAddressID: user.DefaultAddressID,
 		Addresses:        addresses,
+	}
+
+	if user.DefaultAddressID == nil {
+		addressID := addresses[0].ID
+		userProfile.DefaultAddressID = &addressID
+	}
+
+	if !isAdmin {
+		userProfile.Status = nil
+		userProfile.Role = nil
+
+		for _, address := range userProfile.Addresses {
+			address.UpdatedAt = nil
+		}
 	}
 
 	return &userProfile, nil
@@ -288,8 +304,16 @@ func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.Upda
 }
 
 // add user address
-func (serv *UserService) AddUserAddress(ctx context.Context, address *domain.UserAddress) *apperror.APIError {
-	err := serv.repo.InsertUserAddress(ctx, address)
+func (serv *UserService) CreateUserAddress(ctx context.Context, address *domain.UserAddress) *apperror.APIError {
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return &apperror.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
+	address.UserID = userID
+	err = serv.repo.InsertUserAddress(ctx, address)
 	if err != nil {
 		serv.log.Debug("failed to insert user address into db", zap.Int64("user_id", address.UserID), zap.Error(err))
 		return &apperror.APIError{
@@ -301,14 +325,52 @@ func (serv *UserService) AddUserAddress(ctx context.Context, address *domain.Use
 }
 
 // get user addresses
-func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, *apperror.APIError) {
+func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, *int64, *apperror.APIError) {
+
+	isAdmin := utils.IsAdmin(ctx)
+
 	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
 	if err != nil {
 		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
-		return nil, &apperror.APIError{
+		return nil, nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch user addresses.",
 		}
 	}
-	return addresses, nil
+
+	defaultAddress, err := serv.repo.GetDefaultUserAddress(ctx, userID)
+	if err != nil {
+		serv.log.Debug("failed to fetch default user address from db", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to fetch default user address.",
+		}
+	}
+
+	if !isAdmin {
+		for _, address := range addresses {
+			address.UpdatedAt = nil
+		}
+	}
+	return addresses, &defaultAddress.ID, nil
+}
+
+// update default user address
+func (serv *UserService) UpdateDefaultUserAddress(ctx context.Context, addressID int64) *apperror.APIError {
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return &apperror.APIError{
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
+	err = serv.repo.UpdateDefaultUserAddress(ctx, userID, addressID)
+	if err != nil {
+		serv.log.Debug("failed to update default user address in db", zap.Int64("user_id", userID), zap.Int64("address_id", addressID), zap.Error(err))
+		return &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to update default user address.",
+		}
+	}
+	return nil
 }

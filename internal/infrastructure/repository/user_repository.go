@@ -119,6 +119,35 @@ func (repo *UserRepository) GetUserByID(ctx context.Context, userID int64) (*dom
 	return user, nil
 }
 
+func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, error) {
+	query := `
+	UPDATE users SET
+        first_name = COALESCE($1, first_name),
+        last_name  = COALESCE($2, last_name),
+        phone      = COALESCE($3, phone)
+    WHERE id = $4
+    RETURNING id, email, first_name, last_name, phone, is_verified, created_at`
+
+	var updatedProfile domain.UserProfile
+	err := repo.DB.QueryRow(ctx, query, req.FirstName, req.LastName, req.Phone, userID).Scan(
+		&updatedProfile.ID, &updatedProfile.Email, &updatedProfile.FirstName, &updatedProfile.LastName,
+		&updatedProfile.Phone, &updatedProfile.IsVerified, &updatedProfile.CreatedAt)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.ConstraintName {
+			case "users_phone_key":
+				return nil, apperror.ErrPhoneExists
+			}
+		}
+		return nil, err
+	}
+
+	return &updatedProfile, nil
+}
+
+// user address repository
 func (repo *UserRepository) InsertUserAddress(ctx context.Context, address *domain.UserAddress) error {
 	query := `INSERT INTO user_addresses (user_id, label, address_line,address_line_2, pincode, city, state, country)
 	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`
@@ -157,48 +186,36 @@ func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) 
 	return userAddresses, nil
 }
 
-func (repo *UserRepository) GetDefaultUserAddress(ctx context.Context, addressID int64) (*domain.UserAddress, error) {
-	query := `SELECT id, user_id, label, address_line,address_line_2, pincode, city, state, country , created_at, updated_at FROM user_addresses
-	 WHERE address_id = $1`
-	rows, err := repo.DB.Query(ctx, query, addressID)
+func (repo *UserRepository) GetDefaultUserAddress(ctx context.Context, userID int64) (*domain.UserAddress, error) {
+
+	userAddress := &domain.UserAddress{}
+	query := `SELECT ua.id, ua.user_id, ua.label, ua.address_line,ua.address_line_2, ua.pincode, ua.city,
+	 ua.state, ua.country , ua.created_at, ua.updated_at FROM user_addresses ua
+	 INNER JOIN users u ON ua.user_id = u.id
+	 WHERE ua.user_id = $1 AND u.default_address_id = ua.id`
+	err := repo.DB.QueryRow(ctx, query, userID).Scan(&userAddress.ID, &userAddress.UserID, &userAddress.Label, &userAddress.AddressLine, &userAddress.AddressLine2,
+		&userAddress.Pincode, &userAddress.City, &userAddress.State, &userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var userAddress domain.UserAddress
-	err = rows.Scan(&userAddress.ID, &userAddress.UserID, &userAddress.Label, &userAddress.AddressLine, &userAddress.AddressLine2, &userAddress.Pincode, &userAddress.City, &userAddress.State, &userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-	if rows.Err() != nil {
-		return nil, rows.Err()
-	}
-	return &userAddress, nil
+	return userAddress, nil
 }
 
-func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, error) {
-	query := `
-	UPDATE users SET
-        first_name = COALESCE($1, first_name),
-        last_name  = COALESCE($2, last_name),
-        phone      = COALESCE($3, phone)
-    WHERE id = $4
-    RETURNING id, email, first_name, last_name, phone, is_verified, created_at`
-
-	var updatedProfile domain.UserProfile
-	err := repo.DB.QueryRow(ctx, query, req.FirstName, req.LastName, req.Phone, userID).Scan(
-		&updatedProfile.ID, &updatedProfile.Email, &updatedProfile.FirstName, &updatedProfile.LastName,
-		&updatedProfile.Phone, &updatedProfile.IsVerified, &updatedProfile.CreatedAt)
-
+func (repo *UserRepository) UpdateDefaultUserAddress(ctx context.Context, userID int64, addressID int64) error {
+	query := `UPDATE users 
+		SET default_address_id = $1 
+			WHERE id = $2 
+			AND EXISTS (
+			SELECT 1 FROM user_addresses 
+      WHERE id = $1 AND user_id = $2 
+  )
+`
+	cmdTag, err := repo.DB.Exec(ctx, query, addressID, userID)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			switch pgErr.ConstraintName {
-			case "users_phone_key":
-				return nil, apperror.ErrPhoneExists
-			}
-		}
-		return nil, err
+		return err
 	}
-	return &updatedProfile, nil
+	if cmdTag.RowsAffected() != 1 {
+		return errors.New("FAILED_TO_UPDATE_DEFAULT_USER_ADDRESS")
+	}
+	return nil
 }
