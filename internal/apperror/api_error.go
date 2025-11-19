@@ -3,6 +3,7 @@ package apperror
 import "errors"
 
 type APIError struct {
+	Status  int    `json:"status"`
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
@@ -41,9 +42,10 @@ var (
 	ErrOTPExpired     = errors.New("OTP has expired")
 )
 
-// Business rule errors (optional)
+// Cart-related errors
 var (
-	ErrInsufficientBalance = errors.New("Insufficient balance")
-	ErrAlreadyProcessed    = errors.New("Already processed")
-	ErrOperationNotAllowed = errors.New("Operation not allowed")
+	ErrCartNotFound           = errors.New("Cart not found")
+	ErrProductVariantNotFound = errors.New("Product variant not found")
+	ErrCartEmpty              = errors.New("Cart is empty")
+	ErrCartItemNotFound       = errors.New("Cart item not found")
 )

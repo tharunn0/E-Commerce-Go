@@ -51,22 +51,25 @@ func main() {
 	adminRepo := repository.NewAdminRepository(pgdb)
 	categoryRepo := repository.NewCategoryRepository(pgdb)
 	productRepo := repository.NewProductRepository(pgdb)
+	cartRepo := repository.NewCartRepository(pgdb)
 
 	userServ := service.NewUserService(userRepo, authRepo, log, mailer)
 	adminServ := service.NewAdminService(adminRepo, log, authRepo)
 	authServ := service.NewAuthService(authRepo, mailer, log, &cfg.Security)
 	catergoryServ := service.NewCategoryService(categoryRepo, log)
 	productServ := service.NewProductService(productRepo, log)
+	cartServ := service.NewCartService(cartRepo, productRepo, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
 	adminHandler := handler.NewAdminHandler(adminServ, log, authServ)
 	categoryHandler := handler.NewCategoryHandler(catergoryServ, log)
 	productHandler := handler.NewProductHandler(productServ, log)
+	cartHandler := handler.NewCartHandler(cartServ, log)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), middleware.RequestLogger(log))
 
-	handler := routes.NewHandler(userHandler, adminHandler, categoryHandler, productHandler)
+	handler := routes.NewHandler(userHandler, adminHandler, categoryHandler, productHandler, cartHandler)
 
 	routes.RegisterRoutes(r, log, handler, &cfg.Security)
 

@@ -203,7 +203,6 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		return nil, 0, err
 	}
 	defer rows.Close()
-	pids := []int64{}
 	products := []*domain.ProductResponse{}
 	for rows.Next() {
 		var p domain.ProductResponse
@@ -211,30 +210,29 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 			&p.Rating, &p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
-		pids = append(pids, p.ID)
 		products = append(products, &p)
 	}
 
-	query = `SELECT product_id, MIN(price_difference) FROM product_variants WHERE product_id = ANY($1) GROUP BY product_id`
-	rows, err = repo.DB.Query(ctx, query, pids)
-	if err != nil {
-		return nil, 0, err
-	}
-	m := make(map[int64]float64)
-	var id int64
-	var pricediff float64
-	for rows.Next() {
+	// query = `SELECT product_id, MIN(price_difference) FROM product_variants WHERE product_id = ANY($1) GROUP BY product_id`
+	// rows, err = repo.DB.Query(ctx, query, pids)
+	// if err != nil {
+	// 	return nil, 0, err
+	// }
+	// m := make(map[int64]float64)
+	// var id int64
+	// var pricediff float64
+	// for rows.Next() {
 
-		err = rows.Scan(&id, &pricediff)
-		if err != nil {
-			return nil, 0, err
-		}
-		m[id] = pricediff
-	}
+	// 	err = rows.Scan(&id, &pricediff)
+	// 	if err != nil {
+	// 		return nil, 0, err
+	// 	}
+	// 	m[id] = pricediff
+	// }
 
-	for _, p := range products {
-		p.MinPrice = m[p.ID]
-	}
+	// for _, p := range products {
+	// 	p.MinPrice = m[p.ID]
+	// }
 
 	return products, total, nil
 }
@@ -525,7 +523,7 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 			productvariants.Variants[i].Images = append(productvariants.Variants[i].Images, image)
 		}
 
-		if *productvariants.Variants[i].SalePrice == 0 {
+		if productvariants.Variants[i].SalePrice != nil && *productvariants.Variants[i].SalePrice == 0 {
 			productvariants.Variants[i].SalePrice = nil
 		}
 	}

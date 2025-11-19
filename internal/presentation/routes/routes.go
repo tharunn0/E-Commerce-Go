@@ -13,14 +13,16 @@ type Handler struct {
 	Admin    *handler.AdminHandler
 	Category *handler.CategoryHandler
 	Product  *handler.ProductHandler
+	Cart     *handler.CartHandler
 }
 
-func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler, producth *handler.ProductHandler) *Handler {
+func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler, producth *handler.ProductHandler, carth *handler.CartHandler) *Handler {
 	return &Handler{
 		User:     userh,
 		Admin:    adminh,
 		Category: categoryh,
 		Product:  producth,
+		Cart:     carth,
 	}
 }
 
@@ -62,16 +64,20 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		userAddressProtected.DELETE("/addresses/:id", h.User.DeleteUserAddress)
 	}
 
-	adminAuth := g.Group("/api/v1/auth/admin/")
-	adminAuth.POST("/login", h.Admin.LoginUser)
-	adminAuth.POST("/refresh", h.Admin.RefreshToken)
-	adminAuth.POST("/register", h.Admin.RegisterAdmin)
+	{
 
-	adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
-	adminProtectedRoute.GET("/users", h.Admin.GetAllUsers)
-	adminProtectedRoute.GET("/users/:id", h.Admin.GetUserByID)
-	adminProtectedRoute.PUT("/users", h.Admin.UpdateUserStatus)
-	adminProtectedRoute.DELETE("/users/:id", h.Admin.DeleteUser)
+		//admin auth routes
+		adminAuth := g.Group("/api/v1/auth/admin/")
+		adminAuth.POST("/login", h.Admin.LoginUser)
+		adminAuth.POST("/refresh", h.Admin.RefreshToken)
+		adminAuth.POST("/register", h.Admin.RegisterAdmin)
+
+		adminProtectedRoute := g.Group("/api/v1/admin").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		adminProtectedRoute.GET("/users", h.Admin.GetAllUsers)
+		adminProtectedRoute.GET("/users/:id", h.Admin.GetUserByID)
+		adminProtectedRoute.PUT("/users", h.Admin.UpdateUserStatus)
+		adminProtectedRoute.DELETE("/users/:id", h.Admin.DeleteUser)
+	}
 	{
 		// Category routes
 		categoryOpenRoute := g.Group("/api/v1/categories/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
@@ -145,6 +151,17 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		variantAttributeOpenRoute := variantAttributeRoute.Group("/").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
 		variantAttributeOpenRoute.GET("/", h.Product.GetAttributes)
 		variantAttributeOpenRoute.GET("/:id", h.Product.GetAttributeByID)
+	}
+
+	{
+		// cart routes
+		cartRoute := g.Group("/api/v1/cart")
+		cartProtectedRoute := cartRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		cartProtectedRoute.POST("/", h.Cart.AddToCart)
+		cartProtectedRoute.GET("/", h.Cart.GetCart)
+		cartProtectedRoute.PATCH("/", h.Cart.UpdateCartItemQuantity)
+		cartProtectedRoute.DELETE("/items/:id", h.Cart.RemoveCartItem)
+		cartProtectedRoute.DELETE("/", h.Cart.EmptyCart)
 	}
 
 }
