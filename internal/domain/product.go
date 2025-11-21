@@ -117,20 +117,20 @@ type UpdateProductRequest struct {
 }
 
 type ProductResponse struct {
-	ID          int64                   `json:"id"`
-	Name        string                  `json:"name"`
-	Brand       ProductBrandResponse    `json:"brand"`
-	Category    ProductCategoryResponse `json:"category"`
-	Description string                  `json:"description"`
-	MinPrice    float64                 `json:"min_price"`
-	MaxPrice    float64                 `json:"max_price"`
-	IsDigital   bool                    `json:"is_digital"`
-	IsActive    *bool                   `json:"is_active,omitempty"`
-	ImageURL    string                  `json:"image_url"`
-	Rating      float64                 `json:"rating"`
-	Reviews     []*Review               `json:"review,omitempty"`
-	CreatedAt   *time.Time              `json:"created_at,omitempty"`
-	UpdatedAt   *time.Time              `json:"updated_at,omitempty"`
+	ID          int64                    `json:"id"`
+	Name        string                   `json:"name"`
+	Brand       *ProductBrandResponse    `json:"brand,omitempty"`
+	Category    *ProductCategoryResponse `json:"category,omitempty"`
+	Description string                   `json:"description"`
+	MinPrice    float64                  `json:"min_price"`
+	MaxPrice    float64                  `json:"max_price"`
+	IsDigital   bool                     `json:"is_digital"`
+	IsActive    *bool                    `json:"is_active,omitempty"`
+	ImageURL    string                   `json:"image_url"`
+	Rating      float64                  `json:"rating"`
+	Reviews     []*Review                `json:"review,omitempty"`
+	CreatedAt   *time.Time               `json:"created_at,omitempty"`
+	UpdatedAt   *time.Time               `json:"updated_at,omitempty"`
 }
 type Review struct {
 	ID          int64      `json:"id"`

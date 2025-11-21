@@ -260,8 +260,11 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 	}
 
 	if user.DefaultAddressID == nil {
-		addressID := addresses[0].ID
-		userProfile.DefaultAddressID = &addressID
+		if len(addresses) > 0 {
+			addressID := addresses[0].ID
+			userProfile.DefaultAddressID = &addressID
+		}
+
 	}
 
 	if !isAdmin {

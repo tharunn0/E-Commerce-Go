@@ -206,33 +206,16 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 	products := []*domain.ProductResponse{}
 	for rows.Next() {
 		var p domain.ProductResponse
-		if err := rows.Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID, &p.Category.Name,
+		var b domain.ProductBrandResponse
+		var c domain.ProductCategoryResponse
+		if err := rows.Scan(&p.ID, &p.Name, &b.ID, &b.Name, &p.Description, &c.ID, &c.Name,
 			&p.Rating, &p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
+		p.Brand = &b
+		p.Category = &c
 		products = append(products, &p)
 	}
-
-	// query = `SELECT product_id, MIN(price_difference) FROM product_variants WHERE product_id = ANY($1) GROUP BY product_id`
-	// rows, err = repo.DB.Query(ctx, query, pids)
-	// if err != nil {
-	// 	return nil, 0, err
-	// }
-	// m := make(map[int64]float64)
-	// var id int64
-	// var pricediff float64
-	// for rows.Next() {
-
-	// 	err = rows.Scan(&id, &pricediff)
-	// 	if err != nil {
-	// 		return nil, 0, err
-	// 	}
-	// 	m[id] = pricediff
-	// }
-
-	// for _, p := range products {
-	// 	p.MinPrice = m[p.ID]
-	// }
 
 	return products, total, nil
 }
@@ -249,12 +232,15 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 		query += " AND p.is_active = true"
 	}
 	var p domain.ProductResponse
-
-	err := repo.DB.QueryRow(ctx, query, id).Scan(&p.ID, &p.Name, &p.Brand.ID, &p.Brand.Name, &p.Description, &p.Category.ID,
-		&p.Category.Name, &p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
+	var b domain.ProductBrandResponse
+	var c domain.ProductCategoryResponse
+	err := repo.DB.QueryRow(ctx, query, id).Scan(&p.ID, &p.Name, &b.ID, &b.Name, &p.Description, &c.ID, &c.Name,
+		&p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	p.Brand = &b
+	p.Category = &c
 
 	return &p, nil
 }

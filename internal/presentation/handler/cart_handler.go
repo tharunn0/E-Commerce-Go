@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -31,8 +30,6 @@ func (h *CartHandler) AddToCart(c *gin.Context) {
 		})
 		return
 	}
-
-	fmt.Println("cart request in handler", req)
 
 	cart, apierr := h.service.AddToCart(ctx, &req)
 	if apierr != nil {
@@ -121,6 +118,7 @@ func (h *CartHandler) EmptyCart(c *gin.Context) {
 			"error":   apierr.Code,
 			"message": apierr.Message,
 		})
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Cart emptied successfully",

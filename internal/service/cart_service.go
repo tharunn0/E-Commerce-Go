@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -49,8 +48,6 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 		}
 	}
 
-	fmt.Println("cart ID in service", cartID)
-
 	cart, err := s.repo.GetCartByCartID(ctx, *cartID)
 	if err != nil {
 
@@ -71,7 +68,6 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 			Message: "Invalid user ID.",
 		}
 	}
-	fmt.Println("user ID in service", userID)
 	cart, err := s.repo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByCartID"), zap.Int64("user_id", userID), zap.Error(err))
@@ -81,7 +77,6 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 		}
 	}
 
-	fmt.Println("cart in service", cart)
 	return cart, nil
 }
 

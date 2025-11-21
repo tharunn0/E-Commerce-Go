@@ -14,15 +14,18 @@ type Handler struct {
 	Category *handler.CategoryHandler
 	Product  *handler.ProductHandler
 	Cart     *handler.CartHandler
+	Wishlist *handler.WishlistHandler
 }
 
-func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler, producth *handler.ProductHandler, carth *handler.CartHandler) *Handler {
+func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler,
+	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler) *Handler {
 	return &Handler{
 		User:     userh,
 		Admin:    adminh,
 		Category: categoryh,
 		Product:  producth,
 		Cart:     carth,
+		Wishlist: wishlisth,
 	}
 }
 
@@ -162,6 +165,16 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		cartProtectedRoute.PATCH("/", h.Cart.UpdateCartItemQuantity)
 		cartProtectedRoute.DELETE("/items/:id", h.Cart.RemoveCartItem)
 		cartProtectedRoute.DELETE("/", h.Cart.EmptyCart)
+	}
+
+	{
+		// wishlist routes
+		wishlistRoute := g.Group("/api/v1/wishlist")
+		wishlistProtectedRoute := wishlistRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		wishlistProtectedRoute.POST("/", h.Wishlist.AddToWishlist)
+		wishlistProtectedRoute.GET("/", h.Wishlist.GetWishlist)
+		wishlistProtectedRoute.DELETE("/", h.Wishlist.RemoveFromWishlist)
+		//wishlistProtectedRoute.DELETE("/", h.Wishlist.EmptyWishlist)
 	}
 
 }

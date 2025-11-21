@@ -36,7 +36,6 @@ func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, product
 				return nil, err
 			}
 		}
-		return nil, err
 	}
 
 	// insert or update cart item
@@ -200,6 +199,7 @@ func (repo *CartRepository) RemoveCartItem(ctx context.Context, userID int64, pr
 
 func (repo *CartRepository) EmptyCart(ctx context.Context, userID int64) error {
 	query := `DELETE FROM cart_items ci
+	USING carts c
 	 WHERE ci.cart_id = c.id
 	 AND c.user_id = $1
 	RETURNING ci.cart_id`

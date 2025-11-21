@@ -49,3 +49,12 @@ var (
 	ErrCartEmpty              = errors.New("Cart is empty")
 	ErrCartItemNotFound       = errors.New("Cart item not found")
 )
+
+var (
+	ErrWishlistNotFound          = errors.New("Wishlist not found")
+	ErrWishlistCreateFail        = errors.New("Wishlist creation failed")
+	ErrWishlistDeleteFail        = errors.New("Wishlist deletion failed")
+	ErrWishlistUpdateFail        = errors.New("Wishlist update failed")
+	ErrWishlistItemAlreadyExists = errors.New("Wishlist item already exists")
+	ErrWishlistItemNotFound      = errors.New("Wishlist item not found")
+)
