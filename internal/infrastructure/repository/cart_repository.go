@@ -61,7 +61,7 @@ func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, product
 	return &cartID, nil
 }
 
-func (repo *CartRepository) GetCartByCartID(ctx context.Context, cartID int64) (*domain.Cart, error) {
+func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*domain.Cart, error) {
 
 	var cartItems []*domain.CartItem
 	var _ domain.CartItem

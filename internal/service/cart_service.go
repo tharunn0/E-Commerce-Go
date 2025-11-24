@@ -48,10 +48,10 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 		}
 	}
 
-	cart, err := s.repo.GetCartByCartID(ctx, *cartID)
+	cart, err := s.repo.GetCartByID(ctx, *cartID)
 	if err != nil {
 
-		s.log.Error("failed to get cart", zap.String("function", "GetCartByCartID"), zap.Int64("cart_id", *cartID), zap.Error(err))
+		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", *cartID), zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get cart.",
@@ -110,9 +110,9 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *domain.Up
 			Message: "Failed to update cart item quantity.",
 		}
 	}
-	cart, err := s.repo.GetCartByCartID(ctx, updatedCartID)
+	cart, err := s.repo.GetCartByID(ctx, updatedCartID)
 	if err != nil {
-		s.log.Error("failed to get cart", zap.String("function", "GetCartByCartID"), zap.Int64("cart_id", updatedCartID), zap.Error(err))
+		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", updatedCartID), zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get cart.",
@@ -144,9 +144,9 @@ func (s *CartService) RemoveCartItem(ctx context.Context, req *domain.RemoveCart
 			Message: "Failed to remove cart item.",
 		}
 	}
-	cart, err := s.repo.GetCartByCartID(ctx, removedCartID)
+	cart, err := s.repo.GetCartByID(ctx, removedCartID)
 	if err != nil {
-		s.log.Error("failed to get cart", zap.String("function", "GetCartByCartID"), zap.Int64("cart_id", removedCartID), zap.Error(err))
+		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", removedCartID), zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get cart.",

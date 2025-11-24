@@ -296,7 +296,7 @@ func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64)
 		}
 	}
 
-	if *productVariant.SalePrice == 0 {
+	if productVariant.SalePrice != nil && *productVariant.SalePrice == 0 {
 		productVariant.SalePrice = nil
 	}
 

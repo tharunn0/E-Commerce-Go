@@ -15,10 +15,11 @@ type Handler struct {
 	Product  *handler.ProductHandler
 	Cart     *handler.CartHandler
 	Wishlist *handler.WishlistHandler
+	Order    *handler.OrderHandler
 }
 
 func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler,
-	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler) *Handler {
+	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler, orderh *handler.OrderHandler) *Handler {
 	return &Handler{
 		User:     userh,
 		Admin:    adminh,
@@ -26,6 +27,7 @@ func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, catego
 		Product:  producth,
 		Cart:     carth,
 		Wishlist: wishlisth,
+		Order:    orderh,
 	}
 }
 
@@ -175,6 +177,14 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		wishlistProtectedRoute.GET("/", h.Wishlist.GetWishlist)
 		wishlistProtectedRoute.DELETE("/", h.Wishlist.RemoveFromWishlist)
 		//wishlistProtectedRoute.DELETE("/", h.Wishlist.EmptyWishlist)
+	}
+
+	{
+		// checkout routes
+		checkoutRoute := g.Group("api/v1/checkout")
+		checkoutProtectedRoute := checkoutRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		checkoutProtectedRoute.GET("/cart", h.Order.CheckoutCart)
+		checkoutProtectedRoute.POST("/product-variant", h.Order.CheckoutProductVariant)
 	}
 
 }

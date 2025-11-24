@@ -53,6 +53,7 @@ func main() {
 	productRepo := repository.NewProductRepository(pgdb)
 	cartRepo := repository.NewCartRepository(pgdb)
 	wishlistRepo := repository.NewWishlistRepository(pgdb)
+	orderRepo := repository.NewOrderRepository(pgdb)
 
 	userServ := service.NewUserService(userRepo, authRepo, log, mailer)
 	adminServ := service.NewAdminService(adminRepo, log, authRepo)
@@ -61,6 +62,7 @@ func main() {
 	productServ := service.NewProductService(productRepo, log)
 	cartServ := service.NewCartService(cartRepo, productRepo, log)
 	wishlistServ := service.NewWishlistService(wishlistRepo, log)
+	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
 	adminHandler := handler.NewAdminHandler(adminServ, log, authServ)
@@ -68,11 +70,12 @@ func main() {
 	productHandler := handler.NewProductHandler(productServ, log)
 	cartHandler := handler.NewCartHandler(cartServ, log)
 	wishlistHandler := handler.NewWishlistHandler(wishlistServ, log)
+	orderHandler := handler.NewOrderHandler(orderServ, log)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), middleware.RequestLogger(log))
 
-	handler := routes.NewHandler(userHandler, adminHandler, categoryHandler, productHandler, cartHandler, wishlistHandler)
+	handler := routes.NewHandler(userHandler, adminHandler, categoryHandler, productHandler, cartHandler, wishlistHandler, orderHandler)
 
 	routes.RegisterRoutes(r, log, handler, &cfg.Security)
 

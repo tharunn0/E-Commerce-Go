@@ -54,8 +54,19 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 			"message": apierr.Message,
 		})
 	}
+	var msg string
+	var nosOfItems int64
+	if len(cart.Items) == 0 {
+		msg = "Cart is empty"
+		nosOfItems = 0
+	} else {
+		msg = "Cart fetched successfully"
+		nosOfItems = int64(len(cart.Items))
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"cart": cart,
+		"message":      msg,
+		"cart":         cart,
+		"nos_of_items": nosOfItems,
 	})
 }
 
