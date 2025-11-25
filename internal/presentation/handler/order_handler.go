@@ -70,7 +70,7 @@ func (h *OrderHandler) CheckoutProductVariant(c *gin.Context) {
 	}
 
 	// validate and get product variant
-	productVariant, err := h.serv.CheckoutProductVariant(ctx, req.ProductVariantID, req.Quantity)
+	productVariant, err := h.serv.CheckoutProductVariant(ctx, &req)
 	if err != nil {
 		c.JSON(err.Status, gin.H{
 			"error":   err.Code,

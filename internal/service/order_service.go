@@ -135,17 +135,22 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		return nil, notEnoughStockErrors, nil
 	}
 
-	// final calculations
+	// shipping charge
 	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
-	totalAmount := cart.CartTotalPrice + shippingAmount
+
+	// delivery time and date
 	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
 	if err != nil {
 		estimatedDeliveryTime = 7
+		shippingAmount = 150
 	}
 	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
 	if err != nil {
 		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
 	}
+
+	// final cart items price
+	totalAmount := cart.CartTotalPrice + shippingAmount
 
 	resp := &domain.CartCheckoutResponse{
 		Cart:                  cart,
@@ -160,9 +165,56 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 	return resp, nil, nil
 }
 
-func (s *OrderService) CheckoutProductVariant(ctx context.Context, variantID int64, quantity int64) (*domain.ProductVariantResponse, *apperror.APIError) {
+func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.ProductVariantCheckoutRequest) (*domain.ProductVariantCheckoutResponse, *apperror.APIError) {
 	activeonly := !utils.IsAdmin(ctx)
-	productVariant, err := s.productRepo.GetProductVariantByID(ctx, variantID, activeonly)
+
+	// validate delivery type
+	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid delivery type.",
+		}
+	}
+
+	// get user id from context
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
+		}
+	}
+
+	// validate address exists
+	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
+	if err != nil {
+		if err == apperror.ErrAddressNotFoundForUser {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrAddressNotFoundForUser.Error(),
+			}
+		}
+		s.log.Error("Failed to get address", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get address.",
+		}
+	}
+
+	// validate address belongs to user
+	if userAddr.UserID != userID {
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You do not have access to this address.",
+		}
+	}
+
+	productVariant, err := s.productRepo.GetProductVariantByID(ctx, req.ProductVariantID, activeonly)
 	if err != nil {
 		if err == apperror.ErrProductVariantNotFound {
 			return nil, &apperror.APIError{
@@ -179,5 +231,45 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, variantID int
 		}
 	}
 
-	return productVariant, nil
+	if productVariant.Stock < int(req.Quantity) {
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: apperror.ErrNoStock.Error(),
+		}
+	}
+
+	// final shipping charge
+	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
+
+	// final delivery time and date
+	var totalAmount float64
+	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
+	if err != nil {
+		estimatedDeliveryTime = 7
+		shippingAmount = 150
+	}
+	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
+	if err != nil {
+		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
+	}
+
+	// final product variant price
+	if productVariant.SalePrice == nil {
+		totalAmount = productVariant.OriginalPrice + shippingAmount
+	} else {
+		totalAmount = *productVariant.SalePrice + shippingAmount
+	}
+
+	resp := &domain.ProductVariantCheckoutResponse{
+		ProductVariant:        productVariant,
+		ShippingCost:          shippingAmount,
+		TotalAmount:           totalAmount,
+		DeliveryType:          req.DeliveryType,
+		Address:               userAddr,
+		EstimatedDeliveryTime: fmt.Sprintf("%d days", estimatedDeliveryTime),
+		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
+	}
+
+	return resp, nil
 }

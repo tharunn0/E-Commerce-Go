@@ -50,6 +50,13 @@ var (
 	ErrCartItemNotFound       = errors.New("Cart item not found")
 )
 
+// Product variant-related errors
+var (
+	ErrNoStock  = errors.New("No stock available")
+	ErrLowStock = errors.New("Stock is low")
+)
+
+// Wishlist-related errors
 var (
 	ErrWishlistNotFound          = errors.New("Wishlist not found")
 	ErrWishlistCreateFail        = errors.New("Wishlist creation failed")

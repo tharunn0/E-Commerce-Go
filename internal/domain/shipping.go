@@ -43,7 +43,7 @@ var DeliveryDays = map[string]int{
 func ValidateDistrict(district string) error {
 	for _, list := range DistrictGroups {
 		for _, item := range list {
-			if strings.ToLower(item) == strings.ToLower(district) {
+			if strings.EqualFold(item, district) {
 				return nil
 			}
 		}
@@ -56,7 +56,7 @@ func GetDistrictGroup(district string) (string, error) {
 
 	for group, list := range DistrictGroups {
 		for _, item := range list {
-			if strings.ToLower(item) == d {
+			if strings.EqualFold(item, d) {
 				return group, nil
 			}
 		}
