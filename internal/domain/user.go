@@ -18,6 +18,7 @@ type UserRepository interface {
 	// address operations
 	InsertUserAddress(ctx context.Context, address *UserAddress) error
 	GetUserAddresses(ctx context.Context, userID int64) ([]*UserAddress, error)
+	GetUserAddressByID(ctx context.Context, addressID int64) (*UserAddress, error)
 	GetDefaultUserAddress(ctx context.Context, userID int64) (*UserAddress, error)
 	UpdateDefaultUserAddress(ctx context.Context, userID int64, addressID int64) error
 	UpdateUserAddress(ctx context.Context, userID int64, req *UpdateUserAddressRequest) (*UserAddress, error)
@@ -78,7 +79,8 @@ type UserAddress struct {
 	AddressLine2 string     `json:"address_line_2,omitempty"`
 	Pincode      string     `json:"pincode"`
 	City         string     `json:"city"`
-	State        string     `json:"state,omitempty"`
+	District     string     `json:"district"`
+	State        string     `json:"state"`
 	Country      string     `json:"country"`
 	CreatedAt    *time.Time `json:"created_at,omitempty"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
@@ -91,6 +93,7 @@ type UpdateUserAddressRequest struct {
 	AddressLine2 *string `json:"address_line_2,omitempty"`
 	Pincode      *string `json:"pincode,omitempty"`
 	City         *string `json:"city,omitempty"`
+	District     *string `json:"district,omitempty"`
 	State        *string `json:"state,omitempty"`
 	Country      *string `json:"country,omitempty"`
 }

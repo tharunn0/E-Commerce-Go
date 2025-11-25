@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -29,14 +30,51 @@ func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductR
 	}
 }
 
-func (s *OrderService) CheckoutCart(ctx context.Context) (*domain.Cart, []domain.NotEnoughStockError, *apperror.APIError) {
+func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckoutRequest) (*domain.CartCheckoutResponse, []domain.NotEnoughStockError, *apperror.APIError) {
+
+	// validate delivery type
+	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid delivery type.",
+		}
+	}
+
 	// get user id from context
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusUnauthorized,
 			Code:    "UNAUTHORIZED",
-			Message: "Unauthorized.",
+			Message: "You are not authorized to perform this action.",
+		}
+	}
+
+	// validate address
+	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
+	if err != nil {
+
+		if err == apperror.ErrAddressNotFoundForUser {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrAddressNotFoundForUser.Error(),
+			}
+		}
+		s.log.Error("Failed to get address", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get address.",
+		}
+	}
+
+	if userAddr.UserID != userID {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You do not have access to this address.",
 		}
 	}
 
@@ -97,7 +135,29 @@ func (s *OrderService) CheckoutCart(ctx context.Context) (*domain.Cart, []domain
 		return nil, notEnoughStockErrors, nil
 	}
 
-	return cart, nil, nil
+	// final calculations
+	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
+	totalAmount := cart.CartTotalPrice + shippingAmount
+	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
+	if err != nil {
+		estimatedDeliveryTime = 7
+	}
+	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
+	if err != nil {
+		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
+	}
+
+	resp := &domain.CartCheckoutResponse{
+		Cart:                  cart,
+		ShippingCost:          shippingAmount,
+		TotalAmount:           totalAmount,
+		DeliveryType:          req.DeliveryType,
+		Address:               userAddr,
+		EstimatedDeliveryTime: fmt.Sprintf("%d days", estimatedDeliveryTime),
+		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
+	}
+
+	return resp, nil, nil
 }
 
 func (s *OrderService) CheckoutProductVariant(ctx context.Context, variantID int64, quantity int64) (*domain.ProductVariantResponse, *apperror.APIError) {

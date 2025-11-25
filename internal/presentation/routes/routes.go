@@ -183,7 +183,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		// checkout routes
 		checkoutRoute := g.Group("api/v1/checkout")
 		checkoutProtectedRoute := checkoutRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
-		checkoutProtectedRoute.GET("/cart", h.Order.CheckoutCart)
+		checkoutProtectedRoute.POST("/cart", h.Order.CheckoutCart)
 		checkoutProtectedRoute.POST("/product-variant", h.Order.CheckoutProductVariant)
 	}
 

@@ -22,8 +22,17 @@ func (h *OrderHandler) CheckoutCart(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	var cartReq domain.CartCheckoutRequest
+	if err := c.ShouldBindJSON(&cartReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request body.",
+		})
+		return
+	}
+
 	// validate and get cart
-	cart, stockErr, err := h.serv.CheckoutCart(ctx)
+	cart, stockErr, err := h.serv.CheckoutCart(ctx, cartReq)
 	if err != nil {
 		c.JSON(err.Status, gin.H{
 			"error":   err.Code,

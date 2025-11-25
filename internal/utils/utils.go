@@ -235,3 +235,28 @@ func ExtractAuthToken(rawtoken string) (string, error) {
 	}
 	return parts[1], nil
 }
+
+func ValidateUserAddress(address *domain.UserAddress) error {
+	if address.Label == "" {
+		return fmt.Errorf("Address label is required")
+	}
+	if address.AddressLine == "" {
+		return fmt.Errorf("Address line is required")
+	}
+	if address.District == "" {
+		return fmt.Errorf("District is required")
+	}
+	if address.Pincode == "" {
+		return fmt.Errorf("Pincode is required")
+	}
+	if address.City == "" {
+		return fmt.Errorf("City is required")
+	}
+	if address.State == "" {
+		return fmt.Errorf("State is required")
+	}
+	if address.Country == "" {
+		return fmt.Errorf("Country is required")
+	}
+	return nil
+}

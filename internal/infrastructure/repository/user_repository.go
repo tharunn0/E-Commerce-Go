@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -149,9 +150,9 @@ func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64,
 
 // user address repository
 func (repo *UserRepository) InsertUserAddress(ctx context.Context, address *domain.UserAddress) error {
-	query := `INSERT INTO user_addresses (user_id, label, address_line,address_line_2, pincode, city, state, country)
-	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`
-	cmdTag, err := repo.DB.Exec(ctx, query, address.UserID, address.Label, address.AddressLine, address.AddressLine2, address.Pincode, address.City, address.State, address.Country)
+	query := `INSERT INTO user_addresses (user_id, label, address_line,address_line_2, pincode, city, district, state, country)
+	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`
+	cmdTag, err := repo.DB.Exec(ctx, query, address.UserID, address.Label, address.AddressLine, address.AddressLine2, address.Pincode, address.City, address.District, address.State, address.Country)
 	if err != nil {
 		return err
 	}
@@ -162,7 +163,7 @@ func (repo *UserRepository) InsertUserAddress(ctx context.Context, address *doma
 }
 
 func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, error) {
-	query := `SELECT id, user_id, label, address_line,address_line_2, pincode, city, state, country , created_at, updated_at FROM user_addresses
+	query := `SELECT id, user_id, label, address_line,address_line_2, pincode, city, district, state, country , created_at, updated_at FROM user_addresses
 	 WHERE user_id = $1`
 	rows, err := repo.DB.Query(ctx, query, userID)
 	if err != nil {
@@ -173,8 +174,8 @@ func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) 
 	for rows.Next() {
 		var userAddress domain.UserAddress
 		err := rows.Scan(&userAddress.ID, &userAddress.UserID, &userAddress.Label, &userAddress.AddressLine,
-			&userAddress.AddressLine2, &userAddress.Pincode, &userAddress.City, &userAddress.State,
-			&userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
+			&userAddress.AddressLine2, &userAddress.Pincode, &userAddress.City, &userAddress.District,
+			&userAddress.State, &userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -186,15 +187,31 @@ func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) 
 	return userAddresses, nil
 }
 
+func (repo *UserRepository) GetUserAddressByID(ctx context.Context, addressID int64) (*domain.UserAddress, error) {
+	userAddress := &domain.UserAddress{}
+	query := `SELECT id, user_id, label, address_line,address_line_2, pincode, city, district, state, country , created_at, updated_at FROM user_addresses
+	 WHERE id = $1`
+	err := repo.DB.QueryRow(ctx, query, addressID).Scan(&userAddress.ID, &userAddress.UserID, &userAddress.Label, &userAddress.AddressLine,
+		&userAddress.AddressLine2, &userAddress.Pincode, &userAddress.City, &userAddress.District,
+		&userAddress.State, &userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperror.ErrAddressNotFoundForUser
+		}
+		return nil, err
+	}
+	return userAddress, nil
+}
+
 func (repo *UserRepository) GetDefaultUserAddress(ctx context.Context, userID int64) (*domain.UserAddress, error) {
 
 	userAddress := &domain.UserAddress{}
 	query := `SELECT ua.id, ua.user_id, ua.label, ua.address_line,ua.address_line_2, ua.pincode, ua.city,
-	 ua.state, ua.country , ua.created_at, ua.updated_at FROM user_addresses ua
+	 ua.district, ua.state, ua.country , ua.created_at, ua.updated_at FROM user_addresses ua
 	 INNER JOIN users u ON ua.user_id = u.id
 	 WHERE ua.user_id = $1 AND u.default_address_id = ua.id`
 	err := repo.DB.QueryRow(ctx, query, userID).Scan(&userAddress.ID, &userAddress.UserID, &userAddress.Label, &userAddress.AddressLine, &userAddress.AddressLine2,
-		&userAddress.Pincode, &userAddress.City, &userAddress.State, &userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
+		&userAddress.Pincode, &userAddress.City, &userAddress.District, &userAddress.State, &userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -237,14 +254,15 @@ func (repo *UserRepository) UpdateUserAddress(ctx context.Context, userID int64,
 		address_line_2 = COALESCE($3, address_line_2),
 		pincode = COALESCE($4, pincode),
 		city = COALESCE($5, city),
-		state = COALESCE($6, state),
-		country = COALESCE($7, country)
-	WHERE id = $8 
-	RETURNING id, label, address_line, address_line_2, pincode, city, state, country
+		district = COALESCE($6, district),
+		state = COALESCE($7, state),
+		country = COALESCE($8, country)
+	WHERE id = $9 
+	RETURNING id, label, address_line, address_line_2, pincode, city, district, state, country
 	`
 	var updatedAddress domain.UserAddress
-	err = repo.DB.QueryRow(ctx, query, req.Label, req.AddressLine, req.AddressLine2, req.Pincode, req.City, req.State, req.Country, req.ID).Scan(
-		&updatedAddress.ID, &updatedAddress.Label, &updatedAddress.AddressLine, &updatedAddress.AddressLine2, &updatedAddress.Pincode, &updatedAddress.City, &updatedAddress.State, &updatedAddress.Country)
+	err = repo.DB.QueryRow(ctx, query, req.Label, req.AddressLine, req.AddressLine2, req.Pincode, req.City, req.District, req.State, req.Country, req.ID).Scan(
+		&updatedAddress.ID, &updatedAddress.Label, &updatedAddress.AddressLine, &updatedAddress.AddressLine2, &updatedAddress.Pincode, &updatedAddress.City, &updatedAddress.District, &updatedAddress.State, &updatedAddress.Country)
 	if err != nil {
 		return nil, err
 	}
