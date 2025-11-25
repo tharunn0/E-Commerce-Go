@@ -11,12 +11,12 @@ import (
 
 type CartService struct {
 	productRepo domain.ProductRepository
-	repo        domain.CartRepository
+	cartRepo    domain.CartRepository
 	log         *zap.Logger
 }
 
-func NewCartService(repo domain.CartRepository, productRepo domain.ProductRepository, log *zap.Logger) *CartService {
-	return &CartService{repo: repo, productRepo: productRepo, log: log}
+func NewCartService(cartRepo domain.CartRepository, productRepo domain.ProductRepository, log *zap.Logger) *CartService {
+	return &CartService{cartRepo: cartRepo, productRepo: productRepo, log: log}
 }
 
 func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartRequest) (*domain.Cart, *apperror.APIError) {
@@ -33,7 +33,7 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 		req.Quantity = 1
 	}
 
-	cartID, err := s.repo.AddToCart(ctx, userID, req.ProductVariantID, req.Quantity)
+	cartID, err := s.cartRepo.AddToCart(ctx, userID, req.ProductVariantID, req.Quantity)
 	if err != nil {
 		if err == apperror.ErrProductVariantNotFound {
 			return nil, &apperror.APIError{
@@ -48,7 +48,7 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 		}
 	}
 
-	cart, err := s.repo.GetCartByID(ctx, *cartID)
+	cart, err := s.cartRepo.GetCartByID(ctx, *cartID)
 	if err != nil {
 
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", *cartID), zap.Error(err))
@@ -68,12 +68,30 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 			Message: "Invalid user ID.",
 		}
 	}
-	cart, err := s.repo.GetCartByUserID(ctx, userID)
+	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByCartID"), zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get cart.",
+		}
+	}
+
+	variantStocks, err := s.cartRepo.GetCartVariantStocks(ctx, userID)
+	if err != nil {
+		s.log.Error("failed to get variant stocks", zap.String("function", "GetCartVariantStocks"), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get variant stocks.",
+		}
+	}
+
+	for _, item := range cart.Items {
+		if variantStocks[item.ProductVariantID] < item.Quantity {
+			return nil, &apperror.APIError{
+				Code:    "INVALID_QUANTITY",
+				Message: "Quantity is greater than stock.",
+			}
 		}
 	}
 
@@ -96,7 +114,7 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *domain.Up
 		}
 	}
 
-	updatedCartID, err := s.repo.UpdateCartItemQuantity(ctx, userID, req)
+	updatedCartID, err := s.cartRepo.UpdateCartItemQuantity(ctx, userID, req)
 	if err != nil {
 		if err == apperror.ErrCartItemNotFound {
 			return nil, &apperror.APIError{
@@ -110,7 +128,7 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *domain.Up
 			Message: "Failed to update cart item quantity.",
 		}
 	}
-	cart, err := s.repo.GetCartByID(ctx, updatedCartID)
+	cart, err := s.cartRepo.GetCartByID(ctx, updatedCartID)
 	if err != nil {
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", updatedCartID), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -130,7 +148,7 @@ func (s *CartService) RemoveCartItem(ctx context.Context, req *domain.RemoveCart
 		}
 	}
 
-	removedCartID, err := s.repo.RemoveCartItem(ctx, userID, req.ProductVariantID)
+	removedCartID, err := s.cartRepo.RemoveCartItem(ctx, userID, req.ProductVariantID)
 	if err != nil {
 		if err == apperror.ErrCartItemNotFound {
 			return nil, &apperror.APIError{
@@ -144,7 +162,7 @@ func (s *CartService) RemoveCartItem(ctx context.Context, req *domain.RemoveCart
 			Message: "Failed to remove cart item.",
 		}
 	}
-	cart, err := s.repo.GetCartByID(ctx, removedCartID)
+	cart, err := s.cartRepo.GetCartByID(ctx, removedCartID)
 	if err != nil {
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", removedCartID), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -164,7 +182,7 @@ func (s *CartService) EmptyCart(ctx context.Context) *apperror.APIError {
 			Message: "Invalid user ID.",
 		}
 	}
-	err = s.repo.EmptyCart(ctx, userID)
+	err = s.cartRepo.EmptyCart(ctx, userID)
 	if err != nil {
 		s.log.Error("failed to empty cart", zap.String("function", "EmptyCart"), zap.Int64("user_id", userID), zap.Error(err))
 		return &apperror.APIError{

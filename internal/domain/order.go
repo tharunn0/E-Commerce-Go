@@ -1,9 +1,9 @@
 package domain
 
-import "context"
+// import "context"
 
 type OrderRepository interface {
-	ValidateCart(ctx context.Context, userID int64) (map[int64]int64, error)
+	// ValidateCart(ctx context.Context, userID int64) (map[int64]int64, error)
 }
 
 type ProductVariantCheckoutRequest struct {

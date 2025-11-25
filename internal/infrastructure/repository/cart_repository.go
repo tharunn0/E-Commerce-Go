@@ -101,6 +101,16 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 		} else {
 			cartItem.TotalPrice = cartItem.OriginalPrice * float64(cartItem.Quantity)
 		}
+		if cartItem.Stock == 0 {
+			cartItem.Status = domain.StatusOutOfStock
+			cartItem.Message = "Out of stock"
+		} else if cartItem.Stock < int(cartItem.Quantity) && cartItem.Stock > 0 {
+			cartItem.Status = domain.StatusLowStock
+			cartItem.Message = "Low stock"
+		} else {
+			cartItem.Status = domain.StatusInStock
+			cartItem.Message = "In stock"
+		}
 		totalPrice += cartItem.TotalPrice
 		cartItems = append(cartItems, &cartItem)
 	}
@@ -148,6 +158,16 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 			cartItem.TotalPrice = *cartItem.SalePrice * float64(cartItem.Quantity)
 		} else {
 			cartItem.TotalPrice = cartItem.OriginalPrice * float64(cartItem.Quantity)
+		}
+		if cartItem.Stock == 0 {
+			cartItem.Status = domain.StatusOutOfStock
+			cartItem.Message = "Out of stock"
+		} else if cartItem.Stock < int(cartItem.Quantity) && cartItem.Stock > 0 {
+			cartItem.Status = domain.StatusLowStock
+			cartItem.Message = "Low stock"
+		} else {
+			cartItem.Status = domain.StatusInStock
+			cartItem.Message = "In stock"
 		}
 		totalPrice += cartItem.TotalPrice
 		cartItems = append(cartItems, &cartItem)
@@ -211,4 +231,30 @@ func (repo *CartRepository) EmptyCart(ctx context.Context, userID int64) error {
 		return apperror.ErrCartEmpty
 	}
 	return nil
+}
+
+func (repo *CartRepository) GetCartVariantStocks(ctx context.Context, userID int64) (map[int64]int64, error) {
+
+	cartVariantStocks := make(map[int64]int64)
+
+	query := `SELECT pv.id, pv.stock FROM product_variants pv
+	LEFT JOIN cart_items ci ON pv.id = ci.product_variant_id
+	LEFT JOIN carts c ON ci.cart_id = c.id
+	WHERE c.user_id = $1`
+
+	rows, err := repo.DB.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var variant domain.VariantStock
+		if err := rows.Scan(&variant.ProductVariantID, &variant.Stock); err != nil {
+			return nil, err
+		}
+		cartVariantStocks[variant.ProductVariantID] = variant.Stock
+	}
+
+	return cartVariantStocks, nil
 }

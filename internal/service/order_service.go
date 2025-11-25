@@ -62,7 +62,7 @@ func (s *OrderService) CheckoutCart(ctx context.Context) (*domain.Cart, []domain
 
 	fmt.Println(ctx, userID)
 
-	cartVariantStocks, err := s.orderRepo.ValidateCart(ctx, userID)
+	cartVariantStocks, err := s.cartRepo.GetCartVariantStocks(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
 			return nil, nil, &apperror.APIError{
