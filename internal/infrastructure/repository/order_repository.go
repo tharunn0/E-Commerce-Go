@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 )
 
@@ -38,9 +39,9 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	var internalOrderID int64
 
 	// insert into orders
-	query := `INSERT INTO orders (user_id, public_order_id, total_amount, tax_amount, shipping_address_id, billing_address_id,estimated_delivery_date)
-	VALUES ($1, $2, $3, $4, $5, $6,$7) RETURNING id`
-	err = tx.QueryRow(ctx, query, data.UserID, data.OrderID, data.TotalAmount, data.TaxAmount, data.ShippingAddressID, data.BillingAddressID, data.EstimatedDeliveryDate).Scan(&internalOrderID)
+	query := `INSERT INTO orders (user_id, public_order_id, total_amount, tax_amount, shipping_address_id, billing_address_id,estimated_delivery_date,status)
+	VALUES ($1, $2, $3, $4, $5, $6,$7,$8) RETURNING id`
+	err = tx.QueryRow(ctx, query, data.UserID, data.OrderID, data.TotalAmount, data.TaxAmount, data.ShippingAddressID, data.BillingAddressID, data.EstimatedDeliveryDate, "confirmed").Scan(&internalOrderID)
 	if err != nil {
 		fmt.Println("error inserting order", err)
 		return err
@@ -84,6 +85,16 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 			fmt.Println("error updating product variant stock", err)
 			return err
 		}
+	}
+
+	// empty cart
+	query = `DELETE FROM cart_items 
+	 USING carts C 
+	 WHERE cart_items.cart_id = C.id AND C.user_id = $1`
+	_, err = tx.Exec(ctx, query, data.UserID)
+	if err != nil {
+		fmt.Println("error emptying cart", err)
+		return err
 	}
 	// commit transaction
 	return tx.Commit(ctx)
@@ -133,4 +144,109 @@ func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]dom
 		orders = append(orders, order)
 	}
 	return orders, nil
+}
+
+func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (*domain.OrderResponse, error) {
+	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.estimated_delivery_date,p.currency,o.shipping_address_id,o.billing_address_id,
+		s.type as delivery_type,s.status as shipment_status,p.status as payment_status,p.provider,o.created_at,o.updated_at
+		FROM orders o 
+		LEFT JOIN shipments s ON o.id = s.order_id
+		LEFT JOIN payments p ON o.id = p.order_id
+		WHERE o.public_order_id = $1`
+	var order domain.OrderResponse
+	row := r.DB.QueryRow(ctx, query, orderID)
+	err := row.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.EstimatedDeliveryDate, &order.Currency,
+		&order.ShippingAddressID, &order.BillingAddressID,
+		&order.DeliveryType, &order.ShipmentStatus, &order.PaymentStatus, &order.PaymentMethod,
+		&order.CreatedAt, &order.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			fmt.Println("order not found", orderID)
+			return nil, apperror.ErrOrderNotFound
+		}
+		return nil, err
+	}
+
+	items := []domain.OrderItem{}
+	query = `SELECT pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.total_price
+		FROM order_items oi
+		LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
+		LEFT JOIN products p ON pv.product_id = p.id
+		WHERE oi.order_id = (SELECT id FROM orders WHERE public_order_id = $1)`
+	rows, err := r.DB.Query(ctx, query, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var item domain.OrderItem
+		err = rows.Scan(&item.ProductVariantID, &item.ProductName, &item.SKU, &item.Quantity, &item.UnitPrice, &item.TotalPrice)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	order.Items = items
+
+	order.Subtotal = order.TotalAmount - order.TaxAmount
+	return &order, nil
+}
+
+// shipment
+
+func (r OrderRepository) ShipOrder(ctx context.Context, orderID string, shipmentData *domain.ShipmentData) error {
+
+	query := `UPDATE shipments SET carrier = $1, tracking_number = $2, status = $3,shipped_at = $4,updated_at = now()
+	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $5) RETURNING created_at,updated_at`
+	err := r.DB.QueryRow(ctx, query, shipmentData.Carrier, shipmentData.TrackingID, "shipped", shipmentData.ShippedAt, orderID).Scan(&shipmentData.CreatedAt, &shipmentData.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// deliver order
+
+func (r OrderRepository) DeliverOrder(ctx context.Context, orderID string) error {
+
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	// update shipment status
+	query := `UPDATE shipments SET status = $1,delivered_at = now(),updated_at = now()
+	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $2)`
+	_, err = tx.Exec(ctx, query, "delivered", orderID)
+	if err != nil {
+		return err
+	}
+
+	// update payment status
+	query = `UPDATE payments SET status = $1,updated_at = now()
+	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $2)`
+	_, err = tx.Exec(ctx, query, "paid", orderID)
+	if err != nil {
+		return err
+	}
+
+	// update order status
+	query = `UPDATE orders SET status = $1,updated_at = now()
+	 WHERE public_order_id = $2`
+	_, err = tx.Exec(ctx, query, "delivered", orderID)
+	if err != nil {
+		return err
+	}
+
+	tx.Commit(ctx)
+
+	return nil
 }

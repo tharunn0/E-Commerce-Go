@@ -193,9 +193,27 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		orderProtectedRoute := orderRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
 		orderProtectedRoute.POST("/", h.Order.CreateOrder)
 		orderProtectedRoute.GET("/", h.Order.GetOrders)
-		// orderProtectedRoute.GET("/:id", h.Order.GetOrderByID)
+		orderProtectedRoute.GET("/:order_id", h.Order.GetOrderByID)
 		// orderProtectedRoute.PUT("/:id", h.Order.UpdateOrder)
 		// orderProtectedRoute.DELETE("/:id", h.Order.DeleteOrder)
+
+		// PUT /admin/orders/:id/confirm
+		// PUT /admin/orders/:id/pack
+		// PUT /admin/orders/:id/ship
+		// PUT /admin/orders/:id/out-for-delivery
+		// PUT /admin/orders/:id/deliver
+		// PUT /admin/orders/:id/cancel
+		// PUT /admin/orders/:id/return
+
+		orderAdminRoutes := g.Group("/api/v1/admin/orders").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		orderAdminRoutes.GET("/", h.Order.GetOrders)
+		orderAdminRoutes.GET("/:order_id", h.Order.GetOrderByID)
+		// orderAdminRoutes.PUT("/:id/confirm", h.Order.Confirm)
+		orderAdminRoutes.PUT("/:id/ship", h.Order.ShipOrder)
+		// orderAdminRoutes.PUT("/:id/out-for-delivery", h.Order.OutForDelivery)
+		orderAdminRoutes.PUT("/:id/deliver", h.Order.DeliverOrder)
+		// orderAdminRoutes.PUT("/:id/cancel", h.Order.CancelOrder)
+		// orderAdminRoutes.PUT("/:id/return", h.Order.ReturnOrder)
 	}
 
 }

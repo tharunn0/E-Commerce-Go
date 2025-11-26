@@ -8,6 +8,11 @@ import (
 type OrderRepository interface {
 	CreateOrder(ctx context.Context, data *CreateOrderData) error
 	GetUserOrders(ctx context.Context, userID int64) ([]OrderBaseResponse, error)
+	GetUserOrderByID(ctx context.Context, orderID string) (*OrderResponse, error)
+
+	// shipment
+	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error
+	DeliverOrder(ctx context.Context, orderID string) error
 }
 
 type CreateOrderRequest struct {
@@ -52,12 +57,13 @@ type OrderItem struct {
 }
 
 type CreateOrderResponse struct {
-	OrderID     string      `json:"public_order_id"`
-	Items       []OrderItem `json:"items"`
-	Subtotal    float64     `json:"subtotal"`
-	TaxAmount   float64     `json:"tax_amount"`
-	TotalAmount float64     `json:"total_amount"`
-	Currency    string      `json:"currency"`
+	OrderID      string      `json:"public_order_id"`
+	Items        []OrderItem `json:"items"`
+	Subtotal     float64     `json:"subtotal"`
+	TaxAmount    float64     `json:"tax_amount"`
+	ShippingCost float64     `json:"shipping_cost"`
+	TotalAmount  float64     `json:"total_amount"`
+	Currency     string      `json:"currency"`
 
 	ShippingAddressID int64        `json:"shipping_address_id"`
 	ShippingAddress   *UserAddress `json:"shipping_address,omitempty"`
@@ -99,23 +105,26 @@ type OrderBaseResponse struct {
 }
 
 type OrderResponse struct {
-	OrderID     string      `json:"public_order_id"`
-	Items       []OrderItem `json:"items"`
-	Subtotal    float64     `json:"subtotal"`
-	TaxAmount   float64     `json:"tax_amount"`
-	TotalAmount float64     `json:"total_amount"`
-	Currency    string      `json:"currency"`
+	OrderID      string      `json:"public_order_id"`
+	Items        []OrderItem `json:"items"`
+	Subtotal     float64     `json:"subtotal"`
+	TaxAmount    float64     `json:"tax_amount"`
+	ShippingCost float64     `json:"shipping_cost"`
+	TotalAmount  float64     `json:"total_amount"`
+	Currency     string      `json:"currency"`
 
 	ShippingAddressID int64 `json:"shipping_address_id"`
 	BillingAddressID  int64 `json:"billing_address_id"`
 
 	DeliveryType          DeliveryType `json:"delivery_type"`
-	EstimatedDeliveryDate string       `json:"estimated_delivery_date"`
+	EstimatedDeliveryDate time.Time    `json:"estimated_delivery_date"`
 
 	Status OrderStatus `json:"status"` // order status
 
-	ShipmentID     *int64 `json:"shipment_id,omitempty"`
-	ShipmentStatus string `json:"shipment_status,omitempty"`
+	ShipmentID      *int64 `json:"shipment_id,omitempty"`
+	ShipmentStatus  string `json:"shipment_status,omitempty"`
+	ShipmentCarrier string `json:"shipment_carrier,omitempty"`
+	TrackingNumber  string `json:"tracking_number,omitempty"`
 
 	PaymentMethod string `json:"payment_method"`
 	PaymentStatus string `json:"payment_status"`

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 )
@@ -91,4 +92,40 @@ func CalculateDeliveryDate(district string) (time.Time, error) {
 
 	days := DeliveryDays[group]
 	return time.Now().AddDate(0, 0, days), nil
+}
+
+type Carrier string
+
+const (
+	CarrierBlueDart Carrier = "BlueDart"
+	CarrierFedEx    Carrier = "FedEx"
+	CarrierDHL      Carrier = "DHL"
+)
+
+func SelectRandomCarrier() Carrier {
+	carriers := []Carrier{CarrierBlueDart, CarrierFedEx, CarrierDHL}
+	return carriers[rand.Intn(len(carriers))]
+}
+
+func GenerateTrackingID(carrier Carrier) string {
+	var prefix string
+	switch carrier {
+	case CarrierDHL:
+		prefix = "DHL"
+	case CarrierFedEx:
+		prefix = "FED"
+	case CarrierBlueDart:
+		prefix = "BLU"
+	default:
+		prefix = ""
+	}
+	return fmt.Sprintf("%s-%d", prefix, rand.Intn(1000000))
+}
+
+type ShipmentData struct {
+	Carrier    Carrier   `json:"carrier"`
+	TrackingID string    `json:"tracking_id"`
+	ShippedAt  time.Time `json:"shipped_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }

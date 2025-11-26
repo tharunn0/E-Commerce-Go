@@ -132,6 +132,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 
 }
 
+// get orders
 func (h *OrderHandler) GetOrders(c *gin.Context) {
 
 	ctx := c.Request.Context()
@@ -147,5 +148,70 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Orders fetched successfully",
 		"orders":  orders,
+	})
+}
+
+// get order by id
+func (h *OrderHandler) GetOrderByID(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	orderID := c.Param("order_id")
+
+	order, err := h.serv.GetOrderByID(ctx, orderID)
+	if err != nil {
+		c.JSON(err.Status, gin.H{
+			"error":   err.Code,
+			"message": err.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order fetched successfully",
+		"order":   order,
+	})
+}
+
+// ORDER ADMIN HANDLERS
+
+// ship order
+func (h *OrderHandler) ShipOrder(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	orderID := c.Param("id")
+
+	order, err := h.serv.ShipOrder(ctx, orderID)
+	if err != nil {
+		c.JSON(err.Status, gin.H{
+			"error":   err.Code,
+			"message": err.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order shipped successfully",
+		"order":   order,
+	})
+}
+
+// deliver order
+func (h *OrderHandler) DeliverOrder(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	orderID := c.Param("id")
+
+	order, err := h.serv.DeliverOrder(ctx, orderID)
+	if err != nil {
+		c.JSON(err.Status, gin.H{
+			"error":   err.Code,
+			"message": err.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order delivered successfully",
+		"order":   order,
 	})
 }

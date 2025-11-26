@@ -457,7 +457,9 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		Items:                 items,
 		Subtotal:              cart.CartTotalPrice,
 		TaxAmount:             0,
+		ShippingCost:          shippingAmount,
 		TotalAmount:           totalAmount,
+		Currency:              "INR",
 		ShippingAddressID:     req.AddressID,
 		ShippingAddress:       userAddr,
 		BillingAddressID:      req.AddressID,
@@ -497,4 +499,104 @@ func (s *OrderService) GetOrders(ctx context.Context) ([]domain.OrderBaseRespons
 	}
 
 	return orders, nil
+}
+
+func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
+	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+	order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
+	order.Subtotal = order.TotalAmount - order.TaxAmount - order.ShippingCost
+	return order, nil
+}
+
+// ORDER ADMIN SERVICES
+
+// ship order
+func (s *OrderService) ShipOrder(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
+	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+
+	carrier := domain.SelectRandomCarrier()
+	trackingID := domain.GenerateTrackingID(carrier)
+
+	shipmentData := &domain.ShipmentData{
+		Carrier:    carrier,
+		TrackingID: trackingID,
+		ShippedAt:  time.Now(),
+	}
+
+	if err := s.orderRepo.ShipOrder(ctx, orderID, shipmentData); err != nil {
+		s.log.Error("Failed to ship order", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to update order.",
+		}
+	}
+
+	order.ShipmentStatus = "shipped"
+	order.ShipmentCarrier = string(carrier)
+	order.TrackingNumber = trackingID
+	return order, nil
+}
+
+func (s *OrderService) DeliverOrder(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
+	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+
+	if err := s.orderRepo.DeliverOrder(ctx, orderID); err != nil {
+		s.log.Error("Failed to deliver order", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to update order.",
+		}
+	}
+
+	order.ShipmentStatus = "delivered"
+	order.PaymentStatus = "paid"
+	order.Status = "delivered"
+	return order, nil
 }
