@@ -65,3 +65,16 @@ var (
 	ErrWishlistItemAlreadyExists = errors.New("Wishlist item already exists")
 	ErrWishlistItemNotFound      = errors.New("Wishlist item not found")
 )
+
+// Order-related errors
+var (
+	ErrOrderNotFound   = errors.New("Order not found")
+	ErrOrderCreateFail = errors.New("Order creation failed")
+	ErrOrderUpdateFail = errors.New("Order update failed")
+	ErrOrderDeleteFail = errors.New("Order deletion failed")
+)
+
+// Order-create related errors
+var (
+	ErrCreateOrderFail = errors.New("Order creation failed")
+)

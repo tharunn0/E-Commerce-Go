@@ -19,7 +19,12 @@ type CartRepository interface {
 	RemoveCartItem(ctx context.Context, userID int64, productVariantID int64) (int64, error)
 	UpdateCartItemQuantity(ctx context.Context, userID int64, req *UpdateCartItemQuantityRequest) (int64, error)
 	EmptyCart(ctx context.Context, userID int64) error
-	GetCartVariantStocks(ctx context.Context, userID int64) (map[int64]int64, error)
+	GetCartVariantInfo(ctx context.Context, userID int64) (map[int64]VariantInfo, error)
+}
+type VariantInfo struct {
+	ProductName string `json:"product_name"`
+	SKU         string `json:"sku"`
+	Stock       int64  `json:"stock"`
 }
 
 type Cart struct {

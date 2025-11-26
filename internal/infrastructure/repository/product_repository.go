@@ -597,6 +597,21 @@ func (repo *ProductRepository) UpdateProductMinMaxPrice(ctx context.Context, pro
 	return nil
 }
 
+func (repo *ProductRepository) GetProductVariantOrderInfo(ctx context.Context, productVariantID int64) (*domain.VariantOrderInfo, error) {
+	query := `
+		SELECT p.name, pv.id as product_variant_id, pv.sku
+		FROM products p
+		JOIN product_variants pv ON p.id = pv.product_id
+		WHERE pv.id = $1
+	`
+	var info domain.VariantOrderInfo
+	err := repo.DB.QueryRow(ctx, query, productVariantID).Scan(&info.ProductName, &info.ProductVariantID, &info.SKU)
+	if err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
 // Attribute operations
 // //////////////////////////////////////////////////////////
 func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *domain.CreateAttributeRequest) (*domain.Attribute, error) {

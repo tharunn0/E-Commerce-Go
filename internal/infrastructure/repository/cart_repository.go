@@ -233,13 +233,14 @@ func (repo *CartRepository) EmptyCart(ctx context.Context, userID int64) error {
 	return nil
 }
 
-func (repo *CartRepository) GetCartVariantStocks(ctx context.Context, userID int64) (map[int64]int64, error) {
+func (repo *CartRepository) GetCartVariantInfo(ctx context.Context, userID int64) (map[int64]domain.VariantInfo, error) {
 
-	cartVariantStocks := make(map[int64]int64)
+	cartVariantStocks := make(map[int64]domain.VariantInfo)
 
-	query := `SELECT pv.id, pv.stock FROM product_variants pv
+	query := `SELECT pv.id, p.name, pv.sku , pv.stock FROM product_variants pv
 	LEFT JOIN cart_items ci ON pv.id = ci.product_variant_id
 	LEFT JOIN carts c ON ci.cart_id = c.id
+	LEFT JOIN products p ON pv.product_id = p.id
 	WHERE c.user_id = $1`
 
 	rows, err := repo.DB.Query(ctx, query, userID)
@@ -249,11 +250,12 @@ func (repo *CartRepository) GetCartVariantStocks(ctx context.Context, userID int
 	defer rows.Close()
 
 	for rows.Next() {
-		var variant domain.VariantStock
-		if err := rows.Scan(&variant.ProductVariantID, &variant.Stock); err != nil {
+		var variant domain.VariantInfo
+		var pvId int64
+		if err := rows.Scan(&pvId, &variant.ProductName, &variant.SKU, &variant.Stock); err != nil {
 			return nil, err
 		}
-		cartVariantStocks[variant.ProductVariantID] = variant.Stock
+		cartVariantStocks[pvId] = variant
 	}
 
 	return cartVariantStocks, nil

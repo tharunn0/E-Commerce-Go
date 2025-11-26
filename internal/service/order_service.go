@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -30,6 +31,8 @@ func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductR
 	}
 }
 
+// CHECKOUT SERVICES
+// checkout cart
 func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckoutRequest) (*domain.CartCheckoutResponse, []domain.NotEnoughStockError, *apperror.APIError) {
 
 	// validate delivery type
@@ -44,6 +47,7 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 	// get user id from context
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
+		s.log.Error("Failed to get user id from context", zap.Error(err))
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusUnauthorized,
 			Code:    "UNAUTHORIZED",
@@ -54,7 +58,7 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 	// validate address
 	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
 	if err != nil {
-
+		s.log.Error("Failed to get address", zap.Error(err))
 		if err == apperror.ErrAddressNotFoundForUser {
 			return nil, nil, &apperror.APIError{
 				Status:  http.StatusNotFound,
@@ -71,6 +75,7 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 	}
 
 	if userAddr.UserID != userID {
+
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusUnauthorized,
 			Code:    "UNAUTHORIZED",
@@ -82,6 +87,7 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
+			s.log.Error("Failed to get cart", zap.Error(err))
 			return nil, nil, &apperror.APIError{
 				Status:  http.StatusNotFound,
 				Code:    "NOT_FOUND",
@@ -98,11 +104,10 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 
 	// get cart variant
 
-	fmt.Println(ctx, userID)
-
-	cartVariantStocks, err := s.cartRepo.GetCartVariantStocks(ctx, userID)
+	cartVariantInfo, err := s.cartRepo.GetCartVariantInfo(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
+			s.log.Error("Failed to validate cart", zap.Error(err))
 			return nil, nil, &apperror.APIError{
 				Status:  http.StatusNotFound,
 				Code:    "NOT_FOUND",
@@ -121,12 +126,12 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 
 	// validate cart variant stocks
 	for _, cartItem := range cart.Items {
-		if cartVariantStocks[cartItem.ProductVariantID] < cartItem.Quantity {
+		if cartVariantInfo[cartItem.ProductVariantID].Stock < cartItem.Quantity {
 			notEnoughStockErrors = append(notEnoughStockErrors, domain.NotEnoughStockError{
 				ProductVariantID: cartItem.ProductVariantID,
-				SKU:              cartItem.SKU,
+				SKU:              cartVariantInfo[cartItem.ProductVariantID].SKU,
 				Quantity:         cartItem.Quantity,
-				Stock:            cartVariantStocks[cartItem.ProductVariantID],
+				Stock:            cartVariantInfo[cartItem.ProductVariantID].Stock,
 			})
 		}
 	}
@@ -162,9 +167,12 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
 	}
 
+	s.log.Info("Cart checkout successful", zap.Any("cart", cart), zap.Any("address", userAddr))
+
 	return resp, nil, nil
 }
 
+// checkout product variant
 func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.ProductVariantCheckoutRequest) (*domain.ProductVariantCheckoutResponse, *apperror.APIError) {
 	activeonly := !utils.IsAdmin(ctx)
 
@@ -272,4 +280,221 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.P
 	}
 
 	return resp, nil
+}
+
+// ORDER SERVICES
+// create order
+func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.CreateOrderRequest) (*domain.CreateOrderResponse, []domain.NotEnoughStockError, *apperror.APIError) {
+	// getuserid
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
+		}
+	}
+
+	// validate address
+	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
+	if err != nil {
+		if err == apperror.ErrAddressNotFoundForUser {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrAddressNotFoundForUser.Error(),
+			}
+		}
+		s.log.Error("Failed to get address", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get address.",
+		}
+	}
+
+	// validate address belongs to user
+	if userAddr.UserID != userID {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You do not have access to this address.",
+		}
+	}
+	// validate delivery type
+	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid delivery type.",
+		}
+	}
+
+	// validate cart and cart variant stocks
+	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
+	if err != nil {
+		if err == apperror.ErrCartNotFound {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrCartNotFound.Error(),
+			}
+		}
+		s.log.Error("Failed to get cart", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get cart.",
+		}
+	}
+
+	cartVariantInfo, err := s.cartRepo.GetCartVariantInfo(ctx, userID)
+	if err != nil {
+		if err == apperror.ErrCartNotFound {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrCartNotFound.Error(),
+			}
+		}
+		s.log.Error("Failed to validate cart", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to validate cart.",
+		}
+	}
+
+	var notEnoughStockErrors []domain.NotEnoughStockError
+
+	// validate stock
+	for _, cartItem := range cart.Items {
+		if cartVariantInfo[cartItem.ProductVariantID].Stock < cartItem.Quantity {
+			notEnoughStockErrors = append(notEnoughStockErrors, domain.NotEnoughStockError{
+				ProductVariantID: cartItem.ProductVariantID,
+				SKU:              cartVariantInfo[cartItem.ProductVariantID].SKU,
+				Quantity:         cartItem.Quantity,
+				Stock:            cartVariantInfo[cartItem.ProductVariantID].Stock,
+			})
+		}
+	}
+
+	if len(notEnoughStockErrors) > 0 {
+		return nil, notEnoughStockErrors, nil
+	}
+
+	// create final order data
+
+	orderID, err := utils.GeneratePublicOrderID()
+	if err != nil {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to generate order ID.",
+		}
+	}
+
+	// shipping charge
+	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
+
+	// delivery time and date
+	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
+	if err != nil {
+		estimatedDeliveryTime = 7
+		shippingAmount = 150
+	}
+	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
+	if err != nil {
+		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
+	}
+
+	// total amount
+	totalAmount := cart.CartTotalPrice + shippingAmount
+
+	orderData := &domain.CreateOrderData{
+		UserID:                userID,
+		OrderID:               orderID,
+		TotalAmount:           totalAmount,
+		TaxAmount:             0,
+		ShippingAddressID:     req.AddressID,
+		BillingAddressID:      req.AddressID,
+		DeliveryType:          strings.ToLower(string(req.DeliveryType)),
+		EstimatedDeliveryDate: estimatedDeliveryDate,
+	}
+
+	var items []domain.OrderItem
+
+	for _, cartItem := range cart.Items {
+		var item domain.OrderItem
+		item.ProductVariantID = cartItem.ProductVariantID
+		item.ProductName = cartVariantInfo[cartItem.ProductVariantID].ProductName
+		item.SKU = cartVariantInfo[cartItem.ProductVariantID].SKU
+		item.Quantity = cartItem.Quantity
+		item.TotalPrice = cartItem.TotalPrice
+		if cartItem.SalePrice != nil {
+			item.UnitPrice = *cartItem.SalePrice
+		} else {
+			item.UnitPrice = cartItem.OriginalPrice
+		}
+		items = append(items, item)
+	}
+	orderData.Items = items
+
+	// create order && update stock
+	if err := s.orderRepo.CreateOrder(ctx, orderData); err != nil {
+		s.log.Error("Failed to create order", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to create order.",
+		}
+	}
+
+	// return response
+
+	resp := &domain.CreateOrderResponse{
+		OrderID:               orderID,
+		Items:                 items,
+		Subtotal:              cart.CartTotalPrice,
+		TaxAmount:             0,
+		TotalAmount:           totalAmount,
+		ShippingAddressID:     req.AddressID,
+		ShippingAddress:       userAddr,
+		BillingAddressID:      req.AddressID,
+		DeliveryType:          req.DeliveryType,
+		EstimatedDeliveryTime: fmt.Sprintf("%d days", estimatedDeliveryTime),
+		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
+		Status:                domain.OrderStatusPending,
+		ShipmentStatus:        "PENDING",
+		PaymentMethod:         "COD",
+		PaymentStatus:         "PENDING",
+		CreatedAt:             time.Now(),
+	}
+
+	s.log.Info("Order created successfully", zap.Any("order", resp))
+	return resp, nil, nil
+}
+
+// get user orders
+func (s *OrderService) GetOrders(ctx context.Context) ([]domain.OrderBaseResponse, *apperror.APIError) {
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		s.log.Error("Failed to get user ID", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
+		}
+	}
+	orders, err := s.orderRepo.GetUserOrders(ctx, userID)
+	if err != nil {
+		s.log.Error("Failed to get orders", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get orders.",
+		}
+	}
+
+	return orders, nil
 }

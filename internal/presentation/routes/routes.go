@@ -187,4 +187,15 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		checkoutProtectedRoute.POST("/product-variant", h.Order.CheckoutProductVariant)
 	}
 
+	{
+		// order routes
+		orderRoute := g.Group("api/v1/orders")
+		orderProtectedRoute := orderRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		orderProtectedRoute.POST("/", h.Order.CreateOrder)
+		orderProtectedRoute.GET("/", h.Order.GetOrders)
+		// orderProtectedRoute.GET("/:id", h.Order.GetOrderByID)
+		// orderProtectedRoute.PUT("/:id", h.Order.UpdateOrder)
+		// orderProtectedRoute.DELETE("/:id", h.Order.DeleteOrder)
+	}
+
 }

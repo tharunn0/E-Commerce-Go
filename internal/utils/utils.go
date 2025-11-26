@@ -260,3 +260,21 @@ func ValidateUserAddress(address *domain.UserAddress) error {
 	}
 	return nil
 }
+
+func GeneratePublicOrderID() (string, error) {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const length = 7
+
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	for i := range b {
+		b[i] = chars[int(b[i])%len(chars)]
+	}
+
+	date := time.Now().Format("20060102") // e.g. 20251126
+
+	return fmt.Sprintf("ORD-%s-%s", date, string(b)), nil
+}

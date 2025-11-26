@@ -105,6 +105,12 @@ type ProductVariantBaseResponse struct {
 	CreatedAt   time.Time             `json:"created_at"`
 }
 
+type VariantOrderInfo struct {
+	ProductName      string `json:"product_name"`
+	ProductVariantID int64  `json:"product_variant_id"`
+	SKU              string `json:"sku"`
+}
+
 // Attribute models
 // //////////////////////////////////////////////////////////
 type Attribute struct {

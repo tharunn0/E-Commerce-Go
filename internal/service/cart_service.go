@@ -77,9 +77,13 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 		}
 	}
 
-	variantStocks, err := s.cartRepo.GetCartVariantStocks(ctx, userID)
+	if cart.Items == nil {
+		return cart, nil
+	}
+
+	variantInfo, err := s.cartRepo.GetCartVariantInfo(ctx, userID)
 	if err != nil {
-		s.log.Error("failed to get variant stocks", zap.String("function", "GetCartVariantStocks"), zap.Error(err))
+		s.log.Error("failed to get variant stocks", zap.String("function", "GetCartVariantInfo"), zap.Error(err))
 		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to get variant stocks.",
@@ -87,11 +91,13 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 	}
 
 	for _, item := range cart.Items {
-		if variantStocks[item.ProductVariantID] < item.Quantity {
-			return nil, &apperror.APIError{
-				Code:    "INVALID_QUANTITY",
-				Message: "Quantity is greater than stock.",
+		if variantInfo[item.ProductVariantID].Stock < item.Quantity {
+			if variantInfo[item.ProductVariantID].Stock == 0 {
+				item.Status = "OUT_OF_STOCK"
+			} else {
+				item.Status = "LOW_STOCK"
 			}
+			item.Message = "Quantity is greater than stock."
 		}
 	}
 

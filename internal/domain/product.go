@@ -32,6 +32,8 @@ type ProductRepository interface {
 
 	UpdateProductMinMaxPrice(ctx context.Context, productID int64) error
 
+	GetProductVariantOrderInfo(ctx context.Context, productVariantID int64) (*VariantOrderInfo, error)
+
 	// Attribute operations
 	//------------------
 	CreateAttribute(ctx context.Context, attribute *CreateAttributeRequest) (*Attribute, error)

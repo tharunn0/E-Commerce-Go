@@ -18,6 +18,9 @@ func NewOrderHandler(srv *service.OrderService, log *zap.Logger) *OrderHandler {
 	return &OrderHandler{serv: srv, log: log}
 }
 
+// CHECKOUT HANDLERS
+
+// checkout cart
 func (h *OrderHandler) CheckoutCart(c *gin.Context) {
 
 	ctx := c.Request.Context()
@@ -55,6 +58,7 @@ func (h *OrderHandler) CheckoutCart(c *gin.Context) {
 
 }
 
+// checkout product variant
 func (h *OrderHandler) CheckoutProductVariant(c *gin.Context) {
 
 	ctx := c.Request.Context()
@@ -81,5 +85,67 @@ func (h *OrderHandler) CheckoutProductVariant(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Product variant checked out successfully",
 		"variant": productVariant,
+	})
+}
+
+// ORDER HANDLERS
+
+// create order
+func (h *OrderHandler) CreateOrder(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var req domain.CreateOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request body.",
+		})
+		return
+	}
+
+	// validate and create order
+
+	if req.ProductVariant != nil {
+		return
+	}
+
+	order, stockerr, err := h.serv.CreateOrderFromCart(ctx, &req)
+	if err != nil {
+		c.JSON(err.Status, gin.H{
+			"error":   err.Code,
+			"message": err.Message,
+		})
+		return
+	}
+	if stockerr != nil {
+		c.JSON(http.StatusConflict, gin.H{
+			"error":   "NOT_ENOUGH_STOCK",
+			"message": stockerr,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order created successfully",
+		"order":   order,
+	})
+
+}
+
+func (h *OrderHandler) GetOrders(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	orders, err := h.serv.GetOrders(ctx)
+	if err != nil {
+		c.JSON(err.Status, gin.H{
+			"error":   err.Code,
+			"message": err.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Orders fetched successfully",
+		"orders":  orders,
 	})
 }

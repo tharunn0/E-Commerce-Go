@@ -53,10 +53,11 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 			"error":   apierr.Code,
 			"message": apierr.Message,
 		})
+		return
 	}
 	var msg string
 	var nosOfItems int64
-	if len(cart.Items) == 0 {
+	if cart.Items == nil {
 		msg = "Cart is empty"
 		nosOfItems = 0
 	} else {
