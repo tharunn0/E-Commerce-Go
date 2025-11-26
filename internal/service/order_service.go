@@ -420,6 +420,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		BillingAddressID:      req.AddressID,
 		DeliveryType:          strings.ToLower(string(req.DeliveryType)),
 		EstimatedDeliveryDate: estimatedDeliveryDate,
+		OrderSource:           "cart",
 	}
 
 	var items []domain.OrderItem

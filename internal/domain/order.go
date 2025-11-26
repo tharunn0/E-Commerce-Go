@@ -45,6 +45,8 @@ type CreateOrderData struct {
 	BillingAddressID      int64     `db:"billing_address_id"`
 	DeliveryType          string    `db:"delivery_type"`
 	EstimatedDeliveryDate time.Time `db:"estimated_delivery_date"`
+
+	OrderSource string
 }
 
 type OrderItem struct {

@@ -30,14 +30,9 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	}
 
 	// ensure rollback on error
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	var internalOrderID int64
-
 	// insert into orders
 	query := `INSERT INTO orders (user_id, public_order_id, total_amount, tax_amount, shipping_address_id, billing_address_id,estimated_delivery_date,status)
 	VALUES ($1, $2, $3, $4, $5, $6,$7,$8) RETURNING id`
@@ -88,13 +83,15 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	}
 
 	// empty cart
-	query = `DELETE FROM cart_items 
-	 USING carts C 
-	 WHERE cart_items.cart_id = C.id AND C.user_id = $1`
-	_, err = tx.Exec(ctx, query, data.UserID)
-	if err != nil {
-		fmt.Println("error emptying cart", err)
-		return err
+	if data.OrderSource == "cart" {
+		query = `DELETE FROM cart_items 
+	 	USING carts C 
+	 	WHERE cart_items.cart_id = C.id AND C.user_id = $1`
+		_, err = tx.Exec(ctx, query, data.UserID)
+		if err != nil {
+			fmt.Println("error emptying cart", err)
+			return err
+		}
 	}
 	// commit transaction
 	return tx.Commit(ctx)
@@ -216,11 +213,7 @@ func (r OrderRepository) DeliverOrder(ctx context.Context, orderID string) error
 		return err
 	}
 
-	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	// update shipment status
 	query := `UPDATE shipments SET status = $1,delivered_at = now(),updated_at = now()
