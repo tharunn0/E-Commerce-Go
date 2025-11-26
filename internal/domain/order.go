@@ -11,8 +11,9 @@ type OrderRepository interface {
 	GetUserOrderByID(ctx context.Context, orderID string) (*OrderResponse, error)
 
 	// shipment
-	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error
-	DeliverOrder(ctx context.Context, orderID string) error
+	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
+	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error     //admin
+	DeliverOrder(ctx context.Context, orderID string) error                              //admin
 }
 
 type CreateOrderRequest struct {
@@ -133,4 +134,24 @@ type OrderResponse struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type OrderFilter struct {
+	OrderStatus    *string `form:"order_status"`
+	DeliveryType   *string `form:"delivery_type"`
+	ShipmentStatus *string `form:"shipment_status"`
+
+	OrderID *string `form:"order_id"`
+
+	PriceFrom *float64 `form:"price_from"`
+	PriceTo   *float64 `form:"price_to"`
+
+	CreatedAtFrom *time.Time `form:"created_at_from"`
+	CreatedAtTo   *time.Time `form:"created_at_to"`
+
+	OrderBy *string `form:"order_by"`
+	Sort    *string `form:"sort"`
+
+	Page  int `form:"page"`
+	Limit int `form:"limit"`
 }

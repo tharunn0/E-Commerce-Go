@@ -526,6 +526,36 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domai
 
 // ORDER ADMIN SERVICES
 
+// list all orders
+func (s *OrderService) ListAllOrders(ctx context.Context, filter *domain.OrderFilter) ([]domain.OrderBaseResponse, *apperror.APIError) {
+
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Sort == nil {
+		sort := "DESC"
+		filter.Sort = &sort
+	}
+	if filter.OrderBy == nil {
+		createdAt := "o.created_at"
+		filter.OrderBy = &createdAt
+	}
+
+	orders, err := s.orderRepo.ListAllOrders(ctx, filter)
+	if err != nil {
+		s.log.Error("Failed to get orders", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get orders.",
+		}
+	}
+	return orders, nil
+}
+
 // ship order
 func (s *OrderService) ShipOrder(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
 	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
@@ -563,12 +593,20 @@ func (s *OrderService) ShipOrder(ctx context.Context, orderID string) (*domain.O
 		}
 	}
 
+	order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
+	order.Subtotal = order.TotalAmount - order.TaxAmount - order.ShippingCost
+
+	fmt.Println("delivery type", order.DeliveryType)
+	fmt.Println("shipping cost", order.ShippingCost)
+	fmt.Println("subtotal", order.Subtotal)
+
 	order.ShipmentStatus = "shipped"
 	order.ShipmentCarrier = string(carrier)
 	order.TrackingNumber = trackingID
 	return order, nil
 }
 
+// deliver order
 func (s *OrderService) DeliverOrder(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
 	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
 	if err != nil {

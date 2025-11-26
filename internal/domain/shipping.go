@@ -10,8 +10,8 @@ import (
 type DeliveryType string
 
 const (
-	DeliveryTypeNormal  DeliveryType = "NORMAL"
-	DeliveryTypeExpress DeliveryType = "EXPRESS"
+	DeliveryTypeNormal  DeliveryType = "normal"
+	DeliveryTypeExpress DeliveryType = "express"
 )
 
 var DeliveryTypeCharges = map[DeliveryType]float64{

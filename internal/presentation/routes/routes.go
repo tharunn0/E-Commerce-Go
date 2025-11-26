@@ -206,9 +206,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		// PUT /admin/orders/:id/return
 
 		orderAdminRoutes := g.Group("/api/v1/admin/orders").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
-		orderAdminRoutes.GET("/", h.Order.GetOrders)
+		orderAdminRoutes.GET("/", h.Order.ListAllOrders)
 		orderAdminRoutes.GET("/:order_id", h.Order.GetOrderByID)
-		// orderAdminRoutes.PUT("/:id/confirm", h.Order.Confirm)
 		orderAdminRoutes.PUT("/:id/ship", h.Order.ShipOrder)
 		// orderAdminRoutes.PUT("/:id/out-for-delivery", h.Order.OutForDelivery)
 		orderAdminRoutes.PUT("/:id/deliver", h.Order.DeliverOrder)

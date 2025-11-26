@@ -215,3 +215,31 @@ func (h *OrderHandler) DeliverOrder(c *gin.Context) {
 		"order":   order,
 	})
 }
+
+// list all orders
+func (h *OrderHandler) ListAllOrders(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var filter domain.OrderFilter
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request query.",
+		})
+		return
+	}
+
+	orders, err := h.serv.ListAllOrders(ctx, &filter)
+	if err != nil {
+		c.JSON(err.Status, gin.H{
+			"error":   err.Code,
+			"message": err.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Orders fetched successfully",
+		"orders":  orders,
+	})
+}

@@ -5,6 +5,7 @@ import (
 
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -98,20 +99,7 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 }
 
 func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]domain.OrderBaseResponse, error) {
-	// OrderID     string  `json:"order_id"`
-	// Subtotal    float64 `json:"subtotal"`
-	// TaxAmount   float64 `json:"tax_amount"`
-	// TotalAmount float64 `json:"total_amount"`
-	// Currency    string  `json:"currency"`
 
-	// ShippingAddressID int64 `json:"shipping_address_id"`
-
-	// DeliveryType          DeliveryType `json:"delivery_type"`
-	// EstimatedDeliveryTime string       `json:"estimated_delivery_time"`
-
-	// Status         OrderStatus `json:"order_status"`
-	// ShipmentStatus string      `json:"shipment_status"`
-	// PaymentStatus  string      `json:"payment_status"`
 	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.estimated_delivery_date,p.currency,o.shipping_address_id,
 		s.type as delivery_type,s.status as shipment_status,p.status as payment_status,
 		a.id, a.label,a.address_line,a.address_line_2,a.city,a.district,a.state,a.pincode,a.country
@@ -242,4 +230,159 @@ func (r OrderRepository) DeliverOrder(ctx context.Context, orderID string) error
 	tx.Commit(ctx)
 
 	return nil
+}
+
+func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.OrderFilter) ([]domain.OrderBaseResponse, error) {
+
+	query := `
+	SELECT 
+		o.public_order_id, 
+		o.total_amount, 
+		o.tax_amount, 
+		o.status,
+		o.estimated_delivery_date,
+		p.currency,
+		o.shipping_address_id,
+		s.type AS delivery_type,
+		s.status AS shipment_status,
+		p.status AS payment_status,
+		a.id, a.label, a.address_line, a.address_line_2,
+		a.city, a.district, a.state, a.pincode, a.country
+	FROM orders o
+	LEFT JOIN shipments s ON o.id = s.order_id
+	LEFT JOIN payments p ON o.id = p.order_id
+	LEFT JOIN user_addresses a ON o.shipping_address_id = a.id
+	WHERE 1=1
+	`
+
+	var args []interface{}
+	argIndex := 1
+
+	// apply filters
+	if filter != nil {
+
+		if filter.OrderStatus != nil {
+			query += fmt.Sprintf(" AND o.status = $%d", argIndex)
+			args = append(args, filter.OrderStatus)
+			argIndex++
+		}
+
+		if filter.DeliveryType != nil {
+			query += fmt.Sprintf(" AND s.type = $%d", argIndex)
+			args = append(args, filter.DeliveryType)
+			argIndex++
+		}
+
+		if filter.ShipmentStatus != nil {
+			query += fmt.Sprintf(" AND s.status = $%d", argIndex)
+			args = append(args, filter.ShipmentStatus)
+			argIndex++
+		}
+
+		if filter.PriceFrom != nil {
+			query += fmt.Sprintf(" AND o.total_amount >= $%d", argIndex)
+			args = append(args, filter.PriceFrom)
+			argIndex++
+		}
+
+		if filter.PriceTo != nil {
+			query += fmt.Sprintf(" AND o.total_amount <= $%d", argIndex)
+			args = append(args, filter.PriceTo)
+			argIndex++
+		}
+
+		if filter.CreatedAtFrom != nil {
+			query += fmt.Sprintf(" AND o.created_at >= $%d", argIndex)
+			args = append(args, filter.CreatedAtFrom)
+			argIndex++
+		}
+
+		if filter.CreatedAtTo != nil {
+			query += fmt.Sprintf(" AND o.created_at <= $%d", argIndex)
+			args = append(args, filter.CreatedAtTo)
+			argIndex++
+		}
+	}
+
+	// sorting
+	orderBy := "o.created_at"
+	sort := "DESC"
+
+	if filter != nil {
+		if filter.OrderBy != nil {
+			orderBy = *filter.OrderBy
+		}
+		if filter.Sort != nil {
+			sort = strings.ToUpper(*filter.Sort)
+		}
+	}
+
+	if orderBy == "price" {
+		orderBy = "o.total_amount"
+	}
+	query += fmt.Sprintf(" ORDER BY %s %s", orderBy, sort)
+
+	// pagination
+	limit := 20
+	page := 1
+
+	if filter != nil {
+		if filter.Limit > 0 {
+			limit = filter.Limit
+		}
+		if filter.Page > 0 {
+			page = filter.Page
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, limit, offset)
+
+	//  get orders
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// scan results
+	var orders []domain.OrderBaseResponse
+
+	for rows.Next() {
+		var order domain.OrderBaseResponse
+		var address domain.UserAddress
+
+		err = rows.Scan(
+			&order.OrderID,
+			&order.TotalAmount,
+			&order.TaxAmount,
+			&order.Status,
+			&order.EstimatedDeliveryDate,
+			&order.Currency,
+			&order.ShippingAddressID,
+			&order.DeliveryType,
+			&order.ShipmentStatus,
+			&order.PaymentStatus,
+			&address.ID,
+			&address.Label,
+			&address.AddressLine,
+			&address.AddressLine2,
+			&address.City,
+			&address.District,
+			&address.State,
+			&address.Pincode,
+			&address.Country,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		order.Subtotal = order.TotalAmount - order.TaxAmount
+		order.ShippingAddress = &address
+		orders = append(orders, order)
+	}
+
+	return orders, nil
 }
