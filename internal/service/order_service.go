@@ -524,6 +524,95 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domai
 	return order, nil
 }
 
+// cancel order item
+func (s *OrderService) CancelOrderItem(ctx context.Context, orderID string, variantID int64) (*domain.OrderResponse, *apperror.APIError) {
+
+	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+
+	if order.Status == domain.OrderStatusDelivered {
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "Order is already delivered.Choose to return the order.",
+		}
+	}
+
+	if order.Status == domain.OrderStatusCancelled {
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "Order is already cancelled.",
+		}
+	}
+
+	variantFound := false
+	for _, item := range order.Items {
+		if item.ProductVariantID == variantID {
+			variantFound = true
+			break
+		}
+	}
+
+	if !variantFound {
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "Variant not found in order.",
+		}
+	}
+
+	err = s.orderRepo.CancelOrderItem(ctx, orderID, variantID)
+	if err != nil {
+		s.log.Error("Failed to cancel order item", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to cancel order item.",
+		}
+	}
+
+	UpdatedOrder, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+
+	return UpdatedOrder, nil
+}
+
 // ORDER ADMIN SERVICES
 
 // list all orders

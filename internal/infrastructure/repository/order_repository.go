@@ -178,6 +178,32 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (
 	return &order, nil
 }
 
+func (r OrderRepository) CancelOrderItem(ctx context.Context, orderID string, variantID int64) error {
+	// update order item status
+	query := `UPDATE order_items SET status = $1 WHERE order_id = (SELECT id FROM orders 
+	WHERE public_order_id = $2) AND product_variant_id = $3`
+	_, err := r.DB.Exec(ctx, query, "cancelled", orderID, variantID)
+	if err != nil {
+		return err
+	}
+
+	// update order prices
+	query = `UPDATE orders SET total_amount = (SELECT SUM(total_price) FROM order_items
+	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $1)) WHERE public_order_id = $1`
+	_, err = r.DB.Exec(ctx, query, orderID)
+	if err != nil {
+		return err
+	}
+
+	// update order status
+	query = `UPDATE orders SET status = $1 WHERE public_order_id = $2`
+	_, err = r.DB.Exec(ctx, query, "cancelled", orderID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // shipment
 
 func (r OrderRepository) ShipOrder(ctx context.Context, orderID string, shipmentData *domain.ShipmentData) error {
@@ -305,7 +331,7 @@ func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.Order
 	}
 
 	// sorting
-	orderBy := "o.created_at"
+	orderBy := "created_at"
 	sort := "DESC"
 
 	if filter != nil {
@@ -320,7 +346,7 @@ func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.Order
 	if orderBy == "price" {
 		orderBy = "o.total_amount"
 	}
-	query += fmt.Sprintf(" ORDER BY %s %s", orderBy, sort)
+	query += fmt.Sprintf(" ORDER BY o.%s %s", orderBy, sort)
 
 	// pagination
 	limit := 20

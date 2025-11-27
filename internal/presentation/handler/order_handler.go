@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -172,6 +173,36 @@ func (h *OrderHandler) GetOrderByID(c *gin.Context) {
 	})
 }
 
+func (h *OrderHandler) CancelOrderItem(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	orderID := c.Param("order_id")
+	variantIDstr := c.Param("variant_id")
+
+	variantID, err := strconv.ParseInt(variantIDstr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid variant ID.",
+		})
+		return
+	}
+
+	order, apierr := h.serv.CancelOrderItem(ctx, orderID, variantID)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order item cancelled successfully",
+		"order":   order,
+	})
+}
+
 // ORDER ADMIN HANDLERS
 
 // ship order
@@ -181,11 +212,11 @@ func (h *OrderHandler) ShipOrder(c *gin.Context) {
 
 	orderID := c.Param("id")
 
-	order, err := h.serv.ShipOrder(ctx, orderID)
-	if err != nil {
-		c.JSON(err.Status, gin.H{
-			"error":   err.Code,
-			"message": err.Message,
+	order, apierr := h.serv.ShipOrder(ctx, orderID)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
 		})
 		return
 	}
@@ -202,11 +233,11 @@ func (h *OrderHandler) DeliverOrder(c *gin.Context) {
 
 	orderID := c.Param("id")
 
-	order, err := h.serv.DeliverOrder(ctx, orderID)
-	if err != nil {
-		c.JSON(err.Status, gin.H{
-			"error":   err.Code,
-			"message": err.Message,
+	order, apierr := h.serv.DeliverOrder(ctx, orderID)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
 		})
 		return
 	}
@@ -230,11 +261,11 @@ func (h *OrderHandler) ListAllOrders(c *gin.Context) {
 		return
 	}
 
-	orders, err := h.serv.ListAllOrders(ctx, &filter)
-	if err != nil {
-		c.JSON(err.Status, gin.H{
-			"error":   err.Code,
-			"message": err.Message,
+	orders, apierr := h.serv.ListAllOrders(ctx, &filter)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
 		})
 		return
 	}

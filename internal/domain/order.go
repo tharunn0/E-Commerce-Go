@@ -9,6 +9,7 @@ type OrderRepository interface {
 	CreateOrder(ctx context.Context, data *CreateOrderData) error
 	GetUserOrders(ctx context.Context, userID int64) ([]OrderBaseResponse, error)
 	GetUserOrderByID(ctx context.Context, orderID string) (*OrderResponse, error)
+	CancelOrderItem(ctx context.Context, orderID string, variantID int64) error
 
 	// shipment
 	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
@@ -154,4 +155,8 @@ type OrderFilter struct {
 
 	Page  int `form:"page"`
 	Limit int `form:"limit"`
+}
+
+type CancelOrderItemRequest struct {
+	VariantID int64 `json:"variant_id"`
 }

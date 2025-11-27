@@ -194,16 +194,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		orderProtectedRoute.POST("/", h.Order.CreateOrder)
 		orderProtectedRoute.GET("/", h.Order.GetOrders)
 		orderProtectedRoute.GET("/:order_id", h.Order.GetOrderByID)
-		// orderProtectedRoute.PUT("/:id", h.Order.UpdateOrder)
-		// orderProtectedRoute.DELETE("/:id", h.Order.DeleteOrder)
-
-		// PUT /admin/orders/:id/confirm
-		// PUT /admin/orders/:id/pack
-		// PUT /admin/orders/:id/ship
-		// PUT /admin/orders/:id/out-for-delivery
-		// PUT /admin/orders/:id/deliver
-		// PUT /admin/orders/:id/cancel
-		// PUT /admin/orders/:id/return
+		orderProtectedRoute.POST("/:order_id/:variant_id", h.Order.CancelOrderItem)
+		// orderProtectedRoute.DELETE("/:id", h.Order.Cancle)
 
 		orderAdminRoutes := g.Group("/api/v1/admin/orders").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		orderAdminRoutes.GET("/", h.Order.ListAllOrders)
