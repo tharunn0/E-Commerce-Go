@@ -16,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	Razorpay "github.com/razorpay/razorpay-go"
 	"go.uber.org/zap"
 )
 
@@ -34,6 +35,7 @@ func main() {
 	app := cfg.App
 	google := cfg.Google
 	redis := cfg.Redis
+	razorpay := cfg.Razorpay
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pg.User, pg.Password, pg.Host, pg.Port, pg.DB)
 	pgdb := database.InitDB(dsn, log)
@@ -45,6 +47,7 @@ func main() {
 	}
 
 	oauth := config.NewOAuthConfig(google.ClientID, google.ClientSecret, google.RedirectURL)
+	razorpayClient := Razorpay.NewClient(razorpay.KeyID, razorpay.KeySecret)
 
 	userRepo := repository.NewUserRepository(pgdb)
 	authRepo := repository.NewAuthRepository(pgdb, redisdb)
@@ -62,7 +65,7 @@ func main() {
 	productServ := service.NewProductService(productRepo, log)
 	cartServ := service.NewCartService(cartRepo, productRepo, log)
 	wishlistServ := service.NewWishlistService(wishlistRepo, log)
-	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, log)
+	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, razorpayClient, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
 	adminHandler := handler.NewAdminHandler(adminServ, log, authServ)

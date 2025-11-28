@@ -12,6 +12,7 @@ type AppConfig struct {
 	Redis    RedisSettings
 	Postgres PostgresSettings
 	Security SecuritySettings
+	Razorpay RazorpaySettings
 }
 
 type AppSettings struct {
@@ -56,6 +57,11 @@ type SecuritySettings struct {
 	EmailVerificationExpiry int
 }
 
+type RazorpaySettings struct {
+	KeyID     string
+	KeySecret string
+}
+
 func LoadConfig() *AppConfig {
 	return &AppConfig{
 		App: AppSettings{
@@ -98,6 +104,11 @@ func LoadConfig() *AppConfig {
 			OTPExpiryMinutes:        getEnvAsInt("OTP_EXPIRY", 5),
 			PasswordResetExpiry:     getEnvAsInt("PASSWORD_RESET_EXPIRY", 15),
 			EmailVerificationExpiry: getEnvAsInt("EMAIL_VERIFICATION_EXPIRY", 15),
+		},
+
+		Razorpay: RazorpaySettings{
+			KeyID:     getEnv("RAZORPAY_ID", ""),
+			KeySecret: getEnv("RAZORPAY_SECRET", ""),
 		},
 	}
 }

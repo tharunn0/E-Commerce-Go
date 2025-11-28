@@ -10,6 +10,8 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
+
+	Razorpay "github.com/razorpay/razorpay-go"
 	"go.uber.org/zap"
 )
 
@@ -18,16 +20,18 @@ type OrderService struct {
 	productRepo domain.ProductRepository
 	cartRepo    domain.CartRepository
 	orderRepo   domain.OrderRepository
+	razorpay    *Razorpay.Client
 	log         *zap.Logger
 }
 
-func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductRepository, cartRepo domain.CartRepository, orderRepo domain.OrderRepository, log *zap.Logger) *OrderService {
+func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductRepository, cartRepo domain.CartRepository, orderRepo domain.OrderRepository, razorpay *Razorpay.Client, log *zap.Logger) *OrderService {
 	return &OrderService{
 		userRepo:    userRepo,
 		productRepo: productRepo,
 		cartRepo:    cartRepo,
 		orderRepo:   orderRepo,
 		log:         log,
+		razorpay:    razorpay,
 	}
 }
 
