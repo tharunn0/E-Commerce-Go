@@ -23,8 +23,9 @@ type CreateOrderRequest struct {
 		ProductVariantID int64 `json:"product_variant_id"`
 		Quantity         int64 `json:"quantity"`
 	} `json:"product_variant"`
-	AddressID    int64        `json:"address_id"`
-	DeliveryType DeliveryType `json:"delivery_type"`
+	AddressID     int64         `json:"address_id"`
+	DeliveryType  DeliveryType  `json:"delivery_type"`
+	PaymentMethod PaymentMethod `json:"payment_method"`
 }
 
 type OrderStatus string
@@ -159,4 +160,9 @@ type OrderFilter struct {
 
 type CancelOrderItemRequest struct {
 	VariantID int64 `json:"variant_id"`
+}
+
+type OrderStatusUpdateRequest struct {
+	OrderID string `json:"order_id"`
+	Status  string `json:"status"`
 }

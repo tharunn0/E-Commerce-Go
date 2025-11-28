@@ -205,48 +205,6 @@ func (h *OrderHandler) CancelOrderItem(c *gin.Context) {
 
 // ORDER ADMIN HANDLERS
 
-// ship order
-func (h *OrderHandler) ShipOrder(c *gin.Context) {
-
-	ctx := c.Request.Context()
-
-	orderID := c.Param("id")
-
-	order, apierr := h.serv.ShipOrder(ctx, orderID)
-	if apierr != nil {
-		c.JSON(apierr.Status, gin.H{
-			"error":   apierr.Code,
-			"message": apierr.Message,
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Order shipped successfully",
-		"order":   order,
-	})
-}
-
-// deliver order
-func (h *OrderHandler) DeliverOrder(c *gin.Context) {
-
-	ctx := c.Request.Context()
-
-	orderID := c.Param("id")
-
-	order, apierr := h.serv.DeliverOrder(ctx, orderID)
-	if apierr != nil {
-		c.JSON(apierr.Status, gin.H{
-			"error":   apierr.Code,
-			"message": apierr.Message,
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Order delivered successfully",
-		"order":   order,
-	})
-}
-
 // list all orders
 func (h *OrderHandler) ListAllOrders(c *gin.Context) {
 
@@ -272,5 +230,33 @@ func (h *OrderHandler) ListAllOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Orders fetched successfully",
 		"orders":  orders,
+	})
+}
+
+// update order status
+func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var req domain.OrderStatusUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request body.",
+		})
+		return
+	}
+
+	order, apierr := h.serv.UpdateOrderStatus(ctx, &req)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order shipped successfully",
+		"order":   order,
 	})
 }

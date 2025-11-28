@@ -645,6 +645,36 @@ func (s *OrderService) ListAllOrders(ctx context.Context, filter *domain.OrderFi
 	return orders, nil
 }
 
+func (s *OrderService) UpdateOrderStatus(ctx context.Context, req *domain.OrderStatusUpdateRequest) (*domain.OrderResponse, *apperror.APIError) {
+	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+	order.Status = domain.OrderStatus(req.Status)
+	// updatedOrder, err := s.orderRepo.UpdateOrderStatus(ctx, order)
+	// if err != nil {
+	// 	s.log.Error("Failed to update order status", zap.Error(err))
+	// 	return nil, &apperror.APIError{
+	// 		Status:  http.StatusInternalServerError,
+	// 		Code:    "DB_ERROR",
+	// 		Message: "Failed to update order status.",
+	// 	}
+	// }
+	return nil, nil
+}
+
 // ship order
 func (s *OrderService) ShipOrder(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
 	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
