@@ -64,15 +64,6 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 		return err
 	}
 
-	// insert into payments
-	query = `INSERT INTO payments (order_id, user_id, amount, currency,provider, status)
-	VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err = tx.Exec(ctx, query, internalOrderID, data.UserID, data.TotalAmount, "INR", "COD", "pending")
-	if err != nil {
-		fmt.Println("error inserting payment", err)
-		return err
-	}
-
 	// update product variant stock
 	for _, item := range data.Items {
 		query = `UPDATE product_variants SET stock = stock - $1 WHERE id = $2`

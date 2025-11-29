@@ -2,6 +2,10 @@ package payments
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+
 	"github.com/razorpay/razorpay-go"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 )
@@ -24,10 +28,20 @@ func (r *RazorpayPayment) CreatePayment(ctx context.Context, req domain.PaymentR
 		return nil, err
 	}
 
+	gref := rpOrder["id"].(string)
+	url := "RAZORPAY_CHECKOUT_FRONTEND"
+
 	return &domain.PaymentResponse{
 		Status:     domain.PaymentStatusPending,
-		GatewayRef: rpOrder["id"].(string),
-		PaymentURL: "RAZORPAY_CHECKOUT_FRONTEND",
+		Provider:   domain.PaymentMethodRazorpay,
+		GatewayRef: &gref,
+		PaymentURL: &url,
 	}, nil
 
+}
+
+func GenerateRazorpaySignature(orderID, razorpayTestSecret, paymentID string) string {
+	mac := hmac.New(sha256.New, []byte(razorpayTestSecret))
+	mac.Write([]byte(orderID + "|" + paymentID))
+	return hex.EncodeToString(mac.Sum(nil))
 }

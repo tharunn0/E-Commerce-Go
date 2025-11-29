@@ -474,7 +474,7 @@ func (h *UserHandler) CreateUserAddress(c *gin.Context) {
 		})
 		return
 	}
-	if err := utils.ValidateUserAddress(&req); err != nil {
+	if err := utils.ValidateUserAddressValues(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "INVALID_REQUEST",
 			"message": err.Error(),

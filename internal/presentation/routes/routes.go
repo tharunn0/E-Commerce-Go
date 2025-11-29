@@ -16,10 +16,11 @@ type Handler struct {
 	Cart     *handler.CartHandler
 	Wishlist *handler.WishlistHandler
 	Order    *handler.OrderHandler
+	Payment  *handler.PaymentHandler
 }
 
 func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler,
-	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler, orderh *handler.OrderHandler) *Handler {
+	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler, orderh *handler.OrderHandler, paymenth *handler.PaymentHandler) *Handler {
 	return &Handler{
 		User:     userh,
 		Admin:    adminh,
@@ -28,6 +29,7 @@ func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, catego
 		Cart:     carth,
 		Wishlist: wishlisth,
 		Order:    orderh,
+		Payment:  paymenth,
 	}
 }
 
@@ -205,6 +207,14 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		// orderAdminRoutes.PUT("/:id/out-for-delivery", h.Order.OutForDelivery)
 		// orderAdminRoutes.PUT("/:id/cancel", h.Order.CancelOrder)
 		// orderAdminRoutes.PUT("/:id/return", h.Order.ReturnOrder)
+	}
+
+	{
+		// payment routes
+		paymentRoute := g.Group("api/v1/payments")
+		paymentProtectedRoute := paymentRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		paymentProtectedRoute.POST("/simulate", h.Payment.SimulatePayment)
+		paymentProtectedRoute.POST("/verify", h.Payment.VerifyPayment)
 	}
 
 }

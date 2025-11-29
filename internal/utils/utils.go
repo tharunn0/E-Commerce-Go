@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
+	mrand "math/rand"
 	"os"
 	"regexp"
 	"strconv"
@@ -236,7 +237,7 @@ func ExtractAuthToken(rawtoken string) (string, error) {
 	return parts[1], nil
 }
 
-func ValidateUserAddress(address *domain.UserAddress) error {
+func ValidateUserAddressValues(address *domain.UserAddress) error {
 	if address.Label == "" {
 		return fmt.Errorf("Address label is required")
 	}
@@ -277,4 +278,13 @@ func GeneratePublicOrderID() (string, error) {
 	date := time.Now().Format("20060102") // e.g. 20251126
 
 	return fmt.Sprintf("ORD-%s-%s", date, string(b)), nil
+}
+
+func RandomString(n int) string {
+	const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[mrand.Intn(len(letters))]
+	}
+	return string(b)
 }

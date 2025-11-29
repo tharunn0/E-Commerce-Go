@@ -12,7 +12,8 @@ import (
 
 type OrderHandler struct {
 	serv *service.OrderService
-	log  *zap.Logger
+
+	log *zap.Logger
 }
 
 func NewOrderHandler(srv *service.OrderService, log *zap.Logger) *OrderHandler {

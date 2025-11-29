@@ -31,11 +31,11 @@ type CreateOrderRequest struct {
 type OrderStatus string
 
 const (
-	OrderStatusPending    OrderStatus = "PENDING"
-	OrderStatusProcessing OrderStatus = "PROCESSING"
-	OrderStatusShipped    OrderStatus = "SHIPPED"
-	OrderStatusDelivered  OrderStatus = "DELIVERED"
-	OrderStatusCancelled  OrderStatus = "CANCELLED"
+	OrderStatusPending   OrderStatus = "PENDING"
+	OrderStatusConfirmed OrderStatus = "CONFIRMED"
+	OrderStatusShipped   OrderStatus = "SHIPPED"
+	OrderStatusDelivered OrderStatus = "DELIVERED"
+	OrderStatusCancelled OrderStatus = "CANCELLED"
 )
 
 type CreateOrderData struct {
@@ -85,6 +85,8 @@ type CreateOrderResponse struct {
 
 	PaymentMethod string `json:"payment_method"`
 	PaymentStatus string `json:"payment_status"`
+
+	Payment *Payment `json:"payment,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 }

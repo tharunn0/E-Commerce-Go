@@ -9,6 +9,7 @@ import (
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/payments"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 
 	Razorpay "github.com/razorpay/razorpay-go"
@@ -20,16 +21,18 @@ type OrderService struct {
 	productRepo domain.ProductRepository
 	cartRepo    domain.CartRepository
 	orderRepo   domain.OrderRepository
+	paymentRepo domain.PaymentRepository
 	razorpay    *Razorpay.Client
 	log         *zap.Logger
 }
 
-func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductRepository, cartRepo domain.CartRepository, orderRepo domain.OrderRepository, razorpay *Razorpay.Client, log *zap.Logger) *OrderService {
+func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductRepository, cartRepo domain.CartRepository, orderRepo domain.OrderRepository, paymentRepo domain.PaymentRepository, razorpay *Razorpay.Client, log *zap.Logger) *OrderService {
 	return &OrderService{
 		userRepo:    userRepo,
 		productRepo: productRepo,
 		cartRepo:    cartRepo,
 		orderRepo:   orderRepo,
+		paymentRepo: paymentRepo,
 		log:         log,
 		razorpay:    razorpay,
 	}
@@ -78,12 +81,13 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		}
 	}
 
-	if userAddr.UserID != userID {
-
+	// validate address
+	err = utils.ValidateUserAddress(userAddr, userID)
+	if err != nil {
 		return nil, nil, &apperror.APIError{
-			Status:  http.StatusUnauthorized,
-			Code:    "UNAUTHORIZED",
-			Message: "You do not have access to this address.",
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: err.Error(),
 		}
 	}
 
@@ -103,6 +107,14 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to get cart.",
+		}
+	}
+
+	if cart.Items == nil {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "Cart is empty.",
 		}
 	}
 
@@ -126,22 +138,10 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		}
 	}
 
-	var notEnoughStockErrors []domain.NotEnoughStockError
-
-	// validate cart variant stocks
-	for _, cartItem := range cart.Items {
-		if cartVariantInfo[cartItem.ProductVariantID].Stock < cartItem.Quantity {
-			notEnoughStockErrors = append(notEnoughStockErrors, domain.NotEnoughStockError{
-				ProductVariantID: cartItem.ProductVariantID,
-				SKU:              cartVariantInfo[cartItem.ProductVariantID].SKU,
-				Quantity:         cartItem.Quantity,
-				Stock:            cartVariantInfo[cartItem.ProductVariantID].Stock,
-			})
-		}
-	}
-
-	if len(notEnoughStockErrors) > 0 {
-		return nil, notEnoughStockErrors, nil
+	// validate not enough stock
+	notEnoughStockError := utils.ValidateOrderItemsStock(cartVariantInfo, cart)
+	if len(notEnoughStockError) > 0 {
+		return nil, notEnoughStockError, nil
 	}
 
 	// shipping charge
@@ -289,7 +289,24 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.P
 // ORDER SERVICES
 // create order
 func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.CreateOrderRequest) (*domain.CreateOrderResponse, []domain.NotEnoughStockError, *apperror.APIError) {
-	// getuserid
+
+	// 1. validate req
+	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid delivery type.",
+		}
+	}
+	if req.AddressID == 0 {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid address.",
+		}
+	}
+
+	// 2. extract user id
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, nil, &apperror.APIError{
@@ -299,7 +316,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
-	// validate address
+	// 3. get address
 	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
 	if err != nil {
 		if err == apperror.ErrAddressNotFoundForUser {
@@ -317,24 +334,17 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
-	// validate address belongs to user
-	if userAddr.UserID != userID {
+	// 4. validate address belongs to user
+	err = utils.ValidateUserAddress(userAddr, userID)
+	if err != nil {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusUnauthorized,
 			Code:    "UNAUTHORIZED",
 			Message: "You do not have access to this address.",
 		}
 	}
-	// validate delivery type
-	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusBadRequest,
-			Code:    "BAD_REQUEST",
-			Message: "Invalid delivery type.",
-		}
-	}
 
-	// validate cart and cart variant stocks
+	// 5. fetch cart with userId
 	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
@@ -344,14 +354,23 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 				Message: apperror.ErrCartNotFound.Error(),
 			}
 		}
-		s.log.Error("Failed to get cart", zap.Error(err))
+		s.log.Error("Failed to fetch cart", zap.Error(err))
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
-			Message: "Failed to get cart.",
+			Message: "Failed to fetch cart.",
 		}
 	}
 
+	if cart.Items == nil {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "Cart is empty.",
+		}
+	}
+
+	// 6. fetch variant info
 	cartVariantInfo, err := s.cartRepo.GetCartVariantInfo(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
@@ -361,47 +380,34 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 				Message: apperror.ErrCartNotFound.Error(),
 			}
 		}
-		s.log.Error("Failed to validate cart", zap.Error(err))
+		s.log.Error("Failed to fetch variant info", zap.Error(err))
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
-			Message: "Failed to validate cart.",
+			Message: "Failed to fetch variant info.",
 		}
 	}
 
-	var notEnoughStockErrors []domain.NotEnoughStockError
-
-	// validate stock
-	for _, cartItem := range cart.Items {
-		if cartVariantInfo[cartItem.ProductVariantID].Stock < cartItem.Quantity {
-			notEnoughStockErrors = append(notEnoughStockErrors, domain.NotEnoughStockError{
-				ProductVariantID: cartItem.ProductVariantID,
-				SKU:              cartVariantInfo[cartItem.ProductVariantID].SKU,
-				Quantity:         cartItem.Quantity,
-				Stock:            cartVariantInfo[cartItem.ProductVariantID].Stock,
-			})
-		}
-	}
-
+	// 7. validate stock
+	notEnoughStockErrors := utils.ValidateOrderItemsStock(cartVariantInfo, cart)
 	if len(notEnoughStockErrors) > 0 {
 		return nil, notEnoughStockErrors, nil
 	}
 
-	// create final order data
-
+	// 8. generate public order id
 	orderID, err := utils.GeneratePublicOrderID()
 	if err != nil {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
+			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to generate order ID.",
 		}
 	}
 
-	// shipping charge
+	// 9. calculate shipping charge
 	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
 
-	// delivery time and date
+	// 10. calculate delivery time and date
 	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
 	if err != nil {
 		estimatedDeliveryTime = 7
@@ -412,7 +418,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
 	}
 
-	// total amount
+	// 11. calculate total amount
 	totalAmount := cart.CartTotalPrice + shippingAmount
 
 	orderData := &domain.CreateOrderData{
@@ -427,6 +433,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		OrderSource:           "cart",
 	}
 
+	// 12. create order items
 	var items []domain.OrderItem
 
 	for _, cartItem := range cart.Items {
@@ -445,7 +452,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 	orderData.Items = items
 
-	// create order && update stock
+	// 13. create order && update stock
 	if err := s.orderRepo.CreateOrder(ctx, orderData); err != nil {
 		s.log.Error("Failed to create order", zap.Error(err))
 		return nil, nil, &apperror.APIError{
@@ -455,8 +462,62 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
-	// return response
+	// 14. validate payment gateway
 
+	gateway := payments.GetPaymentGateway(req.PaymentMethod, s.razorpay)
+	if gateway == nil {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid payment method.",
+		}
+	}
+
+	paymentResp, err := gateway.CreatePayment(ctx, domain.PaymentRequest{
+		OrderID:  orderID,
+		UserID:   userID,
+		Amount:   int64(totalAmount) / 100,
+		Currency: "INR",
+	})
+	if err != nil {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to initialize payment.",
+		}
+	}
+
+	payment := &domain.Payment{
+		OrderID:    orderID,
+		UserID:     userID,
+		Amount:     int64(totalAmount) * 100,
+		Currency:   "INR",
+		Provider:   domain.PaymentMethodRazorpay,
+		Status:     paymentResp.Status,
+		GatewayRef: paymentResp.GatewayRef,
+		PaymentURL: paymentResp.PaymentURL,
+	}
+
+	// 15. create payment
+	if err := s.paymentRepo.CreatePayment(ctx, payment); err != nil {
+		s.log.Error("Failed to create payment", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to create payment.",
+		}
+	}
+
+	var orderStatus domain.OrderStatus
+	if req.PaymentMethod == domain.PaymentMethodCOD {
+		orderStatus = domain.OrderStatusConfirmed
+	} else {
+		orderStatus = domain.OrderStatusPending
+	}
+
+	s.log.Info("Payment initialized", zap.Any("payment", payment))
+
+	// return response
 	resp := &domain.CreateOrderResponse{
 		OrderID:               orderID,
 		Items:                 items,
@@ -471,10 +532,11 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		DeliveryType:          req.DeliveryType,
 		EstimatedDeliveryTime: fmt.Sprintf("%d days", estimatedDeliveryTime),
 		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
-		Status:                domain.OrderStatusPending,
-		ShipmentStatus:        "PENDING",
-		PaymentMethod:         "COD",
-		PaymentStatus:         "PENDING",
+		Status:                orderStatus,
+		ShipmentStatus:        string(domain.ShipmentStatusPending),
+		PaymentMethod:         string(req.PaymentMethod),
+		PaymentStatus:         string(paymentResp.Status),
+		Payment:               payment,
 		CreatedAt:             time.Now(),
 	}
 

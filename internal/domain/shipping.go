@@ -9,6 +9,14 @@ import (
 
 type DeliveryType string
 
+type ShipmentStatus string
+
+const (
+	ShipmentStatusPending   ShipmentStatus = "PENDING"
+	ShipmentStatusShipped   ShipmentStatus = "SHIPPED"
+	ShipmentStatusDelivered ShipmentStatus = "DELIVERED"
+)
+
 const (
 	DeliveryTypeNormal  DeliveryType = "normal"
 	DeliveryTypeExpress DeliveryType = "express"

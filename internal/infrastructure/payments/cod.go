@@ -8,13 +8,11 @@ import (
 
 type CODPayment struct{}
 
-func (c *CODPayment) CreatePayment(
-	ctx context.Context,
-	req domain.PaymentRequest,
-) (*domain.PaymentResponse, error) {
-
+func (c *CODPayment) CreatePayment(ctx context.Context, req domain.PaymentRequest) (*domain.PaymentResponse, error) {
 	return &domain.PaymentResponse{
 		Status:     domain.PaymentStatusPending,
-		GatewayRef: "COD",
+		Provider:   domain.PaymentMethodCOD,
+		GatewayRef: nil,
+		PaymentURL: nil,
 	}, nil
 }
