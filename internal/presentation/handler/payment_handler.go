@@ -5,18 +5,22 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/payments"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
+
+	"github.com/razorpay/razorpay-go"
 	"go.uber.org/zap"
 )
 
 type PaymentHandler struct {
-	razorpayCfg *config.RazorpaySettings
-	logger      *zap.Logger
+	razorpayClient *razorpay.Client
+	razorpayCfg    *config.RazorpaySettings
+	logger         *zap.Logger
 }
 
-func NewPaymentHandler(razorpayCfg *config.RazorpaySettings, logger *zap.Logger) *PaymentHandler {
+func NewPaymentHandler(razorpayCfg *config.RazorpaySettings, logger *zap.Logger, razorpayClient *razorpay.Client) *PaymentHandler {
 	return &PaymentHandler{
-		razorpayCfg: razorpayCfg,
-		logger:      logger,
+		razorpayCfg:    razorpayCfg,
+		logger:         logger,
+		razorpayClient: razorpayClient,
 	}
 }
 
@@ -32,14 +36,20 @@ func (h *PaymentHandler) SimulatePayment(c *gin.Context) {
 		return
 	}
 
+	_, err := h.razorpayClient.Order.Fetch(req.OrderID, nil, nil)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error":   "BAD_REQUEST_ERROR",
+			"message": "Invalid or unknown Razorpay order_id",
+		})
+		return
+	}
+
 	// Default = success
 	if req.Status == "failed" {
 		c.JSON(400, gin.H{
-			"error": gin.H{
-				"code":        "BAD_REQUEST_ERROR",
-				"description": "Payment failed",
-				"reason":      "payment_failed",
-			},
+			"error":   "BAD_REQUEST_ERROR",
+			"message": "Payment failed",
 		})
 		return
 	}

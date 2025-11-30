@@ -40,7 +40,8 @@ func (p *PaymentRepository) CreatePayment(ctx context.Context, payment *domain.P
 
 	query := `INSERT INTO payments (order_id, user_id, amount, currency, provider, provider_payment_id, status)
 	SELECT id, $2, $3, $4, $5, $6,$7 from orders where public_order_id = $1`
-	_, err := p.DB.Exec(ctx, query, payment.OrderID, payment.UserID, totalAmt, payment.Currency, payment.Provider, payment.GatewayRef, status)
+	_, err := p.DB.Exec(ctx, query, payment.OrderID, payment.UserID, totalAmt, payment.Currency,
+		payment.Provider, payment.GatewayRef, status)
 	if err != nil {
 		return err
 	}

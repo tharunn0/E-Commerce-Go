@@ -452,17 +452,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 	orderData.Items = items
 
-	// 13. create order && update stock
-	if err := s.orderRepo.CreateOrder(ctx, orderData); err != nil {
-		s.log.Error("Failed to create order", zap.Error(err))
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to create order.",
-		}
-	}
-
-	// 14. validate payment gateway
+	// 13. validate payment gateway
 
 	gateway := payments.GetPaymentGateway(req.PaymentMethod, s.razorpay)
 	if gateway == nil {
@@ -473,6 +463,23 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
+	if req.PaymentMethod == domain.PaymentMethodCOD {
+		orderData.Status = domain.OrderStatusConfirmed
+	} else {
+		orderData.Status = domain.OrderStatusPending
+	}
+
+	// 14. create order && update stock
+	if err := s.orderRepo.CreateOrder(ctx, orderData); err != nil {
+		s.log.Error("Failed to create order", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to create order.",
+		}
+	}
+
+	// 15. create payment and payment response
 	paymentResp, err := gateway.CreatePayment(ctx, domain.PaymentRequest{
 		OrderID:  orderID,
 		UserID:   userID,
@@ -480,6 +487,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		Currency: "INR",
 	})
 	if err != nil {
+		s.log.Error("Failed to initialize payment", zap.Error(err))
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
@@ -492,13 +500,12 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		UserID:     userID,
 		Amount:     int64(totalAmount) * 100,
 		Currency:   "INR",
-		Provider:   domain.PaymentMethodRazorpay,
+		Provider:   req.PaymentMethod,
 		Status:     paymentResp.Status,
 		GatewayRef: paymentResp.GatewayRef,
 		PaymentURL: paymentResp.PaymentURL,
 	}
 
-	// 15. create payment
 	if err := s.paymentRepo.CreatePayment(ctx, payment); err != nil {
 		s.log.Error("Failed to create payment", zap.Error(err))
 		return nil, nil, &apperror.APIError{
@@ -506,13 +513,6 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 			Code:    "DB_ERROR",
 			Message: "Failed to create payment.",
 		}
-	}
-
-	var orderStatus domain.OrderStatus
-	if req.PaymentMethod == domain.PaymentMethodCOD {
-		orderStatus = domain.OrderStatusConfirmed
-	} else {
-		orderStatus = domain.OrderStatusPending
 	}
 
 	s.log.Info("Payment initialized", zap.Any("payment", payment))
@@ -532,12 +532,16 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		DeliveryType:          req.DeliveryType,
 		EstimatedDeliveryTime: fmt.Sprintf("%d days", estimatedDeliveryTime),
 		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
-		Status:                orderStatus,
+		Status:                orderData.Status,
 		ShipmentStatus:        string(domain.ShipmentStatusPending),
 		PaymentMethod:         string(req.PaymentMethod),
 		PaymentStatus:         string(paymentResp.Status),
 		Payment:               payment,
 		CreatedAt:             time.Now(),
+	}
+
+	if req.PaymentMethod == domain.PaymentMethodCOD {
+		resp.Payment = nil
 	}
 
 	s.log.Info("Order created successfully", zap.Any("order", resp))

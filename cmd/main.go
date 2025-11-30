@@ -75,7 +75,7 @@ func main() {
 	cartHandler := handler.NewCartHandler(cartServ, log)
 	wishlistHandler := handler.NewWishlistHandler(wishlistServ, log)
 	orderHandler := handler.NewOrderHandler(orderServ, log)
-	paymentHandler := handler.NewPaymentHandler(&cfg.Razorpay, log)
+	paymentHandler := handler.NewPaymentHandler(&cfg.Razorpay, log, razorpayClient)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), middleware.RequestLogger(log))
@@ -88,4 +88,5 @@ func main() {
 	if er := r.Run(app.Host + ":" + app.Port); er != nil {
 		log.Fatal("Server failed to start", zap.Error(er))
 	}
+
 }

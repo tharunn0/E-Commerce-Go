@@ -44,10 +44,11 @@ type CreateOrderData struct {
 	TotalAmount           float64 `db:"total_amount"`
 	TaxAmount             float64 `db:"tax_amount"`
 	Items                 []OrderItem
-	ShippingAddressID     int64     `db:"shipping_address_id"`
-	BillingAddressID      int64     `db:"billing_address_id"`
-	DeliveryType          string    `db:"delivery_type"`
-	EstimatedDeliveryDate time.Time `db:"estimated_delivery_date"`
+	ShippingAddressID     int64       `db:"shipping_address_id"`
+	BillingAddressID      int64       `db:"billing_address_id"`
+	Status                OrderStatus `db:"order_status"`
+	DeliveryType          string      `db:"delivery_type"`
+	EstimatedDeliveryDate time.Time   `db:"estimated_delivery_date"`
 
 	OrderSource string
 }

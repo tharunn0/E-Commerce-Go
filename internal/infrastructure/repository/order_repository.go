@@ -37,7 +37,8 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	// insert into orders
 	query := `INSERT INTO orders (user_id, public_order_id, total_amount, tax_amount, shipping_address_id, billing_address_id,estimated_delivery_date,status)
 	VALUES ($1, $2, $3, $4, $5, $6,$7,$8) RETURNING id`
-	err = tx.QueryRow(ctx, query, data.UserID, data.OrderID, data.TotalAmount, data.TaxAmount, data.ShippingAddressID, data.BillingAddressID, data.EstimatedDeliveryDate, "confirmed").Scan(&internalOrderID)
+	err = tx.QueryRow(ctx, query, data.UserID, data.OrderID, data.TotalAmount, data.TaxAmount,
+		data.ShippingAddressID, data.BillingAddressID, data.EstimatedDeliveryDate, strings.ToLower(string(data.Status))).Scan(&internalOrderID)
 	if err != nil {
 		fmt.Println("error inserting order", err)
 		return err
