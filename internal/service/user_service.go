@@ -50,6 +50,14 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 		}
 	}
 
+	if req.Password != req.ConfirmPassword {
+		serv.log.Warn("passwords do not match", zap.String("email", req.Email))
+		return &apperror.APIError{
+			Code:    "PASSWORDS_DONT_MATCH",
+			Message: "Passwords do not match.",
+		}
+	}
+
 	existingUser, err := serv.repo.GetUser(ctx, req.Email)
 	if err == nil && existingUser != nil {
 		serv.log.Warn("duplicate user registration attempt", zap.String("email", req.Email))
