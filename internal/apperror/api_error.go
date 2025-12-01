@@ -68,4 +68,5 @@ var (
 
 	// Payment related errors
 	ErrPaymentCreateFail = errors.New("Payment creation failed")
+	ErrPaymentNotFound   = errors.New("Payment not found")
 )

@@ -39,6 +39,7 @@ func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductR
 }
 
 // CHECKOUT SERVICES
+// ///////////////////////
 // checkout cart
 func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckoutRequest) (*domain.CartCheckoutResponse, []domain.NotEnoughStockError, *apperror.APIError) {
 
@@ -179,7 +180,6 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 // checkout product variant
 func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.ProductVariantCheckoutRequest) (*domain.ProductVariantCheckoutResponse, *apperror.APIError) {
 	activeonly := !utils.IsAdmin(ctx)
-
 	// validate delivery type
 	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
 		return nil, &apperror.APIError{
@@ -287,6 +287,7 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.P
 }
 
 // ORDER SERVICES
+// ////////////////
 // create order
 func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.CreateOrderRequest) (*domain.CreateOrderResponse, []domain.NotEnoughStockError, *apperror.APIError) {
 
@@ -548,6 +549,46 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	return resp, nil, nil
 }
 
+func (s *OrderService) UpdateOrderStatusOnPayment(ctx context.Context, status domain.PaymentStatus, orderID string) *apperror.APIError {
+
+	// 1. validate payment status
+	if status != domain.PaymentStatusCompleted && status != domain.PaymentStatusFailed {
+		s.log.Warn("Invalid payment status", zap.String("status", string(status)))
+		return &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid payment status.",
+		}
+	}
+
+	// 2. update payment status
+
+	if err := s.paymentRepo.UpdatePaymentStatus(ctx, orderID, status); err != nil {
+		s.log.Error("Failed to update payment status", zap.Error(err))
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to update payment status.",
+		}
+	}
+
+	// 3. update order status
+	err := s.orderRepo.UpdateOrderStatusOnPayment(ctx, orderID, status)
+	if err != nil {
+		s.log.Error("Failed to update order status", zap.Error(err))
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to update order status.",
+		}
+	}
+
+	// 4. return response
+
+	return nil
+
+}
+
 // get user orders
 func (s *OrderService) GetOrders(ctx context.Context) ([]domain.OrderBaseResponse, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
@@ -684,7 +725,7 @@ func (s *OrderService) CancelOrderItem(ctx context.Context, orderID string, vari
 }
 
 // ORDER ADMIN SERVICES
-
+// ///////////////////////
 // list all orders
 func (s *OrderService) ListAllOrders(ctx context.Context, filter *domain.OrderFilter) ([]domain.OrderBaseResponse, *apperror.APIError) {
 

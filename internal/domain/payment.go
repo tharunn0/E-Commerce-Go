@@ -6,6 +6,7 @@ import (
 
 type PaymentRepository interface {
 	CreatePayment(ctx context.Context, payment *Payment) error
+	UpdatePaymentStatus(ctx context.Context, orderID string, status PaymentStatus) error
 }
 
 type PaymentMethod string

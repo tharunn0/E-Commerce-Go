@@ -11,6 +11,9 @@ type OrderRepository interface {
 	GetUserOrderByID(ctx context.Context, orderID string) (*OrderResponse, error)
 	CancelOrderItem(ctx context.Context, orderID string, variantID int64) error
 
+	// updations
+	UpdateOrderStatusOnPayment(ctx context.Context, orderID string, status PaymentStatus) error
+
 	// shipment
 	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
 	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error     //admin

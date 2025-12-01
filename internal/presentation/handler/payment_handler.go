@@ -3,7 +3,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/payments"
+	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 
 	"github.com/razorpay/razorpay-go"
@@ -11,13 +13,15 @@ import (
 )
 
 type PaymentHandler struct {
+	orderService   *service.OrderService
 	razorpayClient *razorpay.Client
-	razorpayCfg    *config.RazorpaySettings
+	razorpayCfg    config.RazorpaySettings
 	logger         *zap.Logger
 }
 
-func NewPaymentHandler(razorpayCfg *config.RazorpaySettings, logger *zap.Logger, razorpayClient *razorpay.Client) *PaymentHandler {
+func NewPaymentHandler(orderService *service.OrderService, razorpayCfg config.RazorpaySettings, logger *zap.Logger, razorpayClient *razorpay.Client) *PaymentHandler {
 	return &PaymentHandler{
+		orderService:   orderService,
 		razorpayCfg:    razorpayCfg,
 		logger:         logger,
 		razorpayClient: razorpayClient,
@@ -27,7 +31,6 @@ func NewPaymentHandler(razorpayCfg *config.RazorpaySettings, logger *zap.Logger,
 func (h *PaymentHandler) SimulatePayment(c *gin.Context) {
 	type Request struct {
 		OrderID string `json:"order_id" binding:"required"`
-		Status  string `json:"status"` // success or failed
 	}
 
 	var req Request
@@ -45,15 +48,6 @@ func (h *PaymentHandler) SimulatePayment(c *gin.Context) {
 		return
 	}
 
-	// Default = success
-	if req.Status == "failed" {
-		c.JSON(400, gin.H{
-			"error":   "BAD_REQUEST_ERROR",
-			"message": "Payment failed",
-		})
-		return
-	}
-
 	paymentID := "pay_" + utils.RandomString(14)
 
 	signature := payments.GenerateRazorpaySignature(req.OrderID, h.razorpayCfg.KeySecret, paymentID) // uses your TEST secret
@@ -66,10 +60,15 @@ func (h *PaymentHandler) SimulatePayment(c *gin.Context) {
 }
 
 func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
 	type Request struct {
 		OrderID   string `json:"razorpay_order_id" binding:"required"`
 		PaymentID string `json:"razorpay_payment_id" binding:"required"`
 		Signature string `json:"razorpay_signature" binding:"required"`
+
+		Status string `json:"status" binding:"required"`
 	}
 
 	var req Request
@@ -80,15 +79,24 @@ func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
 
 	expected := payments.GenerateRazorpaySignature(req.OrderID, h.razorpayCfg.KeySecret, req.PaymentID)
 
-	if expected == req.Signature {
-		c.JSON(200, gin.H{
-			"status":  "success",
-			"message": "payment verified",
-		})
+	var status domain.PaymentStatus
+	if req.Status == "completed" && expected == req.Signature {
+		status = domain.PaymentStatusCompleted
 	} else {
+		status = domain.PaymentStatusFailed
+	}
+
+	err := h.orderService.UpdateOrderStatusOnPayment(ctx, status, req.OrderID)
+	if err != nil {
 		c.JSON(400, gin.H{
 			"status":  "failed",
 			"message": "invalid signature",
 		})
+		return
 	}
+
+	c.JSON(200, gin.H{
+		"status":  "success",
+		"message": "status updated successfully",
+	})
 }

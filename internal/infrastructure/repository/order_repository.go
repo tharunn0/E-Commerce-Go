@@ -49,7 +49,7 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 		query = `INSERT INTO order_items (order_id, product_variant_id, sku_at_purchase, product_name_at_purchase, quantity, unit_price, total_price,status)
 	SELECT $1, $2, pv.sku, p.name, $3, $4, $5, $6 FROM product_variants pv
 	JOIN products p ON pv.product_id = p.id WHERE pv.id = $2`
-		_, err = tx.Exec(ctx, query, internalOrderID, item.ProductVariantID, item.Quantity, item.UnitPrice, item.TotalPrice, "purchased")
+		_, err = tx.Exec(ctx, query, internalOrderID, item.ProductVariantID, item.Quantity, item.UnitPrice, item.TotalPrice, "pending")
 		if err != nil {
 			fmt.Println("error inserting order items", err)
 			return err
@@ -168,6 +168,28 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (
 
 	order.Subtotal = order.TotalAmount - order.TaxAmount
 	return &order, nil
+}
+
+func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID string, reqStatus domain.PaymentStatus) error {
+	var status string
+	if reqStatus == domain.PaymentStatusCompleted {
+		status = "confirmed"
+	} else {
+		status = "failed"
+	}
+
+	query := `UPDATE orders o 
+	SET status = $1, updated_at = now()
+	 FROM payments p 
+	WHERE o.id = p.order_id AND p.provider_order_id = $2`
+	cmdTag, err := r.DB.Exec(ctx, query, status, orderID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return apperror.ErrPaymentNotFound
+	}
+	return nil
 }
 
 func (r OrderRepository) CancelOrderItem(ctx context.Context, orderID string, variantID int64) error {

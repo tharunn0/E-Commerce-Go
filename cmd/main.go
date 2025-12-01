@@ -75,7 +75,7 @@ func main() {
 	cartHandler := handler.NewCartHandler(cartServ, log)
 	wishlistHandler := handler.NewWishlistHandler(wishlistServ, log)
 	orderHandler := handler.NewOrderHandler(orderServ, log)
-	paymentHandler := handler.NewPaymentHandler(&cfg.Razorpay, log, razorpayClient)
+	paymentHandler := handler.NewPaymentHandler(orderServ, cfg.Razorpay, log, razorpayClient)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), middleware.RequestLogger(log))
