@@ -171,6 +171,7 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (
 }
 
 func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID string, reqStatus domain.PaymentStatus) error {
+
 	var status string
 	if reqStatus == domain.PaymentStatusCompleted {
 		status = "confirmed"
@@ -188,6 +189,38 @@ func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID
 	}
 	if cmdTag.RowsAffected() == 0 {
 		return apperror.ErrPaymentNotFound
+	}
+	fmt.Println("order status updated")
+
+	query = `UPDATE order_items oi
+	SET status = $1 
+	FROM payments p
+	WHERE oi.order_id = p.order_id AND p.provider_order_id = $2`
+	_, err = r.DB.Exec(ctx, query, status, orderID)
+	if err != nil {
+		return err
+	}
+	fmt.Println("order items status updated")
+
+	// if payment failed, update stocks
+	if status == "failed" {
+		query = `WITH failed_order AS (
+			SELECT o.id FROM orders o 
+			JOIN payments p ON o.id = p.order_id
+			WHERE p.provider_order_id = $1
+			AND o.status IN ('pending', 'failed', 'cancelled')
+		)
+		UPDATE product_variants pv
+		SET stock = pv.stock + oi.quantity
+		FROM order_items oi, failed_order fo
+		WHERE oi.product_variant_id = pv.id
+		  AND oi.order_id = fo.id;
+`
+		_, err = r.DB.Exec(ctx, query, orderID)
+		if err != nil {
+			return err
+		}
+		fmt.Println("stocks updated - restocked")
 	}
 	return nil
 }

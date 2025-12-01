@@ -41,6 +41,14 @@ const (
 	OrderStatusCancelled OrderStatus = "CANCELLED"
 )
 
+var orderStatusFlow = map[OrderStatus][]OrderStatus{
+	OrderStatusPending:   {OrderStatusConfirmed, OrderStatusCancelled},
+	OrderStatusConfirmed: {OrderStatusShipped, OrderStatusCancelled},
+	OrderStatusShipped:   {OrderStatusDelivered, OrderStatusCancelled},
+	OrderStatusDelivered: {},
+	OrderStatusCancelled: {},
+}
+
 type CreateOrderData struct {
 	UserID                int64   `db:"user_id"`
 	OrderID               string  `db:"public_order_id"`
