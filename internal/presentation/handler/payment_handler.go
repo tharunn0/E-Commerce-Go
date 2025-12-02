@@ -80,7 +80,7 @@ func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
 	expected := payments.GenerateRazorpaySignature(req.OrderID, h.razorpayCfg.KeySecret, req.PaymentID)
 
 	var status domain.PaymentStatus
-	if req.Status == "completed" && expected == req.Signature {
+	if req.Status == "paid" && expected == req.Signature {
 		status = domain.PaymentStatusCompleted
 	} else {
 		status = domain.PaymentStatusFailed

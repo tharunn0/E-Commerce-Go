@@ -48,7 +48,7 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 
 	apiErr := h.service.RegisterUser(ctx, &req)
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -80,7 +80,7 @@ func (h *UserHandler) LoginUser(c *gin.Context) {
 			zap.String("code", apiErr.Code),
 			zap.String("msg", apiErr.Message),
 		)
-		c.JSON(http.StatusUnauthorized, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -429,7 +429,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 	userProfile, apiErr := h.service.GetUserProfile(ctx, int64(userID))
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -451,7 +451,7 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 	}
 	userProfile, apiErr := h.service.UpdateUserProfile(ctx, &req)
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -483,7 +483,7 @@ func (h *UserHandler) CreateUserAddress(c *gin.Context) {
 	}
 	apiErr := h.service.CreateUserAddress(ctx, &req)
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -507,7 +507,7 @@ func (h *UserHandler) GetUserAddresses(c *gin.Context) {
 
 	addresses, defaultAddressID, apiErr := h.service.GetUserAddresses(ctx, id)
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -531,7 +531,7 @@ func (h *UserHandler) UpdateDefaultUserAddress(c *gin.Context) {
 	}
 	apiErr := h.service.UpdateDefaultUserAddress(ctx, addressID)
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -567,7 +567,7 @@ func (h *UserHandler) UpdateUserAddress(c *gin.Context) {
 	req.ID = addressID
 	updatedAddress, apiErr := h.service.UpdateUserAddress(ctx, &req)
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})
@@ -591,7 +591,7 @@ func (h *UserHandler) DeleteUserAddress(c *gin.Context) {
 	}
 	apiErr := h.service.DeleteUserAddress(ctx, addressID)
 	if apiErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
 			"message": apiErr.Message,
 		})

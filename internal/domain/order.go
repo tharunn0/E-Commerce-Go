@@ -10,9 +10,11 @@ type OrderRepository interface {
 	GetUserOrders(ctx context.Context, userID int64) ([]OrderBaseResponse, error)
 	GetUserOrderByID(ctx context.Context, orderID string) (*OrderResponse, error)
 	CancelOrderItem(ctx context.Context, orderID string, variantID int64) error
+	CancelOrder(ctx context.Context, orderID string, reason string) error
 
 	// updations
 	UpdateOrderStatusOnPayment(ctx context.Context, orderID string, status PaymentStatus) error
+	UpdateShipmentStatus(ctx context.Context, orderID string, status ShipmentStatus, cod bool) error
 
 	// shipment
 	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
@@ -39,9 +41,10 @@ const (
 	OrderStatusShipped   OrderStatus = "SHIPPED"
 	OrderStatusDelivered OrderStatus = "DELIVERED"
 	OrderStatusCancelled OrderStatus = "CANCELLED"
+	OrderStatusFailed    OrderStatus = "FAILED"
 )
 
-var orderStatusFlow = map[OrderStatus][]OrderStatus{
+var OrderStatusFlow = map[OrderStatus][]OrderStatus{
 	OrderStatusPending:   {OrderStatusConfirmed, OrderStatusCancelled},
 	OrderStatusConfirmed: {OrderStatusShipped, OrderStatusCancelled},
 	OrderStatusShipped:   {OrderStatusDelivered, OrderStatusCancelled},
@@ -71,6 +74,7 @@ type OrderItem struct {
 	Quantity         int64   `db:"quantity"`
 	UnitPrice        float64 `db:"unit_price"`
 	TotalPrice       float64 `db:"total_price"`
+	ImageURL         string  `db:"image_url"`
 }
 
 type CreateOrderResponse struct {
@@ -174,6 +178,17 @@ type OrderFilter struct {
 
 type CancelOrderItemRequest struct {
 	VariantID int64 `json:"variant_id"`
+}
+
+type CancelOrderRequest struct {
+	OrderID string `json:"order_id"`
+	Reason  string `json:"reason"`
+}
+
+type ReturnOrderItemRequest struct {
+	OrderID   string `json:"order_id"`
+	VariantID int64  `json:"variant_id"`
+	Reason    string `json:"reason"`
 }
 
 type OrderStatusUpdateRequest struct {

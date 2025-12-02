@@ -63,6 +63,8 @@ var (
 	ErrOrderUpdateFail = errors.New("Order update failed")
 	ErrOrderDeleteFail = errors.New("Order deletion failed")
 
+	ErrOrderItemNotFound = errors.New("Order item not found")
+
 	// Order-create related errors
 	ErrCreateOrderFail = errors.New("Order creation failed")
 

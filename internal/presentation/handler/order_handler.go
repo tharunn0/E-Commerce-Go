@@ -174,6 +174,7 @@ func (h *OrderHandler) GetOrderByID(c *gin.Context) {
 	})
 }
 
+// cancel order item
 func (h *OrderHandler) CancelOrderItem(c *gin.Context) {
 
 	ctx := c.Request.Context()
@@ -200,6 +201,61 @@ func (h *OrderHandler) CancelOrderItem(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order item cancelled successfully",
+		"order":   order,
+	})
+}
+
+// cancel order
+func (h *OrderHandler) CancelOrder(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var req domain.CancelOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request body.",
+		})
+		return
+	}
+
+	order, apierr := h.serv.CancelOrder(ctx, &req)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order cancelled successfully",
+		"order":   order,
+	})
+}
+
+func (h *OrderHandler) ReturnOrderItemRequest(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var req domain.ReturnOrderItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request body.",
+		})
+		return
+	}
+
+	order, apierr := h.serv.ReturnOrderItemRequest(ctx, &req)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order returned successfully",
 		"order":   order,
 	})
 }
@@ -248,7 +304,10 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	order, apierr := h.serv.UpdateOrderStatus(ctx, &req)
+	order := c.Param("id")
+	req.OrderID = order
+
+	_, apierr := h.serv.UpdateOrderStatus(ctx, req.OrderID, domain.ShipmentStatus(req.Status))
 	if apierr != nil {
 		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,

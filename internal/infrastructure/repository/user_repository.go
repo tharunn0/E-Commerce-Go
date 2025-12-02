@@ -55,6 +55,9 @@ func (repo *UserRepository) GetUser(ctx context.Context, email string) (*domain.
 		query, email).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
 		&user.LastName, &user.Role, &user.IsVerified, &user.Status)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperror.ErrUserNotFound
+		}
 		return nil, err
 	}
 	return user, nil

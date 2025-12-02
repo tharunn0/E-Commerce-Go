@@ -92,7 +92,7 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 
 func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]domain.OrderBaseResponse, error) {
 
-	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.estimated_delivery_date,p.currency,o.shipping_address_id,
+	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.estimated_delivery_date,o.image_url,p.currency,o.shipping_address_id,
 		s.type as delivery_type,s.status as shipment_status,p.status as payment_status,
 		a.id, a.label,a.address_line,a.address_line_2,a.city,a.district,a.state,a.pincode,a.country
 		FROM orders o 
@@ -110,7 +110,7 @@ func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]dom
 	for rows.Next() {
 		var order domain.OrderBaseResponse
 		var address domain.UserAddress
-		err = rows.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.EstimatedDeliveryDate, &order.Currency, &order.ShippingAddressID,
+		err = rows.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.EstimatedDeliveryDate, &order.ImageURL, &order.Currency, &order.ShippingAddressID,
 			&order.DeliveryType, &order.ShipmentStatus, &order.PaymentStatus, &address.ID, &address.Label, &address.AddressLine, &address.AddressLine2, &address.City,
 			&address.District, &address.State, &address.Pincode, &address.Country)
 		if err != nil {
@@ -145,11 +145,13 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (
 	}
 
 	items := []domain.OrderItem{}
-	query = `SELECT pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.total_price
+	query = `SELECT pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.total_price,pvi.url
 		FROM order_items oi
 		LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
 		LEFT JOIN products p ON pv.product_id = p.id
-		WHERE oi.order_id = (SELECT id FROM orders WHERE public_order_id = $1)`
+		LEFT JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
+		WHERE oi.order_id = (SELECT id FROM orders WHERE public_order_id = $1)
+		`
 	rows, err := r.DB.Query(ctx, query, orderID)
 	if err != nil {
 		return nil, err
@@ -158,7 +160,7 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (
 
 	for rows.Next() {
 		var item domain.OrderItem
-		err = rows.Scan(&item.ProductVariantID, &item.ProductName, &item.SKU, &item.Quantity, &item.UnitPrice, &item.TotalPrice)
+		err = rows.Scan(&item.ProductVariantID, &item.ProductName, &item.SKU, &item.Quantity, &item.UnitPrice, &item.TotalPrice, &item.ImageURL)
 		if err != nil {
 			return nil, err
 		}
@@ -190,7 +192,6 @@ func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID
 	if cmdTag.RowsAffected() == 0 {
 		return apperror.ErrPaymentNotFound
 	}
-	fmt.Println("order status updated")
 
 	query = `UPDATE order_items oi
 	SET status = $1 
@@ -200,7 +201,6 @@ func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID
 	if err != nil {
 		return err
 	}
-	fmt.Println("order items status updated")
 
 	// if payment failed, update stocks
 	if status == "failed" {
@@ -214,13 +214,82 @@ func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID
 		SET stock = pv.stock + oi.quantity
 		FROM order_items oi, failed_order fo
 		WHERE oi.product_variant_id = pv.id
-		  AND oi.order_id = fo.id;
-`
+		  AND oi.order_id = fo.id;`
 		_, err = r.DB.Exec(ctx, query, orderID)
 		if err != nil {
 			return err
 		}
-		fmt.Println("stocks updated - restocked")
+	}
+	return nil
+}
+
+func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID string, status domain.ShipmentStatus, cod bool) error {
+
+	statusString := string(status)
+
+	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
+	query := `UPDATE shipments
+	 SET status = $1
+	 FROM orders o
+	 WHERE o.id = shipments.order_id AND o.public_order_id = $2`
+	cmdTag, err := r.DB.Exec(ctx, query, statusString, orderID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return apperror.ErrOrderNotFound
+	}
+
+	query = `UPDATE orders
+	 SET status = $1
+	 WHERE public_order_id = $2`
+	cmdTag, err = r.DB.Exec(ctx, query, statusString, orderID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return apperror.ErrOrderNotFound
+	}
+
+	var pstatus string
+	if statusString == "delivered" {
+		pstatus = "delivered"
+	} else {
+		pstatus = "shipped"
+	}
+
+	query = `UPDATE order_items oi
+	SET status = $1
+	FROM orders o
+	WHERE oi.order_id = o.id AND o.public_order_id = $2`
+	cmdTag, err = r.DB.Exec(ctx, query, pstatus, orderID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return apperror.ErrOrderItemNotFound
+	}
+
+	if cod {
+		query = `UPDATE payments
+		 SET status = 'paid'
+		 FROM orders o
+		 WHERE o.id = payments.order_id AND o.public_order_id = $1`
+		cmdTag, err = r.DB.Exec(ctx, query, orderID)
+		if err != nil {
+			return err
+		}
+		if cmdTag.RowsAffected() == 0 {
+			return apperror.ErrOrderItemNotFound
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
 	}
 	return nil
 }
@@ -248,6 +317,54 @@ func (r OrderRepository) CancelOrderItem(ctx context.Context, orderID string, va
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (r OrderRepository) CancelOrder(ctx context.Context, orderID string, reason string) error {
+
+	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
+	query := `UPDATE orders SET status = $1, updated_at = now()
+	 WHERE public_order_id = $2`
+	_, err = tx.Exec(ctx, query, "cancelled", orderID)
+	if err != nil {
+		return err
+	}
+
+	query = `UPDATE order_items
+	 SET status = $1,reason = $2
+	 FROM orders o
+	 WHERE order_id = o.id AND o.public_order_id = $3`
+	_, err = tx.Exec(ctx, query, "cancelled", reason, orderID)
+	if err != nil {
+		return err
+	}
+
+	query = `UPDATE shipments
+	 SET status = $1,updated_at = now()
+	 FROM orders o
+	 WHERE order_id = o.id AND o.public_order_id = $2`
+	_, err = tx.Exec(ctx, query, "cancelled", orderID)
+	if err != nil {
+		return err
+	}
+
+	query = `UPDATE payments
+	 SET status = $1,updated_at = now()
+	 FROM orders o
+	 WHERE order_id = o.id AND o.public_order_id = $2`
+	_, err = tx.Exec(ctx, query, "cancelled", orderID)
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 

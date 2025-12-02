@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -37,6 +38,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	if !utils.IsValidEmail(req.Email) {
 		serv.log.Warn("invalid email format", zap.String("email", req.Email))
 		return &apperror.APIError{
+			Status:  http.StatusBadRequest,
 			Code:    "INVALID_EMAIL",
 			Message: "Please provide a valid email.",
 		}
@@ -45,6 +47,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	if !utils.IsValidPassword(req.Password) {
 		serv.log.Warn("weak password", zap.String("email", req.Email))
 		return &apperror.APIError{
+			Status:  http.StatusBadRequest,
 			Code:    "WEAK_PASSWORD",
 			Message: "Password must contain at least 8 characters, including numbers/symbols.",
 		}
@@ -53,6 +56,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	if req.Password != req.ConfirmPassword {
 		serv.log.Warn("passwords do not match", zap.String("email", req.Email))
 		return &apperror.APIError{
+			Status:  http.StatusBadRequest,
 			Code:    "PASSWORDS_DONT_MATCH",
 			Message: "Passwords do not match.",
 		}
@@ -62,6 +66,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	if err == nil && existingUser != nil {
 		serv.log.Warn("duplicate user registration attempt", zap.String("email", req.Email))
 		return &apperror.APIError{
+			Status:  http.StatusConflict,
 			Code:    "EMAIL_ALREADY_EXISTS",
 			Message: "An account with this email already exists.",
 		}
@@ -71,6 +76,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	if len(hashedPass) == 0 {
 		serv.log.Error("password hashing failed", zap.Error(err))
 		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "HASHING_FAILED",
 			Message: "Could not process password. Please try again.",
 		}
@@ -83,6 +89,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	if err != nil {
 		serv.log.Error("user registration failed", zap.String("email", req.Email), zap.Error(err))
 		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: err.Error(),
 		}
@@ -98,6 +105,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	if !utils.IsValidEmail(req.Email) {
 		serv.log.Warn("invalid email format", zap.String("email", req.Email))
 		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
 			Code:    "INVALID_EMAIL",
 			Message: "Please provide a valid email address.",
 		}
@@ -105,9 +113,10 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 
 	fetchedUser, err := serv.repo.GetUser(ctx, req.Email)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if err == apperror.ErrUserNotFound {
 			serv.log.Warn("login failed: user not found", zap.String("email", req.Email))
 			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
 				Code:    "USER_NOT_FOUND",
 				Message: "No account found with this email.",
 			}
@@ -118,6 +127,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 			zap.Error(err),
 		)
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Something went wrong. Please try again later.",
 		}
@@ -126,6 +136,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	if fetchedUser.Status == "blocked" || fetchedUser.Status == "deleted" {
 		serv.log.Warn("blocked or deleted user attempted login", zap.Int64("user_id", fetchedUser.ID))
 		return nil, &apperror.APIError{
+			Status:  http.StatusForbidden,
 			Code:    "USER_BLOCKED",
 			Message: "Your account is not active. Please contact support.",
 		}
@@ -134,6 +145,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	if !utils.VerifyPassword(fetchedUser.Password, req.Password) {
 		serv.log.Warn("wrong password", zap.String("email", req.Email))
 		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
 			Code:    "WRONG_PASSWORD",
 			Message: "Invalid email or password.",
 		}
@@ -149,6 +161,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	if err != nil {
 		serv.log.Error("Failed to issue jwt", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "JWT_GENERATION_FAILED",
 			Message: "Could not generate token. Please try again.",
 		}
@@ -158,6 +171,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	if err != nil {
 		serv.log.Error("Failed to generate refresh token", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "REFRESH_TOKEN_GENERATION_FAILED",
 			Message: "Could not generate refresh token. Please try again.",
 		}
@@ -172,6 +186,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 	if err != nil {
 		serv.log.Error("Failed to set refresh token", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "REFRESH_TOKEN_SET_FAILED",
 			Message: "Failed to set refresh token. Please try again.",
 		}
@@ -185,6 +200,7 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 	user, err := serv.repo.GoogleSignIn(ctx, req)
 	if user == nil {
 		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
 			Code:    "USER_NOT_FOUND",
 			Message: "No account found with this email.",
 		}
@@ -192,9 +208,15 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
 				Code:    "USER_NOT_FOUND",
 				Message: err.Error(),
 			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: err.Error(),
 		}
 	}
 
@@ -203,6 +225,7 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 	if err != nil {
 		serv.log.Error("Failed to issue jwt", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "JWT_GENERATION_FAILED",
 			Message: "Could not generate token. Please try again.",
 		}
@@ -211,6 +234,7 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 	if err != nil {
 		serv.log.Error("Failed to generate refresh token", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "REFRESH_TOKEN_GENERATION_FAILED",
 			Message: "Could not generate refresh token. Please try again.",
 		}
@@ -239,6 +263,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 	if err != nil {
 		serv.log.Debug("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch user profile.",
 		}
@@ -248,6 +273,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 	if err != nil {
 		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch user addresses.",
 		}
@@ -293,6 +319,7 @@ func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.Upda
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
 			Code:    "INVALID_USER_ID",
 			Message: "Invalid user ID.",
 		}
@@ -301,12 +328,14 @@ func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.Upda
 	if err != nil {
 		if err == apperror.ErrPhoneExists {
 			return nil, &apperror.APIError{
+				Status:  http.StatusConflict,
 				Code:    "PHONE_ALREADY_EXISTS",
 				Message: "A user with this phone number already exists.",
 			}
 		}
 		serv.log.Debug("failed to update user profile in db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to update user profile.",
 		}
@@ -319,6 +348,7 @@ func (serv *UserService) CreateUserAddress(ctx context.Context, address *domain.
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return &apperror.APIError{
+			Status:  http.StatusUnauthorized,
 			Code:    "INVALID_USER_ID",
 			Message: "Invalid user ID.",
 		}
@@ -328,6 +358,7 @@ func (serv *UserService) CreateUserAddress(ctx context.Context, address *domain.
 	if err != nil {
 		serv.log.Debug("failed to insert user address into db", zap.Int64("user_id", address.UserID), zap.Error(err))
 		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to add user address.",
 		}
@@ -344,6 +375,7 @@ func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]
 	if err != nil {
 		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch user addresses.",
 		}
@@ -353,6 +385,7 @@ func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]
 	if err != nil {
 		serv.log.Debug("failed to fetch default user address from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
 			Code:    "DB_ERROR",
 			Message: "Failed to fetch default user address.",
 		}
@@ -371,6 +404,7 @@ func (serv *UserService) UpdateDefaultUserAddress(ctx context.Context, addressID
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return &apperror.APIError{
+			Status:  http.StatusUnauthorized,
 			Code:    "INVALID_USER_ID",
 			Message: "Invalid user ID.",
 		}
@@ -379,6 +413,7 @@ func (serv *UserService) UpdateDefaultUserAddress(ctx context.Context, addressID
 	if err != nil {
 		serv.log.Debug("failed to update default user address in db", zap.Int64("user_id", userID), zap.Int64("address_id", addressID), zap.Error(err))
 		return &apperror.APIError{
+			Status:  http.StatusConflict,
 			Code:    "DB_ERROR",
 			Message: "Failed to update default user address.",
 		}
@@ -391,6 +426,7 @@ func (serv *UserService) UpdateUserAddress(ctx context.Context, req *domain.Upda
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
 			Code:    "INVALID_USER_ID",
 			Message: "Invalid user ID.",
 		}
@@ -402,11 +438,13 @@ func (serv *UserService) UpdateUserAddress(ctx context.Context, req *domain.Upda
 
 		if errors.Is(err, apperror.ErrAddressNotFoundForUser) {
 			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
 				Code:    "ADDRESS_NOT_FOUND",
 				Message: "Address not found for user.",
 			}
 		}
 		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
 			Code:    "DB_ERROR",
 			Message: "Failed to update user address.",
 		}
@@ -419,6 +457,7 @@ func (serv *UserService) DeleteUserAddress(ctx context.Context, addressID int64)
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return &apperror.APIError{
+			Status:  http.StatusUnauthorized,
 			Code:    "INVALID_USER_ID",
 			Message: "Invalid user ID.",
 		}
@@ -427,12 +466,14 @@ func (serv *UserService) DeleteUserAddress(ctx context.Context, addressID int64)
 	if err != nil {
 		if errors.Is(err, apperror.ErrAddressNotFoundForUser) {
 			return &apperror.APIError{
+				Status:  http.StatusNotFound,
 				Code:    "ADDRESS_NOT_FOUND",
 				Message: "Address not found for user.",
 			}
 		}
 		serv.log.Debug("failed to delete user address in db", zap.Int64("user_id", userID), zap.Int64("address_id", addressID), zap.Error(err))
 		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to delete user address.",
 		}

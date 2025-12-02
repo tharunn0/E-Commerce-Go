@@ -15,6 +15,7 @@ const (
 	ShipmentStatusPending   ShipmentStatus = "PENDING"
 	ShipmentStatusShipped   ShipmentStatus = "SHIPPED"
 	ShipmentStatusDelivered ShipmentStatus = "DELIVERED"
+	ShipmentStatusReturned  ShipmentStatus = "RETURNED"
 )
 
 const (
@@ -25,6 +26,13 @@ const (
 var DeliveryTypeCharges = map[DeliveryType]float64{
 	DeliveryTypeNormal:  50,
 	DeliveryTypeExpress: 100,
+}
+
+var ShipmentStatusFlow = map[ShipmentStatus][]ShipmentStatus{
+	ShipmentStatusPending:   {ShipmentStatusShipped, ShipmentStatusReturned},
+	ShipmentStatusShipped:   {ShipmentStatusDelivered, ShipmentStatusReturned},
+	ShipmentStatusDelivered: {},
+	ShipmentStatusReturned:  {},
 }
 
 var DistrictGroups = map[string][]string{
