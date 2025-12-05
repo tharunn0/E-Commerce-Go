@@ -134,12 +134,12 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 
 }
 
-// get orders
-func (h *OrderHandler) GetOrders(c *gin.Context) {
+// get user orders
+func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	orders, err := h.serv.GetOrders(ctx)
+	orders, err := h.serv.GetUserOrders(ctx)
 	if err != nil {
 		c.JSON(err.Status, gin.H{
 			"error":   err.Code,

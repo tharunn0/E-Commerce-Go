@@ -590,7 +590,7 @@ func (s *OrderService) UpdateOrderStatusOnPayment(ctx context.Context, status do
 }
 
 // get user orders
-func (s *OrderService) GetOrders(ctx context.Context) ([]domain.OrderBaseResponse, *apperror.APIError) {
+func (s *OrderService) GetUserOrders(ctx context.Context) ([]domain.OrderBaseResponse, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		s.log.Error("Failed to get user ID", zap.Error(err))

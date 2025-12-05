@@ -5,14 +5,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
+	
+	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/idtoken"
-
 	"go.uber.org/zap"
+	"google.golang.org/api/idtoken"
 )
 
 type UserHandler struct {

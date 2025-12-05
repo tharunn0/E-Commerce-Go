@@ -194,7 +194,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		orderRoute := g.Group("api/v1/orders")
 		orderProtectedRoute := orderRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
 		orderProtectedRoute.POST("/", h.Order.CreateOrder)
-		orderProtectedRoute.GET("/", h.Order.GetOrders)
+		orderProtectedRoute.GET("/", h.Order.GetUserOrders)
 		orderProtectedRoute.GET("/:order_id", h.Order.GetOrderByID)
 		orderProtectedRoute.POST("/:order_id/:variant_id", h.Order.CancelOrderItem)
 		orderProtectedRoute.DELETE("/", h.Order.CancelOrder)
