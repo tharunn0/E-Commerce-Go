@@ -845,6 +845,13 @@ func (s *OrderService) ListAllOrders(ctx context.Context, filter *domain.OrderFi
 func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, status domain.ShipmentStatus) (*domain.OrderResponse, *apperror.APIError) {
 
 	// check if order exists
+	if status != "shipped" && status != "delivered" {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_STATUS",
+			Message: "Invalid status.",
+		}
+	}
 
 	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
 	if err != nil {
@@ -863,22 +870,11 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 		}
 	}
 
-	fmt.Println("order status", order.Status, domain.OrderStatusFailed)
-	fmt.Println("new status", status)
-
-	if status != "shipped" && status != "delivered" {
-		return nil, &apperror.APIError{
-			Status:  http.StatusBadRequest,
-			Code:    "INVALID_STATUS",
-			Message: "Invalid status.",
-		}
-	}
-
-	strStatus := strings.ToUpper(string(order.Status)) //
+	strOrdStatus := strings.ToUpper(string(order.Status)) //
 	strShipmentStatus := order.ShipmentStatus
 
 	// check if status is valid for the order
-	switch strStatus {
+	switch strOrdStatus {
 	case string(domain.OrderStatusCancelled):
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
@@ -905,20 +901,21 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 		}
 	}
 
-	switch strStatus {
+	fmt.Println("comparing statuse", strOrdStatus)
+	switch strOrdStatus {
 	case string(domain.ShipmentStatusShipped):
-		if order.ShipmentStatus == string(domain.ShipmentStatusDelivered) {
+		if order.ShipmentStatus == strings.ToLower(string(domain.ShipmentStatusShipped)) && status == "shipped" {
 			return nil, &apperror.APIError{
 				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
+				Code:    "INVALID_STATUS",
 				Message: "Order is already shipped.",
 			}
 		}
 	case string(domain.ShipmentStatusDelivered):
-		if order.ShipmentStatus == string(domain.ShipmentStatusDelivered) {
+		if order.ShipmentStatus == strings.ToLower(string(domain.ShipmentStatusDelivered)) {
 			return nil, &apperror.APIError{
 				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
+				Code:    "INVALID_STATUS",
 				Message: "Order is already delivered.",
 			}
 		}

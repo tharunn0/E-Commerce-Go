@@ -274,7 +274,7 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 		return apperror.ErrOrderItemNotFound
 	}
 
-	if cod {
+	if cod && statusString == "delivered" {
 		query = `UPDATE payments
 		 SET status = 'paid'
 		 FROM orders o
@@ -437,8 +437,8 @@ func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.Order
 		s.status AS shipment_status,
 		p.status AS payment_status,
 		a.id, a.label, a.address_line, a.address_line_2,
-		a.city, a.district, a.state, a.pincode, a.country
-	FROM orders o
+		a.city, a.district, a.state, a.pincode, a.country,'product_imageurl'
+		FROM orders o
 	LEFT JOIN shipments s ON o.id = s.order_id
 	LEFT JOIN payments p ON o.id = p.order_id
 	LEFT JOIN user_addresses a ON o.shipping_address_id = a.id
@@ -564,6 +564,7 @@ func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.Order
 			&address.State,
 			&address.Pincode,
 			&address.Country,
+			&order.ImageURL,
 		)
 		if err != nil {
 			return nil, err

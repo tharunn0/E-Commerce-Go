@@ -316,7 +316,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Order shipped successfully",
+		"message": "Order status updated successfully",
 		"order":   order,
 	})
 }
