@@ -71,4 +71,7 @@ var (
 	// Payment related errors
 	ErrPaymentCreateFail = errors.New("Payment creation failed")
 	ErrPaymentNotFound   = errors.New("Payment not found")
+
+	ErrReturnRequestNotFound = errors.New("Return request not found")
+	ErrReturnItemNotFound    = errors.New("Return item not found")
 )

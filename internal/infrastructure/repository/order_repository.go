@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -92,7 +93,7 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 
 func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]domain.OrderBaseResponse, error) {
 
-	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.estimated_delivery_date,o.image_url,p.currency,o.shipping_address_id,
+	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.return_status,o.estimated_delivery_date,p.currency,o.shipping_address_id,
 		s.type as delivery_type,s.status as shipment_status,p.status as payment_status,
 		a.id, a.label,a.address_line,a.address_line_2,a.city,a.district,a.state,a.pincode,a.country
 		FROM orders o 
@@ -110,7 +111,7 @@ func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]dom
 	for rows.Next() {
 		var order domain.OrderBaseResponse
 		var address domain.UserAddress
-		err = rows.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.EstimatedDeliveryDate, &order.ImageURL, &order.Currency, &order.ShippingAddressID,
+		err = rows.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.ReturnStatus, &order.EstimatedDeliveryDate, &order.Currency, &order.ShippingAddressID,
 			&order.DeliveryType, &order.ShipmentStatus, &order.PaymentStatus, &address.ID, &address.Label, &address.AddressLine, &address.AddressLine2, &address.City,
 			&address.District, &address.State, &address.Pincode, &address.Country)
 		if err != nil {
@@ -123,29 +124,34 @@ func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]dom
 	return orders, nil
 }
 
-func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (*domain.OrderResponse, error) {
-	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.estimated_delivery_date,p.currency,o.shipping_address_id,o.billing_address_id,
+func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, userID int64) (*domain.OrderResponse, error) {
+	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.return_status,o.estimated_delivery_date,p.currency,o.shipping_address_id,o.billing_address_id,
 		s.type as delivery_type,s.status as shipment_status,p.status as payment_status,p.provider,o.created_at,o.updated_at
 		FROM orders o 
 		LEFT JOIN shipments s ON o.id = s.order_id
 		LEFT JOIN payments p ON o.id = p.order_id
 		WHERE o.public_order_id = $1`
+
+	if userID != 0 {
+		query += fmt.Sprintf(" AND o.user_id = %d", userID)
+	}
+
 	var order domain.OrderResponse
 	row := r.DB.QueryRow(ctx, query, orderID)
-	err := row.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.EstimatedDeliveryDate, &order.Currency,
+	err := row.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.ReturnStatus, &order.EstimatedDeliveryDate, &order.Currency,
 		&order.ShippingAddressID, &order.BillingAddressID,
 		&order.DeliveryType, &order.ShipmentStatus, &order.PaymentStatus, &order.PaymentMethod,
 		&order.CreatedAt, &order.UpdatedAt)
 	if err != nil {
+		fmt.Println("query failed", query, orderID)
 		if err == pgx.ErrNoRows {
-			fmt.Println("order not found", orderID)
 			return nil, apperror.ErrOrderNotFound
 		}
 		return nil, err
 	}
 
 	items := []domain.OrderItem{}
-	query = `SELECT pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.total_price,pvi.url
+	query = `SELECT oi.id, pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.status,oi.total_price,pvi.url
 		FROM order_items oi
 		LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
 		LEFT JOIN products p ON pv.product_id = p.id
@@ -160,7 +166,7 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string) (
 
 	for rows.Next() {
 		var item domain.OrderItem
-		err = rows.Scan(&item.ProductVariantID, &item.ProductName, &item.SKU, &item.Quantity, &item.UnitPrice, &item.TotalPrice, &item.ImageURL)
+		err = rows.Scan(&item.ItemID, &item.ProductVariantID, &item.ProductName, &item.SKU, &item.Quantity, &item.UnitPrice, &item.Status, &item.TotalPrice, &item.ImageURL)
 		if err != nil {
 			return nil, err
 		}
@@ -225,17 +231,25 @@ func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID
 
 func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID string, status domain.ShipmentStatus, cod bool) error {
 
-	statusString := string(status)
+	statusString := string(status) // will be shipped or delivered
 
 	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
-
-	query := `UPDATE shipments
-	 SET status = $1
+	var query string
+	if statusString == "shipped" {
+		query = `UPDATE shipments
+	 SET status = $1, shipped_at = now()
 	 FROM orders o
 	 WHERE o.id = shipments.order_id AND o.public_order_id = $2`
+	} else {
+		query = `UPDATE shipments
+	 SET status = $1, delivered_at = now()
+	 FROM orders o
+	 WHERE o.id = shipments.order_id AND o.public_order_id = $2`
+	}
+
 	cmdTag, err := r.DB.Exec(ctx, query, statusString, orderID)
 	if err != nil {
 		return err
@@ -276,7 +290,7 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 
 	if cod && statusString == "delivered" {
 		query = `UPDATE payments
-		 SET status = 'paid'
+		 SET status = 'paid', paid_at = now()
 		 FROM orders o
 		 WHERE o.id = payments.order_id AND o.public_order_id = $1`
 		cmdTag, err = r.DB.Exec(ctx, query, orderID)
@@ -294,6 +308,7 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 	return nil
 }
 
+// cancellation
 func (r OrderRepository) CancelOrderItem(ctx context.Context, orderID string, variantID int64) error {
 	// update order item status
 	query := `UPDATE order_items SET status = $1 WHERE order_id = (SELECT id FROM orders 
@@ -368,8 +383,344 @@ func (r OrderRepository) CancelOrder(ctx context.Context, orderID string, reason
 	return nil
 }
 
-// shipment
+// returns
+func (r OrderRepository) ReturnOrderRequest(ctx context.Context, orderID string, userID int64, reason string) error {
+	// order_return table
+	// id | order_id | user_id | refunded_amount | status | created_at
+	// return_items table
+	// id | return_id | order_item_id | quantity | status | reason | requested_at | approved_at | order_item_price
 
+	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+
+	query := `SELECT id FROM orders WHERE public_order_id = $1`
+	var internalOrderID int64
+	err = tx.QueryRow(ctx, query, orderID).Scan(&internalOrderID)
+	if err != nil {
+		fmt.Println("failed to fetch order return request", err, query)
+		return err
+	}
+
+	// insert the order return request , once for every order
+	query = `INSERT INTO order_returns (order_id,user_id,refunded_amount,status,created_at)
+	VALUES ($1,$2,$3,$4,$5)
+	ON CONFLICT (order_id)
+	DO UPDATE SET order_id = EXCLUDED.order_id
+	RETURNING id`
+	var returnID int64
+	err = tx.QueryRow(ctx, query, internalOrderID, userID, 0, "requested", time.Now()).Scan(&returnID)
+	if err != nil {
+		fmt.Println("failed to insert order return request", err, query)
+		return err
+	}
+
+	// insert the return items
+	query = `INSERT INTO return_items (return_id,order_item_id,quantity,order_item_price,status,reason,requested_at)
+	SELECT 
+	 $1 as return_id,
+	 id as order_item_id, 
+	 quantity, 
+	 total_price as order_item_price, 
+	 'requested' as status, 
+	 $2 as reason, 
+	 now() as requested_at 
+	 FROM order_items WHERE order_id = $3`
+	_, err = tx.Exec(ctx, query, returnID, reason, internalOrderID)
+	if err != nil {
+		fmt.Println("failed to insert return items", err, query)
+		return err
+	}
+
+	// update order status
+	query = `UPDATE orders SET return_status = 'requested' WHERE id = $1`
+	cmdTag, err := tx.Exec(ctx, query, internalOrderID)
+	if err != nil {
+		fmt.Println("failed to update order status", err, query)
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		fmt.Println("failed to update order status", cmdTag.RowsAffected(), query)
+	}
+	fmt.Println("return request created successfully", internalOrderID)
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r OrderRepository) ReturnOrderItemRequest(ctx context.Context, orderID string, userID int64, itemID int64, reason string) error {
+	// Use a transaction to ensure consistency
+	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	fmt.Println("transaction started")
+	defer tx.Rollback(ctx) // Will be ignored if commit succeeds
+
+	var internalOrderID int64
+	query := `SELECT id FROM orders WHERE public_order_id = $1`
+	err = tx.QueryRow(ctx, query, orderID).Scan(&internalOrderID)
+	if err != nil {
+		fmt.Println("failed to fetch internal order id", err)
+		return fmt.Errorf("order not found: %w", err)
+	}
+
+	var exist bool
+	query = `
+		SELECT EXISTS(
+			SELECT 1 
+			FROM order_items oi
+			JOIN orders o ON oi.order_id = o.id
+			WHERE oi.id = $1 
+			  AND oi.order_id = $2 
+			  AND o.user_id = $3
+		)`
+	err = tx.QueryRow(ctx, query, itemID, internalOrderID, userID).Scan(&exist)
+	if err != nil {
+		fmt.Println("failed to verify order item ownership", err)
+		return fmt.Errorf("failed to verify order item ownership: %w", err)
+	}
+	if !exist {
+		return apperror.ErrReturnItemNotFound
+	}
+
+	var returnID int64
+	query = `
+		INSERT INTO order_returns (order_id, user_id, refunded_amount, status, created_at)
+		VALUES ($1, $2, 0, 'requested', NOW())
+		ON CONFLICT (order_id) DO UPDATE 
+		SET status = 'requested'
+		RETURNING id`
+	err = tx.QueryRow(ctx, query, internalOrderID, userID).Scan(&returnID)
+	if err != nil {
+		fmt.Println("failed to upsert order_returns", err)
+		return fmt.Errorf("failed to create/update return request: %w", err)
+	}
+
+	query = `
+		INSERT INTO return_items 
+			(return_id, order_item_id, quantity, order_item_price, status, reason, requested_at)
+		SELECT 
+			$1, 
+			oi.id, 
+			oi.quantity, 
+			oi.total_price, 
+			'requested', 
+			$2, 
+			NOW()
+		FROM order_items oi
+		WHERE oi.id = $3`
+	cmdTag, err := tx.Exec(ctx, query, returnID, reason, itemID)
+	if err != nil {
+		return fmt.Errorf("failed to insert return item: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("insertion failed for return item")
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	fmt.Println("transaction committed successfully")
+
+	return nil
+}
+
+func (r OrderRepository) ListAllReturns(ctx context.Context, filter *domain.ReturnFilter) ([]domain.BaseReturnResponse, error) {
+
+	base := `
+	SELECT
+		ors.id,
+		o.public_order_id,
+		ors.status,
+		ors.refunded_amount,
+		ors.created_at,
+		COALESCE(COUNT(ri.id), 0) AS total_items,
+        COALESCE(SUM(ri.order_item_price), 0) AS total_refund_value
+	FROM order_returns ors
+	JOIN orders o ON ors.order_id = o.id
+	LEFT JOIN return_items ri ON ri.return_id = ors.id
+	`
+
+	conditions := []string{}
+	args := []any{}
+	argPos := 1
+
+	if filter.OrderID != nil {
+		conditions = append(conditions, fmt.Sprintf("o.public_order_id = $%d", argPos))
+		args = append(args, *filter.OrderID)
+		argPos++
+	}
+
+	if filter.Status != nil {
+		conditions = append(conditions, fmt.Sprintf("ors.status = $%d", argPos))
+		args = append(args, *filter.Status)
+		argPos++
+	}
+
+	if filter.CreatedFrom != nil {
+		conditions = append(conditions, fmt.Sprintf("ors.created_at >= $%d", argPos))
+		args = append(args, *filter.CreatedFrom)
+		argPos++
+	}
+
+	if filter.CreatedTo != nil {
+		conditions = append(conditions, fmt.Sprintf("ors.created_at <= $%d", argPos))
+		args = append(args, *filter.CreatedTo)
+		argPos++
+	}
+
+	query := base
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query += " GROUP BY ors.id, o.public_order_id, ors.refunded_amount, ors.created_at"
+
+	if filter.OrderBy != nil {
+		query += " ORDER BY " + *filter.OrderBy
+		if filter.Sort != nil {
+			query += " " + *filter.Sort
+		}
+	}
+
+	if filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
+
+	if filter.Page > 0 && filter.Limit > 0 {
+		offset := (filter.Page - 1) * filter.Limit
+		query += fmt.Sprintf(" OFFSET %d", offset)
+	}
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := []domain.BaseReturnResponse{}
+	for rows.Next() {
+		var r domain.BaseReturnResponse
+		err := rows.Scan(
+			&r.ID,
+			&r.OrderID,
+			&r.Status,
+			&r.RefundedAmount,
+			&r.CreatedAt,
+			&r.TotalItems,
+			&r.TotalRefundValue,
+		)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+
+	return results, nil
+}
+
+func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID string) (*domain.FullReturnResponse, error) {
+
+	mainQuery := `
+        SELECT 
+            r.id,
+            r.order_id,
+            r.user_id AS "user.id",
+            u.first_name AS "user.name",
+            u.email AS "user.email",
+            r.status,
+            r.refunded_amount,
+            r.created_at,
+            COUNT(ri.id) AS total_items,
+            COALESCE(SUM(ri.quantity), 0) AS total_quantity,
+            COALESCE(SUM(ri.order_item_price * ri.quantity), 0) AS total_refundable_amount
+        FROM order_returns r
+        LEFT JOIN users u ON r.user_id = u.id 
+        LEFT JOIN return_items ri ON ri.return_id = r.id
+        WHERE r.id = $1
+        GROUP BY r.id, r.order_id, r.user_id, u.first_name, u.email, r.status, r.refunded_amount, r.created_at`
+
+	var result domain.FullReturnResponse
+
+	err := r.DB.QueryRow(ctx, mainQuery, returnID).Scan(
+		&result.ID,
+		&result.OrderID,
+		&result.User.ID,    // "user.id"
+		&result.User.Name,  // "user.name" -> first_name
+		&result.User.Email, // "user.email"
+		&result.Status,
+		&result.RefundedAmount,
+		&result.CreatedAt,
+		&result.TotalItems,
+		&result.TotalQuantity,
+		&result.TotalRefundValue,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, apperror.ErrReturnRequestNotFound
+		}
+		return nil, err
+	}
+
+	// Items query: fetch all return items
+	itemsQuery := `
+        SELECT 
+            ri.order_item_id AS "ItemOrderID",
+            oi.product_name_at_purchase AS "ProductName",
+            oi.sku_at_purchase AS "SKU",
+            ri.quantity AS "Quantity",
+            ri.order_item_price AS "OrderItemPrice",
+            ri.status AS "Status",
+            ri.reason AS "Reason",
+            ri.requested_at AS "RequestedAt",
+            ri.approved_at AS "ApprovedAt"
+        FROM return_items ri
+        JOIN order_items oi ON ri.order_item_id = oi.id
+        WHERE ri.return_id = $1
+        ORDER BY ri.id`
+
+	rows, err := r.DB.Query(ctx, itemsQuery, returnID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query return items: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var item domain.ReturnItem
+		if err := rows.Scan(
+			&item.ItemOrderID,
+			&item.ProductName,
+			&item.SKU,
+			&item.Quantity,
+			&item.OrderItemPrice,
+			&item.Status,
+			&item.Reason,
+			&item.RequestedAt,
+			&item.ApprovedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan return item: %w", err)
+		}
+		result.Items = append(result.Items, item)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating return items: %w", err)
+	}
+
+	return &result, nil
+}
+
+// shipment
 func (r OrderRepository) ShipOrder(ctx context.Context, orderID string, shipmentData *domain.ShipmentData) error {
 
 	query := `UPDATE shipments SET carrier = $1, tracking_number = $2, status = $3,shipped_at = $4,updated_at = now()

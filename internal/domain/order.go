@@ -8,9 +8,15 @@ import (
 type OrderRepository interface {
 	CreateOrder(ctx context.Context, data *CreateOrderData) error
 	GetUserOrders(ctx context.Context, userID int64) ([]OrderBaseResponse, error)
-	GetUserOrderByID(ctx context.Context, orderID string) (*OrderResponse, error)
+	GetUserOrderByID(ctx context.Context, orderID string, userID int64) (*OrderResponse, error)
+
+	// cancellation
 	CancelOrderItem(ctx context.Context, orderID string, variantID int64) error
 	CancelOrder(ctx context.Context, orderID string, reason string) error
+
+	// returns
+	ReturnOrderItemRequest(ctx context.Context, orderID string, userID int64, itemID int64, reason string) error
+	ReturnOrderRequest(ctx context.Context, orderID string, userID int64, reason string) error
 
 	// updations
 	UpdateOrderStatusOnPayment(ctx context.Context, orderID string, status PaymentStatus) error
@@ -20,6 +26,9 @@ type OrderRepository interface {
 	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
 	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error     //admin
 	DeliverOrder(ctx context.Context, orderID string) error                              //admin
+
+	ListAllReturns(ctx context.Context, filter *ReturnFilter) ([]BaseReturnResponse, error) //admin
+	GetReturnRequest(ctx context.Context, returnID string) (*FullReturnResponse, error)     //admin
 }
 
 type CreateOrderRequest struct {
@@ -68,13 +77,15 @@ type CreateOrderData struct {
 }
 
 type OrderItem struct {
-	ProductVariantID int64   `db:"product_variant_id"`
-	SKU              string  `db:"sku_at_purchase"`
-	ProductName      string  `db:"product_name_at_purchase"`
-	Quantity         int64   `db:"quantity"`
-	UnitPrice        float64 `db:"unit_price"`
-	TotalPrice       float64 `db:"total_price"`
-	ImageURL         string  `db:"image_url"`
+	ItemID           int64   `json:"item_id"`
+	ProductVariantID int64   `json:"product_variant_id"`
+	SKU              string  `json:"sku_at_purchase"`
+	ProductName      string  `json:"product_name_at_purchase"`
+	Quantity         int64   `json:"quantity"`
+	UnitPrice        float64 `json:"unit_price"`
+	TotalPrice       float64 `json:"total_price"`
+	Status           string  `json:"item_status"`
+	ImageURL         string  `json:"image_url"`
 }
 
 type CreateOrderResponse struct {
@@ -94,7 +105,8 @@ type CreateOrderResponse struct {
 	EstimatedDeliveryTime string       `json:"estimated_delivery_time"`
 	EstimatedDeliveryDate string       `json:"estimated_delivery_date"`
 
-	Status OrderStatus `json:"order_status"` // order status
+	Status       OrderStatus `json:"order_status"`  // order status
+	ReturnStatus *string     `json:"return_status"` // return status
 
 	ShipmentID     *int64 `json:"shipment_id,omitempty"`
 	ShipmentStatus string `json:"shipment_status,omitempty"`
@@ -120,9 +132,11 @@ type OrderBaseResponse struct {
 	DeliveryType          DeliveryType `json:"delivery_type"`
 	EstimatedDeliveryDate time.Time    `json:"estimated_delivery_date"`
 
-	Status         OrderStatus `json:"order_status"`
-	ShipmentStatus string      `json:"shipment_status"`
-	PaymentStatus  string      `json:"payment_status"`
+	Status       OrderStatus `json:"order_status"`
+	ReturnStatus *string     `json:"return_status"` // return status
+
+	ShipmentStatus string `json:"shipment_status"`
+	PaymentStatus  string `json:"payment_status"`
 
 	ImageURL string `json:"image_url"`
 }
@@ -142,7 +156,8 @@ type OrderResponse struct {
 	DeliveryType          DeliveryType `json:"delivery_type"`
 	EstimatedDeliveryDate time.Time    `json:"estimated_delivery_date"`
 
-	Status OrderStatus `json:"status"` // order status
+	Status       OrderStatus `json:"status"`        // order status
+	ReturnStatus *string     `json:"return_status"` // return status
 
 	ShipmentID      *int64 `json:"shipment_id,omitempty"`
 	ShipmentStatus  string `json:"shipment_status,omitempty"`
@@ -186,12 +201,27 @@ type CancelOrderRequest struct {
 }
 
 type ReturnOrderItemRequest struct {
-	OrderID   string `json:"order_id"`
-	VariantID int64  `json:"variant_id"`
-	Reason    string `json:"reason"`
+	OrderID string
+	ItemID  int64
+	Reason  string `json:"reason"`
+}
+
+type ReturnOrderRequest struct {
+	OrderID string `json:"order_id"`
+	Reason  string `json:"reason"`
 }
 
 type OrderStatusUpdateRequest struct {
 	OrderID string `json:"order_id"`
 	Status  string `json:"status"`
+}
+
+type OrderReturnRequest struct {
+	OrderID string `json:"order_id"`
+	Reason  string `json:"reason"`
+}
+
+type OrderReturnInfo struct {
+	OrderID string `json:"order_id"`
+	Reason  string `json:"reason"`
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -367,9 +368,18 @@ func (serv *UserService) CreateUserAddress(ctx context.Context, address *domain.
 }
 
 // get user addresses
-func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, *int64, *apperror.APIError) {
+func (serv *UserService) GetUserAddresses(ctx context.Context) ([]*domain.UserAddress, *int64, *apperror.APIError) {
 
 	isAdmin := utils.IsAdmin(ctx)
+
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
 
 	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
 	if err != nil {
@@ -381,13 +391,23 @@ func (serv *UserService) GetUserAddresses(ctx context.Context, userID int64) ([]
 		}
 	}
 
+	if len(addresses) == 0 {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "User doesn't have any addresses.",
+		}
+	}
+
+	fmt.Println("default address", addresses)
+
 	defaultAddress, err := serv.repo.GetDefaultUserAddress(ctx, userID)
 	if err != nil {
 		serv.log.Debug("failed to fetch default user address from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
-			Code:    "DB_ERROR",
-			Message: "Failed to fetch default user address.",
+			Code:    "NOT_FOUND",
+			Message: "Default user address not found.",
 		}
 	}
 
@@ -414,8 +434,8 @@ func (serv *UserService) UpdateDefaultUserAddress(ctx context.Context, addressID
 		serv.log.Debug("failed to update default user address in db", zap.Int64("user_id", userID), zap.Int64("address_id", addressID), zap.Error(err))
 		return &apperror.APIError{
 			Status:  http.StatusConflict,
-			Code:    "DB_ERROR",
-			Message: "Failed to update default user address.",
+			Code:    "NOT_FOUND",
+			Message: "Default user address not found.",
 		}
 	}
 	return nil

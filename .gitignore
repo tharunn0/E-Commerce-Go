@@ -39,3 +39,4 @@ tmp/
 vite/
 .air.toml
 DETAILED_PROJECT_ANALYSIS.md
+.idea/

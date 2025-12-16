@@ -518,10 +518,27 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 
 	s.log.Info("Payment initialized", zap.Any("payment", payment))
 
+	neworder, err := s.orderRepo.GetUserOrderByID(ctx, orderID, 0)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+
 	// return response
 	resp := &domain.CreateOrderResponse{
 		OrderID:               orderID,
-		Items:                 items,
+		Items:                 neworder.Items,
 		Subtotal:              cart.CartTotalPrice,
 		TaxAmount:             0,
 		ShippingCost:          shippingAmount,
@@ -614,7 +631,18 @@ func (s *OrderService) GetUserOrders(ctx context.Context) ([]domain.OrderBaseRes
 }
 
 func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		s.log.Error("Failed to get user ID", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
+		}
+	}
+
+	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -638,7 +666,16 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domai
 // cancel order item
 func (s *OrderService) CancelOrderItem(ctx context.Context, orderID string, variantID int64) (*domain.OrderResponse, *apperror.APIError) {
 
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
+		}
+	}
+
+	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -704,7 +741,7 @@ func (s *OrderService) CancelOrderItem(ctx context.Context, orderID string, vari
 		}
 	}
 
-	UpdatedOrder, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	UpdatedOrder, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -726,6 +763,16 @@ func (s *OrderService) CancelOrderItem(ctx context.Context, orderID string, vari
 
 // cancel order
 func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderRequest) (*domain.OrderResponse, *apperror.APIError) {
+
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
+		}
+	}
+
 	if req.OrderID == "" {
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
@@ -742,7 +789,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		}
 	}
 
-	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID)
+	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -764,20 +811,20 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 	switch statusStr {
 	case string(domain.OrderStatusCancelled):
 		return nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
+			Status:  http.StatusConflict,
+			Code:    "NOT_VALID",
 			Message: "Order is already cancelled.",
 		}
 	case string(domain.OrderStatusDelivered):
 		return nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
+			Status:  http.StatusConflict,
+			Code:    "NOT_VALID",
 			Message: "Order is already delivered.Choose to return the order.",
 		}
 	case string(domain.OrderStatusPending):
 		return nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
+			Status:  http.StatusConflict,
+			Code:    "NOT_VALID",
 			Message: "Order has not been confirmed yet.",
 		}
 	}
@@ -841,6 +888,62 @@ func (s *OrderService) ListAllOrders(ctx context.Context, filter *domain.OrderFi
 	return orders, nil
 }
 
+func (s *OrderService) ListReturnRequests(ctx context.Context, filter *domain.ReturnFilter) ([]domain.BaseReturnResponse, *apperror.APIError) {
+
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Sort == nil {
+		sort := "DESC"
+		filter.Sort = &sort
+	}
+	if *filter.Sort != "ASC" && *filter.Sort != "DESC" {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_SORT",
+			Message: "Invalid sort.",
+		}
+	}
+
+	var validOrderBy = []string{"refunded_amount", "date"}
+
+	if filter.OrderBy != nil && !utils.IsValueValid(*filter.OrderBy, validOrderBy) {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_ORDER_BY",
+			Message: "Invalid order by.",
+		}
+	}
+
+	if *filter.OrderBy == "date" {
+		*filter.OrderBy = "ors.created_at"
+	} else {
+		*filter.OrderBy = "ors.refunded_amount"
+	}
+
+	if filter.Status != nil && !utils.IsValueValid(*filter.Status, domain.ValidReturnStatus) {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_STATUS",
+			Message: "Invalid status.",
+		}
+	}
+
+	returns, err := s.orderRepo.ListAllReturns(ctx, filter)
+	if err != nil {
+		s.log.Error("Failed to get returns", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "DB_ERROR",
+			Message: "Failed to get returns.",
+		}
+	}
+	return returns, nil
+}
+
 // update order status
 func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, status domain.ShipmentStatus) (*domain.OrderResponse, *apperror.APIError) {
 
@@ -853,7 +956,7 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 		}
 	}
 
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID, 0)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -949,94 +1052,21 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 	return nil, nil
 }
 
-// ship order
-func (s *OrderService) ShipOrder(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
+// returns
+
+func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.ReturnOrderItemRequest) *apperror.APIError {
+
+	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
-		s.log.Error("Failed to get order", zap.Error(err))
-		if err == apperror.ErrOrderNotFound {
-			return nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrOrderNotFound.Error(),
-			}
-		}
-		return nil, &apperror.APIError{
-			Status:  http.StatusConflict,
-			Code:    "DB_ERROR",
-			Message: "Failed to get order.",
+		return &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
 		}
 	}
 
-	carrier := domain.SelectRandomCarrier()
-	trackingID := domain.GenerateTrackingID(carrier)
-
-	shipmentData := &domain.ShipmentData{
-		Carrier:    carrier,
-		TrackingID: trackingID,
-		ShippedAt:  time.Now(),
-	}
-
-	if err := s.orderRepo.ShipOrder(ctx, orderID, shipmentData); err != nil {
-		s.log.Error("Failed to ship order", zap.Error(err))
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to update order.",
-		}
-	}
-
-	order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
-	order.Subtotal = order.TotalAmount - order.TaxAmount - order.ShippingCost
-
-	fmt.Println("delivery type", order.DeliveryType)
-	fmt.Println("shipping cost", order.ShippingCost)
-	fmt.Println("subtotal", order.Subtotal)
-
-	order.ShipmentStatus = "shipped"
-	order.ShipmentCarrier = string(carrier)
-	order.TrackingNumber = trackingID
-	return order, nil
-}
-
-// deliver order
-func (s *OrderService) DeliverOrder(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID)
-	if err != nil {
-		s.log.Error("Failed to get order", zap.Error(err))
-		if err == apperror.ErrOrderNotFound {
-			return nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrOrderNotFound.Error(),
-			}
-		}
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get order.",
-		}
-	}
-
-	if err := s.orderRepo.DeliverOrder(ctx, orderID); err != nil {
-		s.log.Error("Failed to deliver order", zap.Error(err))
-		return nil, &apperror.APIError{
-			Status:  http.StatusConflict,
-			Code:    "DB_ERROR",
-			Message: "Failed to update order.",
-		}
-	}
-
-	order.ShipmentStatus = "delivered"
-	order.PaymentStatus = "paid"
-	order.Status = "delivered"
-	return order, nil
-}
-
-func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.ReturnOrderItemRequest) (*domain.OrderResponse, *apperror.APIError) {
-
-	if req.OrderID == "" || req.VariantID <= 0 {
-		return nil, &apperror.APIError{
+	if req.OrderID == "" || req.ItemID <= 0 {
+		return &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
 			Message: "Invalid request.",
@@ -1044,24 +1074,24 @@ func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.R
 	}
 
 	if req.Reason == "" || len(req.Reason) < 10 {
-		return nil, &apperror.APIError{
+		return &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
 			Message: "Please provide a valid return reason.",
 		}
 	}
 
-	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID)
+	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
-			return nil, &apperror.APIError{
+			return &apperror.APIError{
 				Status:  http.StatusNotFound,
 				Code:    "NOT_FOUND",
 				Message: apperror.ErrOrderNotFound.Error(),
 			}
 		}
-		return nil, &apperror.APIError{
+		return &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to get order.",
@@ -1071,12 +1101,135 @@ func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.R
 	strStatus := strings.ToUpper(string(order.Status))
 
 	if strStatus != string(domain.OrderStatusDelivered) {
-		return nil, &apperror.APIError{
+		return &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
 			Message: "Order can be only returned after delivery.",
 		}
 	}
 
+	for _, item := range order.Items {
+		if item.ItemID == req.ItemID {
+			if item.Status != "delivered" {
+				return &apperror.APIError{
+					Status:  http.StatusBadRequest,
+					Code:    "BAD_REQUEST",
+					Message: "Order item can be only returned after delivery.",
+				}
+			}
+		}
+	}
+
+	if err := s.orderRepo.ReturnOrderItemRequest(ctx, req.OrderID, userID, req.ItemID, req.Reason); err != nil {
+		s.log.Error("Failed to return order item", zap.Error(err))
+		if err == apperror.ErrReturnItemNotFound {
+			return &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrReturnItemNotFound.Error(),
+			}
+		}
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to return order item.",
+		}
+	}
+
+	return nil
+}
+
+func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.ReturnOrderRequest) *apperror.APIError {
+	// get userid from context
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get user ID.",
+		}
+	}
+
+	// validate request
+	if req.OrderID == "" {
+		return &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid request.",
+		}
+	}
+
+	if req.Reason == "" || len(req.Reason) < 5 {
+		return &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Please provide a valid return reason.",
+		}
+	}
+
+	// fetch order
+	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		if err == apperror.ErrOrderNotFound {
+			return &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrOrderNotFound.Error(),
+			}
+		}
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+
+	strStatus := strings.ToUpper(string(order.Status))
+
+	if strStatus != string(domain.OrderStatusDelivered) {
+		return &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "INVALID_STATUS",
+			Message: "Order can be only returned after delivery.",
+		}
+	}
+
+	// update order status
+	if err := s.orderRepo.ReturnOrderRequest(ctx, req.OrderID, userID, req.Reason); err != nil {
+		s.log.Error("Failed to update order status", zap.Error(err))
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to update order status.",
+		}
+	}
+
+	return nil
+}
+
+func (s *OrderService) GetReturnRequest(ctx context.Context, returnID string) (*domain.FullReturnResponse, *apperror.APIError) {
+
+	res, err := s.orderRepo.GetReturnRequest(ctx, returnID)
+	if err != nil {
+		s.log.Error("Failed to get return request", zap.Error(err))
+		if err == apperror.ErrReturnRequestNotFound {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: apperror.ErrReturnRequestNotFound.Error(),
+			}
+		}
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get return request.",
+		}
+	}
+
+	return res, nil
+}
+
+func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, returnID string) (*domain.FullReturnResponse, *apperror.APIError) {
 	return nil, nil
 }

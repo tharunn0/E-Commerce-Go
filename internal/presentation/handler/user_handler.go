@@ -8,10 +8,10 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
-	
+
 	"github.com/gin-gonic/gin"
-	"golang.org/x/oauth2"
 	"go.uber.org/zap"
+	"golang.org/x/oauth2"
 	"google.golang.org/api/idtoken"
 )
 
@@ -495,17 +495,10 @@ func (h *UserHandler) CreateUserAddress(c *gin.Context) {
 }
 
 func (h *UserHandler) GetUserAddresses(c *gin.Context) {
-	ctx := c.Request.Context()
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "INVALID_REQUEST",
-			"message": "User ID not found",
-		})
-		return
-	}
 
-	addresses, defaultAddressID, apiErr := h.service.GetUserAddresses(ctx, id)
+	ctx := c.Request.Context()
+
+	addresses, defaultAddressID, apiErr := h.service.GetUserAddresses(ctx)
 	if apiErr != nil {
 		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,

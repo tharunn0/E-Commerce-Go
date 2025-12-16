@@ -16,7 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	Razorpay "github.com/razorpay/razorpay-go"
+	"github.com/razorpay/razorpay-go"
 	"go.uber.org/zap"
 )
 
@@ -30,24 +30,18 @@ func main() {
 		log.Fatal("Failed to load .env")
 	}
 	cfg := config.LoadConfig()
-	pg := cfg.Postgres
-	smtp := cfg.SMTP
-	app := cfg.App
-	google := cfg.Google
-	redis := cfg.Redis
-	razorpay := cfg.Razorpay
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pg.User, pg.Password, pg.Host, pg.Port, pg.DB)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.DB)
 	pgdb := database.InitDB(dsn, log)
-	redisdb := database.InitRedis(ctx, redis, log)
+	redisdb := database.InitRedis(ctx, cfg.Redis, log)
 
-	mailer, err := mailer.NewGoMailer(smtp.Port, smtp.Host, smtp.User, smtp.Pass, smtp.User)
+	mailer, err := mailer.NewGoMailer(cfg.SMTP.Port, cfg.SMTP.Host, cfg.SMTP.User, cfg.SMTP.Pass, cfg.SMTP.User)
 	if err != nil {
 		log.Fatal("Failed to initialize mailer", zap.String("function", "main"), zap.Error(err))
 	}
 
-	oauth := config.NewOAuthConfig(google.ClientID, google.ClientSecret, google.RedirectURL)
-	razorpayClient := Razorpay.NewClient(razorpay.KeyID, razorpay.KeySecret)
+	oauth := config.NewOAuthConfig(cfg.Google.ClientID, cfg.Google.ClientSecret, cfg.Google.RedirectURL)
+	razorpayClient := razorpay.NewClient(cfg.Razorpay.KeyID, cfg.Razorpay.KeySecret)
 
 	userRepo := repository.NewUserRepository(pgdb)
 	authRepo := repository.NewAuthRepository(pgdb, redisdb)
@@ -84,8 +78,8 @@ func main() {
 
 	routes.RegisterRoutes(r, log, handler, &cfg.Security)
 
-	log.Info(`Server starting at port : ` + app.Port)
-	if er := r.Run(app.Host + ":" + app.Port); er != nil {
+	log.Info(`Server starting at port : ` + cfg.App.Port)
+	if er := r.Run(cfg.App.Host + ":" + cfg.App.Port); er != nil {
 		log.Fatal("Server failed to start", zap.Error(er))
 	}
 

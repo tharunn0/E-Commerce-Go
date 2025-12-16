@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -147,6 +148,15 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 		})
 		return
 	}
+
+	if orders == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "No orders found for user",
+			"orders":  []int{},
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Orders fetched successfully",
 		"orders":  orders,
@@ -210,6 +220,8 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	orderID := c.Param("order_id")
+
 	var req domain.CancelOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -218,6 +230,8 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 		})
 		return
 	}
+
+	req.OrderID = orderID
 
 	order, apierr := h.serv.CancelOrder(ctx, &req)
 	if apierr != nil {
@@ -237,6 +251,8 @@ func (h *OrderHandler) ReturnOrderItemRequest(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	fmt.Println("return item endpoint called")
+
 	var req domain.ReturnOrderItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -246,7 +262,22 @@ func (h *OrderHandler) ReturnOrderItemRequest(c *gin.Context) {
 		return
 	}
 
-	order, apierr := h.serv.ReturnOrderItemRequest(ctx, &req)
+	orderId := c.Param("order_id")
+	variantId := c.Param("variant_id")
+
+	variantIdInt, err := strconv.ParseInt(variantId, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid variant ID.",
+		})
+		return
+	}
+
+	req.OrderID = orderId
+	req.ItemID = variantIdInt
+
+	apierr := h.serv.ReturnOrderItemRequest(ctx, &req)
 	if apierr != nil {
 		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,
@@ -255,8 +286,44 @@ func (h *OrderHandler) ReturnOrderItemRequest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Order returned successfully",
-		"order":   order,
+		"message": "Return order item request created successfully",
+	})
+}
+
+func (h *OrderHandler) ReturnOrderRequest(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var req domain.ReturnOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request body.",
+		})
+		return
+	}
+
+	orderID := c.Param("order_id")
+	req.OrderID = orderID
+
+	if req.OrderID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid order ID.",
+		})
+		return
+	}
+
+	apierr := h.serv.ReturnOrderRequest(ctx, &req)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Order return request created successfully",
 	})
 }
 
@@ -304,7 +371,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	order := c.Param("id")
+	order := c.Param("order_id")
 	req.OrderID = order
 
 	_, apierr := h.serv.UpdateOrderStatus(ctx, req.OrderID, domain.ShipmentStatus(req.Status))
@@ -319,4 +386,80 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		"message": "Order status updated successfully",
 		"order":   order,
 	})
+}
+
+// order returns
+
+func (h *OrderHandler) ListAllReturns(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var filter domain.ReturnFilter
+
+	st := c.Query("status")
+	fmt.Println("status", st)
+
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		h.log.Warn("failed to bind query", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request query.",
+		})
+		return
+	}
+
+	returns, apierr := h.serv.ListReturnRequests(ctx, &filter)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Returns fetched successfully",
+		"returns": returns,
+	})
+}
+
+func (h *OrderHandler) GetReturnRequest(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	returnID := c.Param("return_id")
+
+	returnRequest, apierr := h.serv.GetReturnRequest(ctx, returnID)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Return request fetched successfully",
+		"return":  returnRequest,
+	})
+}
+
+func (h *OrderHandler) UpdateReturnRequestStatus(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	returnID := c.Param("return_id")
+
+	returnRequest, apierr := h.serv.GetReturnRequest(ctx, returnID)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Return request fetched successfully",
+		"return":  returnRequest,
+	})
+}
+
+func (h *OrderHandler) GetReturnByID(c *gin.Context) {
+
 }

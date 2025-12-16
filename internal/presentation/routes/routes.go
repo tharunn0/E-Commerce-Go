@@ -65,7 +65,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		//user address routes
 		userAddressProtected := g.Group("/api/v1/users/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
 		userAddressProtected.POST("/addresses", h.User.CreateUserAddress)
-		userAddressProtected.GET("/:id/addresses", h.User.GetUserAddresses)
+		userAddressProtected.GET("/addresses", h.User.GetUserAddresses)
 		userAddressProtected.PATCH("/addresses/:id/default", h.User.UpdateDefaultUserAddress)
 		userAddressProtected.PUT("/addresses/:id", h.User.UpdateUserAddress)
 		userAddressProtected.DELETE("/addresses/:id", h.User.DeleteUserAddress)
@@ -197,17 +197,20 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		orderProtectedRoute.GET("/", h.Order.GetUserOrders)
 		orderProtectedRoute.GET("/:order_id", h.Order.GetOrderByID)
 		orderProtectedRoute.POST("/:order_id/:variant_id", h.Order.CancelOrderItem)
-		orderProtectedRoute.DELETE("/", h.Order.CancelOrder)
-		// orderProtectedRoute.POST("/:id/return", h.Order.ReturnOrderItemRequest)
+		orderProtectedRoute.DELETE("/:order_id", h.Order.CancelOrder)
+		orderProtectedRoute.POST("/:order_id/:variant_id/return", h.Order.ReturnOrderItemRequest)
+		orderProtectedRoute.POST("/:order_id/return", h.Order.ReturnOrderRequest)
 
 		orderAdminRoutes := g.Group("/api/v1/admin/orders").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		orderAdminRoutes.GET("/", h.Order.ListAllOrders)
+		orderAdminRoutes.PATCH("/:order_id/return", h.Order.UpdateReturnRequestStatus)
 		orderAdminRoutes.GET("/:order_id", h.Order.GetOrderByID)
-		orderAdminRoutes.PATCH("/:id", h.Order.UpdateOrderStatus)
-		// orderAdminRoutes.PUT("/:id/deliver", h.Order.DeliverOrder)
-		// orderAdminRoutes.PUT("/:id/out-for-delivery", h.Order.OutForDelivery)
+		orderAdminRoutes.PATCH("/:order_id", h.Order.UpdateOrderStatus)
 		// orderAdminRoutes.PUT("/:id/cancel", h.Order.CancelOrder)
-		// orderAdminRoutes.PUT("/:id/return", h.Order.ReturnOrder)
+		orderAdminRoutes.GET("/returns", h.Order.ListAllReturns)
+		orderAdminRoutes.GET("/returns/:return_id", h.Order.GetReturnRequest)
+		orderAdminRoutes.PATCH("/returns/:return_id/status", h.Order.UpdateReturnRequestStatus)
+
 	}
 
 	{

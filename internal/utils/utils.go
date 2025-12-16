@@ -288,3 +288,12 @@ func RandomString(n int) string {
 	}
 	return string(b)
 }
+
+func IsValueValid(value string, values []string) bool {
+	for _, v := range values {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
