@@ -424,7 +424,16 @@ func (h *OrderHandler) ListAllReturns(c *gin.Context) {
 func (h *OrderHandler) GetReturnRequest(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	returnID := c.Param("return_id")
+	returnIDstr := c.Param("return_id")
+
+	returnID, err := strconv.ParseInt(returnIDstr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid return ID.",
+		})
+		return
+	}
 
 	returnRequest, apierr := h.serv.GetReturnRequest(ctx, returnID)
 	if apierr != nil {
@@ -446,7 +455,26 @@ func (h *OrderHandler) UpdateReturnRequestStatus(c *gin.Context) {
 
 	returnID := c.Param("return_id")
 
-	returnRequest, apierr := h.serv.GetReturnRequest(ctx, returnID)
+	var req domain.UpdateReturnRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid request body.",
+		})
+		return
+	}
+
+	id, err := strconv.ParseInt(returnID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "BAD_REQUEST",
+			"message": "Invalid return ID.",
+		})
+		return
+	}
+	req.ReturnID = id
+
+	_, apierr := h.serv.UpdateReturnRequestStatus(ctx, &req)
 	if apierr != nil {
 		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,
@@ -454,9 +482,9 @@ func (h *OrderHandler) UpdateReturnRequestStatus(c *gin.Context) {
 		})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Return request fetched successfully",
-		"return":  returnRequest,
 	})
 }
 

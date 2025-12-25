@@ -1208,7 +1208,7 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 	return nil
 }
 
-func (s *OrderService) GetReturnRequest(ctx context.Context, returnID string) (*domain.FullReturnResponse, *apperror.APIError) {
+func (s *OrderService) GetReturnRequest(ctx context.Context, returnID int64) (*domain.FullReturnResponse, *apperror.APIError) {
 
 	res, err := s.orderRepo.GetReturnRequest(ctx, returnID)
 	if err != nil {
@@ -1230,6 +1230,69 @@ func (s *OrderService) GetReturnRequest(ctx context.Context, returnID string) (*
 	return res, nil
 }
 
-func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, returnID string) (*domain.FullReturnResponse, *apperror.APIError) {
-	return nil, nil
+func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRequest) (*domain.FullReturnResponse, *apperror.APIError) {
+
+	// validate incoming status
+
+	if req.Status != "approved" && req.Status != "rejected" {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Invalid return status.",
+		}
+	}
+
+	// fetch return request
+
+	returnRequest, err := s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: apperror.ErrReturnRequestNotFound.Error(),
+		}
+	}
+
+	// check if return request is already processed
+
+	returnStatus := returnRequest.Status
+
+	switch returnStatus {
+	case "approved":
+		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "RETURN_ALREADY_APPROVED",
+			Message: "Return has been already approved",
+		}
+	case "rejected":
+		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "RETURN_ALREADY_REJECTED",
+			Message: "Return has been already rejected",
+		}
+	}
+
+	// update return request status
+
+	if err := s.orderRepo.UpdateReturnRequestStatus(ctx, req); err != nil {
+		s.log.Error("Failed to update return request status", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to update return request status.",
+		}
+	}
+
+	// get update return request
+	returnRequest, err = s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
+	if err != nil {
+		s.log.Error("Failed to get return request", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: apperror.ErrReturnRequestNotFound.Error(),
+		}
+	}
+
+	return returnRequest, nil
 }

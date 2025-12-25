@@ -121,6 +121,7 @@ func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]dom
 		order.ShippingAddress = &address
 		orders = append(orders, order)
 	}
+
 	return orders, nil
 }
 
@@ -629,7 +630,7 @@ func (r OrderRepository) ListAllReturns(ctx context.Context, filter *domain.Retu
 	return results, nil
 }
 
-func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID string) (*domain.FullReturnResponse, error) {
+func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (*domain.FullReturnResponse, error) {
 
 	mainQuery := `
         SELECT 
@@ -678,6 +679,7 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID string) 
             ri.order_item_id AS "ItemOrderID",
             oi.product_name_at_purchase AS "ProductName",
             oi.sku_at_purchase AS "SKU",
+			pvi.url,
             ri.quantity AS "Quantity",
             ri.order_item_price AS "OrderItemPrice",
             ri.status AS "Status",
@@ -686,6 +688,8 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID string) 
             ri.approved_at AS "ApprovedAt"
         FROM return_items ri
         JOIN order_items oi ON ri.order_item_id = oi.id
+		JOIN product_variants pv ON oi.product_variant_id = pv.id
+		JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
         WHERE ri.return_id = $1
         ORDER BY ri.id`
 
@@ -701,6 +705,7 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID string) 
 			&item.ItemOrderID,
 			&item.ProductName,
 			&item.SKU,
+			&item.ImageURL,
 			&item.Quantity,
 			&item.OrderItemPrice,
 			&item.Status,
@@ -718,6 +723,94 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID string) 
 	}
 
 	return &result, nil
+}
+
+func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRequest) error {
+
+	// start transaction
+	tx, err := r.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// update return request status
+	query := `UPDATE order_returns SET status = $1
+	 WHERE id = $2`
+	_, err = tx.Exec(ctx, query, req.Status, req.ReturnID)
+	if err != nil {
+		fmt.Println("Failed to update return request status", err)
+		return err
+	}
+
+	// update return items status
+
+	if req.Status == "approved" {
+		query = `UPDATE return_items SET status = $1,approved_at = now()
+		 WHERE return_id = $2`
+	} else {
+		query = `UPDATE return_items SET status = $1
+		 WHERE return_id = $2`
+	}
+	_, err = tx.Exec(ctx, query, req.Status, req.ReturnID)
+	if err != nil {
+		fmt.Println("Failed to update return items status", err)
+		return err
+	}
+
+	// get order id
+	var orderID int64
+	orderItemIds := []int64{}
+	query = `SELECT order_id FROM order_returns WHERE id = $1`
+	if err := tx.QueryRow(ctx, query, req.ReturnID).Scan(&orderID); err != nil {
+		fmt.Println("Failed to get order id", err)
+		return err
+	}
+
+	query = `SELECT order_item_id FROM return_items WHERE return_id = $1`
+	rows, err := tx.Query(ctx, query, req.ReturnID)
+	if err != nil {
+		fmt.Println("Failed to get order item ids", err)
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var orderItemID int64
+		if err := rows.Scan(&orderItemID); err != nil {
+			return err
+		}
+		orderItemIds = append(orderItemIds, orderItemID)
+	}
+
+	if req.Status == "approved" {
+
+		// update order items status
+		query = `UPDATE order_items SET status = 'returned'
+		 WHERE id = ANY($1)`
+		_, err = tx.Exec(ctx, query, orderItemIds)
+		if err != nil {
+			fmt.Println("Failed to update order items status", err)
+			return err
+		}
+
+		// update order status
+		query = `UPDATE orders SET status = $1
+		 WHERE id = $2`
+		_, err = tx.Exec(ctx, query, "returned", orderID)
+		if err != nil {
+			fmt.Println("Failed to update order status", err)
+			return err
+		}
+
+	}
+
+	// commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // shipment
@@ -788,7 +881,7 @@ func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.Order
 		s.status AS shipment_status,
 		p.status AS payment_status,
 		a.id, a.label, a.address_line, a.address_line_2,
-		a.city, a.district, a.state, a.pincode, a.country,'product_imageurl'
+		a.city, a.district, a.state, a.pincode, a.country
 		FROM orders o
 	LEFT JOIN shipments s ON o.id = s.order_id
 	LEFT JOIN payments p ON o.id = p.order_id
@@ -915,7 +1008,6 @@ func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.Order
 			&address.State,
 			&address.Pincode,
 			&address.Country,
-			&order.ImageURL,
 		)
 		if err != nil {
 			return nil, err

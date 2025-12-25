@@ -58,3 +58,8 @@ type ReturnItem struct {
 	RequestedAt    time.Time  `json:"requested_at"`
 	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
 }
+
+type UpdateReturnRequest struct {
+	ReturnID int64  `json:"id"`
+	Status   string `json:"status"`
+}

@@ -22,13 +22,16 @@ type OrderRepository interface {
 	UpdateOrderStatusOnPayment(ctx context.Context, orderID string, status PaymentStatus) error
 	UpdateShipmentStatus(ctx context.Context, orderID string, status ShipmentStatus, cod bool) error
 
+	// Admin ops
+	UpdateReturnRequestStatus(ctx context.Context, req *UpdateReturnRequest) error
+
 	// shipment
 	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
 	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error     //admin
 	DeliverOrder(ctx context.Context, orderID string) error                              //admin
 
 	ListAllReturns(ctx context.Context, filter *ReturnFilter) ([]BaseReturnResponse, error) //admin
-	GetReturnRequest(ctx context.Context, returnID string) (*FullReturnResponse, error)     //admin
+	GetReturnRequest(ctx context.Context, returnID int64) (*FullReturnResponse, error)      //admin
 }
 
 type CreateOrderRequest struct {
@@ -138,7 +141,7 @@ type OrderBaseResponse struct {
 	ShipmentStatus string `json:"shipment_status"`
 	PaymentStatus  string `json:"payment_status"`
 
-	ImageURL string `json:"image_url"`
+	// ImageURL string `json:"image_url"`
 }
 
 type OrderResponse struct {
