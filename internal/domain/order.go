@@ -23,8 +23,8 @@ type OrderRepository interface {
 	UpdateShipmentStatus(ctx context.Context, orderID string, status ShipmentStatus, cod bool) error
 
 	// Admin ops
-	UpdateReturnRequestStatus(ctx context.Context, req *UpdateReturnRequest) error
-
+	UpdateReturnRequestStatus(ctx context.Context, req *UpdateReturnRefundRequest) error
+	ProcessReturnRefund(ctx context.Context, req *UpdateReturnRefundRequest) error
 	// shipment
 	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
 	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error     //admin

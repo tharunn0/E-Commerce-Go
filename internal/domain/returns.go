@@ -63,3 +63,22 @@ type UpdateReturnRequest struct {
 	ReturnID int64  `json:"id"`
 	Status   string `json:"status"`
 }
+type UpdateReturnRefundRequest struct {
+	ReturnID     int64  `json:"id"`
+	UserID       int64  `json:"user_id"`
+	Status       string `json:"status"`
+	Remarks      string `json:"remarks"`
+	RelatedOrder int64
+	RefundAmount float64
+}
+
+var ReturnStatusFlow = map[string][]string{
+	"requested":          {"approved", "rejected", "cancelled"},
+	"approved":           {"received", "partially_received", "partially_refunded", "rejected"},
+	"received":           {"partially_refunded", "refunded", "rejected", "cancelled"},
+	"partially_received": {"partially_refunded", "refunded", "rejected", "cancelled"},
+	"partially_refunded": {"refunded", "rejected", "cancelled"},
+	"refunded":           {"rejected", "cancelled"},
+	"rejected":           {"cancelled"},
+	"cancelled":          {},
+}

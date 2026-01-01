@@ -1230,15 +1230,15 @@ func (s *OrderService) GetReturnRequest(ctx context.Context, returnID int64) (*d
 	return res, nil
 }
 
-func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRequest) (*domain.FullReturnResponse, *apperror.APIError) {
+func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRefundRequest) (*domain.FullReturnResponse, *apperror.APIError) {
 
 	// validate incoming status
 
 	if req.Status != "approved" && req.Status != "rejected" {
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
-			Code:    "BAD_REQUEST",
-			Message: "Invalid return status.",
+			Code:    "INVALID_STATUS",
+			Message: "Return request not verified yet",
 		}
 	}
 
@@ -1258,11 +1258,11 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 	returnStatus := returnRequest.Status
 
 	switch returnStatus {
-	case "approved":
+	case "returned":
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
-			Code:    "RETURN_ALREADY_APPROVED",
-			Message: "Return has been already approved",
+			Code:    "RETURN_ALREADY_RETURNED",
+			Message: "Return has been already returned",
 		}
 	case "rejected":
 		return nil, &apperror.APIError{
@@ -1280,6 +1280,69 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to update return request status.",
+		}
+	}
+
+	// get update return request
+	returnRequest, err = s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
+	if err != nil {
+		s.log.Error("Failed to get return request", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: apperror.ErrReturnRequestNotFound.Error(),
+		}
+	}
+
+	return returnRequest, nil
+}
+
+func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *domain.UpdateReturnRefundRequest) (*domain.FullReturnResponse, *apperror.APIError) {
+
+	// get the return request
+	returnRequest, err := s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: apperror.ErrReturnRequestNotFound.Error(),
+		}
+	}
+
+	fmt.Println("Return request status: ", returnRequest.Status)
+
+	// check if refund is already processed
+	switch returnRequest.Status {
+	case "rejected":
+		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "INVALID_STATUS",
+			Message: "Return has been already rejected",
+		}
+	case "requested":
+		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "INVALID_STATUS",
+			Message: "Return has not been verified yet",
+		}
+	case "refunded":
+		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "INVALID_STATUS",
+			Message: "Return has been already returned",
+		}
+	}
+
+	// process refund
+
+	req.RefundAmount = returnRequest.TotalRefundValue
+
+	if err := s.orderRepo.ProcessReturnRefund(ctx, req); err != nil {
+		s.log.Error("Failed to process return refund request", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to process return refund request.",
 		}
 	}
 

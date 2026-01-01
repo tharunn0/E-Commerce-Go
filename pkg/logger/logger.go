@@ -8,6 +8,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+var Tlog *zap.Logger
+
 func InitLogger() *zap.Logger {
 
 	file, er := os.OpenFile("logs/app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -55,6 +57,8 @@ func InitLogger() *zap.Logger {
 		zap.AddCallerSkip(0),
 		zap.AddStacktrace(zapcore.FatalLevel),
 	)
+
+	Tlog = logger
 
 	return logger
 

@@ -455,7 +455,7 @@ func (h *OrderHandler) UpdateReturnRequestStatus(c *gin.Context) {
 
 	returnID := c.Param("return_id")
 
-	var req domain.UpdateReturnRequest
+	var req domain.UpdateReturnRefundRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -474,17 +474,31 @@ func (h *OrderHandler) UpdateReturnRequestStatus(c *gin.Context) {
 	}
 	req.ReturnID = id
 
-	_, apierr := h.serv.UpdateReturnRequestStatus(ctx, &req)
-	if apierr != nil {
-		c.JSON(apierr.Status, gin.H{
-			"error":   apierr.Code,
-			"message": apierr.Message,
-		})
-		return
-	}
+	if req.Status == "returned" {
+		fmt.Println("Process return request called")
+		_, apierr := h.serv.ProcessReturnRefundRequest(ctx, &req)
+		if apierr != nil {
+			c.JSON(apierr.Status, gin.H{
+				"error":   apierr.Code,
+				"message": apierr.Message,
+			})
+			return
+		}
+	} else {
+		fmt.Println("Update return request status called")
 
+		_, apierr := h.serv.UpdateReturnRequestStatus(ctx, &req)
+		if apierr != nil {
+			c.JSON(apierr.Status, gin.H{
+				"error":   apierr.Code,
+				"message": apierr.Message,
+			})
+			return
+		}
+
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Return request fetched successfully",
+		"message": "Return request updated successfully",
 	})
 }
 
