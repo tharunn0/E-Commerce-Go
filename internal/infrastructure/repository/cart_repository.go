@@ -20,37 +20,46 @@ func NewCartRepository(db *pgxpool.Pool) *CartRepository {
 	return &CartRepository{DB: db}
 }
 
-func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, productVariantID int64, quantity int64) (*int64, error) {
+func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, productVariantID int64, addQty int64) (*int64, error) {
 
 	var cartID int64
 
-	// check whether cart exist
 	query := `SELECT id FROM carts WHERE user_id = $1`
 	err := repo.DB.QueryRow(ctx, query, userID).Scan(&cartID)
 	if err != nil {
-
-		// if cart does not exist, create a new cart
-		if err == pgx.ErrNoRows {
-			err = repo.DB.QueryRow(ctx, `INSERT INTO carts (user_id) VALUES ($1) RETURNING id`, userID).Scan(&cartID)
-			if err != nil {
-				return nil, err
-			}
-		}
+		return nil, err
 	}
 
+	tx, err := repo.DB.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// ensure rollback on error
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
 	// insert or update cart item
-	query = `INSERT INTO cart_items (cart_id, product_variant_id, quantity) VALUES ($1, $2, $3)
-	ON CONFLICT (cart_id, product_variant_id)
-	 DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
-	 RETURNING cart_id`
-	err = repo.DB.QueryRow(ctx, query, cartID, productVariantID, quantity).Scan(&cartID)
+	query = `
+		INSERT INTO cart_items (cart_id, product_variant_id, quantity)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (cart_id, product_variant_id)
+		DO UPDATE
+		SET quantity = $3
+		RETURNING quantity
+	`
+
+	var finalQty int64
+	err = tx.QueryRow(ctx, query, cartID, productVariantID, addQty).Scan(&finalQty)
 	if err != nil {
 
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == "23503" {
-				switch pgErr.ConstraintName {
-				case "cart_items_product_variant_id_fkey":
+				if pgErr.ConstraintName == "cart_items_product_variant_id_fkey" {
 					return nil, apperror.ErrProductVariantNotFound
 				}
 			}
@@ -58,6 +67,12 @@ func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, product
 
 		return nil, err
 	}
+
+	// commit transaction
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
 	return &cartID, nil
 }
 

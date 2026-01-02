@@ -44,6 +44,7 @@ var (
 	ErrProductVariantNotFound = errors.New("Product variant not found")
 	ErrCartEmpty              = errors.New("Cart is empty")
 	ErrCartItemNotFound       = errors.New("Cart item not found")
+	ErrQuantityExceeded       = errors.New("Quantity exceeded. Max 5 items allowed per variant")
 
 	// Product variant-related errors
 	ErrNoStock  = errors.New("No stock available")

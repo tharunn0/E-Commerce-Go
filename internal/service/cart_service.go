@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -31,6 +32,12 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 
 	if req.Quantity <= 0 {
 		req.Quantity = 1
+	} else if req.Quantity > 5 {
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "QUANTITY_EXCEEDED",
+			Message: "Quantity must be less than or equal to 5.",
+		}
 	}
 
 	cartID, err := s.cartRepo.AddToCart(ctx, userID, req.ProductVariantID, req.Quantity)
@@ -41,8 +48,16 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 				Message: apperror.ErrProductVariantNotFound.Error(),
 			}
 		}
+		if err == apperror.ErrQuantityExceeded {
+			return nil, &apperror.APIError{
+				Status:  http.StatusUnprocessableEntity,
+				Code:    "QUANTITY_EXCEEDED",
+				Message: apperror.ErrQuantityExceeded.Error(),
+			}
+		}
 		s.log.Error("failed to add to cart", zap.String("function", "AddToCart"), zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to add to cart.",
 		}

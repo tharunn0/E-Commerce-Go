@@ -33,7 +33,7 @@ func (h *CartHandler) AddToCart(c *gin.Context) {
 
 	cart, apierr := h.service.AddToCart(ctx, &req)
 	if apierr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,
 			"message": apierr.Message,
 		})
@@ -49,7 +49,7 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 	ctx := c.Request.Context()
 	cart, apierr := h.service.GetCart(ctx)
 	if apierr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,
 			"message": apierr.Message,
 		})

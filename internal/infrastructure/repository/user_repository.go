@@ -22,11 +22,12 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 }
 
 func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.RegisterRequest) error {
-	cmdTag, err := repo.DB.Exec(ctx,
+	userID := int64(0)
+	err := repo.DB.QueryRow(ctx,
 		`INSERT INTO users (first_name,last_name,email,phone,password)
-	 VALUES ($1,$2,$3,$4,$5)
+	 VALUES ($1,$2,$3,$4,$5) RETURNING id
 	`,
-		req.FirstName, req.LastName, req.Email, req.Phone, req.Password)
+		req.FirstName, req.LastName, req.Email, req.Phone, req.Password).Scan(&userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -41,9 +42,30 @@ func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.Regist
 		}
 		return err
 	}
-	if cmdTag.RowsAffected() != 1 {
-		return errors.New("USER_CREATION_FAILED")
-	}
+
+	// create cart
+	_, _ = repo.DB.Exec(ctx,
+		`INSERT INTO carts (user_id)
+	 VALUES ($1)
+	`,
+		userID)
+
+	// create wallet
+
+	_, _ = repo.DB.Exec(ctx,
+		`INSERT INTO wallets (user_id,balance,is_admin)
+	 VALUES ($1,0,$2)
+	`,
+		userID, false)
+
+	// create wishlist
+
+	_, _ = repo.DB.Exec(ctx,
+		`INSERT INTO wishlists (user_id)
+	 VALUES ($1)
+	`,
+		userID)
+
 	return nil
 }
 
