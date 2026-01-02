@@ -58,10 +58,11 @@ var (
 	ErrWishlistItemNotFound      = errors.New("Wishlist item not found")
 
 	// Order-related errors
-	ErrOrderNotFound   = errors.New("Order not found")
-	ErrOrderCreateFail = errors.New("Order creation failed")
-	ErrOrderUpdateFail = errors.New("Order update failed")
-	ErrOrderDeleteFail = errors.New("Order deletion failed")
+	ErrOrderNotFound       = errors.New("Order not found")
+	ErrOrderCreateFail     = errors.New("Order creation failed")
+	ErrOrderUpdateFail     = errors.New("Order update failed")
+	ErrOrderDeleteFail     = errors.New("Order deletion failed")
+	ErrOrderAmountExceeded = errors.New("Order amount exceeded. Should be less than 1000000")
 
 	ErrOrderItemNotFound = errors.New("Order item not found")
 

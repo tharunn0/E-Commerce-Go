@@ -87,6 +87,12 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 			return err
 		}
 	}
+
+	// check if total amount of items is greater that 10_00_000
+	if data.TotalAmount > 10_00_000 {
+		return apperror.ErrOrderAmountExceeded
+	}
+
 	// commit transaction
 	return tx.Commit(ctx)
 }
@@ -139,7 +145,7 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, u
 
 	var order domain.OrderResponse
 	row := r.DB.QueryRow(ctx, query, orderID)
-	err := row.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.ReturnStatus, &order.EstimatedDeliveryDate, &order.Currency,
+	err := row.Scan(&order.OrderID, &order.Subtotal, &order.TaxAmount, &order.Status, &order.ReturnStatus, &order.EstimatedDeliveryDate, &order.Currency,
 		&order.ShippingAddressID, &order.BillingAddressID,
 		&order.DeliveryType, &order.ShipmentStatus, &order.PaymentStatus, &order.PaymentMethod,
 		&order.CreatedAt, &order.UpdatedAt)
@@ -175,7 +181,7 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, u
 	}
 	order.Items = items
 
-	order.Subtotal = order.TotalAmount - order.TaxAmount
+	// order.Subtotal = order.TotalAmount - order.TaxAmount
 	return &order, nil
 }
 
@@ -309,79 +315,180 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 	return nil
 }
 
-// cancellation
-func (r OrderRepository) CancelOrderItem(ctx context.Context, orderID string, variantID int64) error {
-	// update order item status
-	query := `UPDATE order_items SET status = $1 WHERE order_id = (SELECT id FROM orders 
-	WHERE public_order_id = $2) AND product_variant_id = $3`
-	_, err := r.DB.Exec(ctx, query, "cancelled", orderID, variantID)
-	if err != nil {
-		return err
-	}
+// // cancellation
+// func (r OrderRepository) CancelOrderItem(ctx context.Context, orderID string, variantID int64) error {
+// 	// update order item status
+// 	query := `UPDATE order_items SET status = $1 WHERE order_id = (SELECT id FROM orders
+// 	WHERE public_order_id = $2) AND product_variant_id = $3`
+// 	_, err := r.DB.Exec(ctx, query, "cancelled", orderID, variantID)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// update order prices
-	query = `UPDATE orders SET total_amount = (SELECT SUM(total_price) FROM order_items
-	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $1)) WHERE public_order_id = $1`
-	_, err = r.DB.Exec(ctx, query, orderID)
-	if err != nil {
-		return err
-	}
+// 	// update order prices
+// 	query = `UPDATE orders SET total_amount = (SELECT SUM(total_price) FROM order_items
+// 	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $1)) WHERE public_order_id = $1`
+// 	_, err = r.DB.Exec(ctx, query, orderID)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// update order status
-	query = `UPDATE orders SET status = $1 WHERE public_order_id = $2`
-	_, err = r.DB.Exec(ctx, query, "cancelled", orderID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+// 	// update order status
+// 	query = `UPDATE orders SET status = $1 WHERE public_order_id = $2`
+// 	_, err = r.DB.Exec(ctx, query, "cancelled", orderID)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
-func (r OrderRepository) CancelOrder(ctx context.Context, orderID string, reason string) error {
+func (r OrderRepository) CancelOrder(ctx context.Context, orderID string, reason string, orderItemIDs []int64) error {
 
+	// Start transaction
 	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
 
-	query := `UPDATE orders SET status = $1, updated_at = now()
-	 WHERE public_order_id = $2`
-	_, err = tx.Exec(ctx, query, "cancelled", orderID)
+	// Ensure rollback on any early return or panic
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// Lock the order row to prevent concurrent cancellations
+	var internalOrderID int64
+	query := `
+		SELECT id
+		FROM orders
+		WHERE public_order_id = $1
+		FOR UPDATE
+	`
+	if err = tx.QueryRow(ctx, query, orderID).Scan(&internalOrderID); err != nil {
+		return err
+	}
+
+	// FULL ORDER CANCELLATION
+	if len(orderItemIDs) == 0 {
+
+		// Cancel all order items (idempotent)
+		_, err = tx.Exec(ctx, `
+			UPDATE order_items
+			SET status = 'cancelled'
+			WHERE order_id = $1
+			  AND status != 'cancelled'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Cancel order
+		_, err = tx.Exec(ctx, `
+			UPDATE orders
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE id = $1
+			  AND status != 'cancelled'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Cancel shipment (only if not already terminal)
+		_, err = tx.Exec(ctx, `
+			UPDATE shipments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status NOT IN ('shipped', 'delivered', 'cancelled')
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Update payment state (assumes not captured yet)
+		_, err = tx.Exec(ctx, `
+			UPDATE payments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status = 'pending'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Commit transaction
+		return tx.Commit(ctx)
+	}
+
+	// Cancel only selected order items (idempotent)
+	_, err = tx.Exec(ctx, `
+		UPDATE order_items
+		SET status = 'cancelled'
+		WHERE order_id = $1
+		  AND id = ANY($2)
+		  AND status != 'cancelled'
+	`, internalOrderID, orderItemIDs)
 	if err != nil {
 		return err
 	}
 
-	query = `UPDATE order_items
-	 SET status = $1,reason = $2
-	 FROM orders o
-	 WHERE order_id = o.id AND o.public_order_id = $3`
-	_, err = tx.Exec(ctx, query, "cancelled", reason, orderID)
+	// Check if ALL order items are now cancelled
+	var remainingActiveItems int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM order_items
+		WHERE order_id = $1
+		  AND status != 'cancelled'
+	`, internalOrderID).Scan(&remainingActiveItems)
 	if err != nil {
 		return err
 	}
 
-	query = `UPDATE shipments
-	 SET status = $1,updated_at = now()
-	 FROM orders o
-	 WHERE order_id = o.id AND o.public_order_id = $2`
-	_, err = tx.Exec(ctx, query, "cancelled", orderID)
-	if err != nil {
-		return err
+	// If all items are cancelled, cascade cancellation
+	if remainingActiveItems == 0 {
+
+		// Cancel order
+		_, err = tx.Exec(ctx, `
+			UPDATE orders
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE id = $1
+			  AND status != 'cancelled'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Cancel shipment (only if not shipped)
+		_, err = tx.Exec(ctx, `
+			UPDATE shipments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status NOT IN ('shipped', 'delivered', 'cancelled')
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Update payment state safely
+		_, err = tx.Exec(ctx, `
+			UPDATE payments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status = 'pending'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
 	}
 
-	query = `UPDATE payments
-	 SET status = $1,updated_at = now()
-	 FROM orders o
-	 WHERE order_id = o.id AND o.public_order_id = $2`
-	_, err = tx.Exec(ctx, query, "cancelled", orderID)
-	if err != nil {
-		return err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	// commit
+	return tx.Commit(ctx)
 }
 
 // returns

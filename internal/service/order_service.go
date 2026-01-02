@@ -371,6 +371,14 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
+	if cart.CartTotalPrice > 10_00_000 {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "Order amount exceeded. Should be less than 1000000.",
+		}
+	}
+
 	// 6. fetch variant info
 	cartVariantInfo, err := s.cartRepo.GetCartVariantInfo(ctx, userID)
 	if err != nil {
@@ -420,7 +428,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	// 11. calculate total amount
-	totalAmount := cart.CartTotalPrice + shippingAmount
+	totalAmount := cart.CartTotalPrice
 
 	orderData := &domain.CreateOrderData{
 		UserID:                userID,
@@ -658,107 +666,18 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domai
 			Message: "Failed to get order.",
 		}
 	}
+
+	deductableAmount := 0.0
+	for _, v := range order.Items {
+		if v.Status == "cancelled" {
+			deductableAmount += v.TotalPrice
+		}
+	}
+
 	order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
-	order.Subtotal = order.TotalAmount - order.TaxAmount - order.ShippingCost
+	order.TotalAmount = order.Subtotal + order.TaxAmount + order.ShippingCost
+	order.PayableAmount = order.Subtotal + order.TaxAmount + order.ShippingCost - deductableAmount
 	return order, nil
-}
-
-// cancel order item
-func (s *OrderService) CancelOrderItem(ctx context.Context, orderID string, variantID int64) (*domain.OrderResponse, *apperror.APIError) {
-
-	userID, err := utils.GetUserIDFromContext(ctx)
-	if err != nil {
-		return nil, &apperror.APIError{
-			Status:  http.StatusUnauthorized,
-			Code:    "UNAUTHORIZED",
-			Message: "You are not authorized to perform this action.",
-		}
-	}
-
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
-	if err != nil {
-		s.log.Error("Failed to get order", zap.Error(err))
-		if err == apperror.ErrOrderNotFound {
-			return nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrOrderNotFound.Error(),
-			}
-		}
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get order.",
-		}
-	}
-
-	if order.Status == domain.OrderStatusDelivered {
-		return nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
-			Message: "Order is already delivered.Choose to return the order.",
-		}
-	}
-
-	if order.Status == domain.OrderStatusCancelled {
-		return nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
-			Message: "Order is already cancelled.",
-		}
-	}
-
-	variantFound := false
-	for _, item := range order.Items {
-		if item.ProductVariantID == variantID {
-			variantFound = true
-			break
-		}
-	}
-
-	if !variantFound {
-		return nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
-			Message: "Variant not found in order.",
-		}
-	}
-
-	err = s.orderRepo.CancelOrderItem(ctx, orderID, variantID)
-	if err != nil {
-		s.log.Error("Failed to cancel order item", zap.Error(err))
-		if err == apperror.ErrOrderNotFound {
-			return nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrOrderNotFound.Error(),
-			}
-		}
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to cancel order item.",
-		}
-	}
-
-	UpdatedOrder, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
-	if err != nil {
-		s.log.Error("Failed to get order", zap.Error(err))
-		if err == apperror.ErrOrderNotFound {
-			return nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrOrderNotFound.Error(),
-			}
-		}
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get order.",
-		}
-	}
-
-	return UpdatedOrder, nil
 }
 
 // cancel order
@@ -789,6 +708,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		}
 	}
 
+	var _ domain.OrderResponse
 	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
@@ -829,7 +749,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		}
 	}
 
-	err = s.orderRepo.CancelOrder(ctx, req.OrderID, req.Reason)
+	err = s.orderRepo.CancelOrder(ctx, req.OrderID, req.Reason, req.OrderItemsID)
 	if err != nil {
 		s.log.Error("Failed to cancel order", zap.Error(err))
 		return nil, &apperror.APIError{
@@ -853,7 +773,28 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		// }
 	}
 
-	return nil, nil
+	updateOrder, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
+	if err != nil {
+		s.log.Error("Failed to get order", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get order.",
+		}
+	}
+
+	var deductableAmount float64
+	for _, v := range updateOrder.Items {
+		if v.Status == "cancelled" {
+			deductableAmount += v.TotalPrice
+		}
+	}
+
+	updateOrder.ShippingCost = domain.DeliveryTypeCharges[updateOrder.DeliveryType]
+	updateOrder.TotalAmount = updateOrder.Subtotal + updateOrder.TaxAmount + updateOrder.ShippingCost
+	updateOrder.PayableAmount = updateOrder.Subtotal + updateOrder.TaxAmount + updateOrder.ShippingCost - deductableAmount
+
+	return updateOrder, nil
 }
 
 // ORDER ADMIN SERVICES

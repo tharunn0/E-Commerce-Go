@@ -196,7 +196,6 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		orderProtectedRoute.POST("/", h.Order.CreateOrder)
 		orderProtectedRoute.GET("/", h.Order.GetUserOrders)
 		orderProtectedRoute.GET("/:order_id", h.Order.GetOrderByID)
-		orderProtectedRoute.POST("/:order_id/:variant_id", h.Order.CancelOrderItem)
 		orderProtectedRoute.DELETE("/:order_id", h.Order.CancelOrder)
 		orderProtectedRoute.POST("/:order_id/:variant_id/return", h.Order.ReturnOrderItemRequest)
 		orderProtectedRoute.POST("/:order_id/return", h.Order.ReturnOrderRequest)

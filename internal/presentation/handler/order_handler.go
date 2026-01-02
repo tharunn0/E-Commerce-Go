@@ -184,37 +184,6 @@ func (h *OrderHandler) GetOrderByID(c *gin.Context) {
 	})
 }
 
-// cancel order item
-func (h *OrderHandler) CancelOrderItem(c *gin.Context) {
-
-	ctx := c.Request.Context()
-
-	orderID := c.Param("order_id")
-	variantIDstr := c.Param("variant_id")
-
-	variantID, err := strconv.ParseInt(variantIDstr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "BAD_REQUEST",
-			"message": "Invalid variant ID.",
-		})
-		return
-	}
-
-	order, apierr := h.serv.CancelOrderItem(ctx, orderID, variantID)
-	if apierr != nil {
-		c.JSON(apierr.Status, gin.H{
-			"error":   apierr.Code,
-			"message": apierr.Message,
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Order item cancelled successfully",
-		"order":   order,
-	})
-}
-
 // cancel order
 func (h *OrderHandler) CancelOrder(c *gin.Context) {
 

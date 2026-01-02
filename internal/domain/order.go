@@ -11,8 +11,7 @@ type OrderRepository interface {
 	GetUserOrderByID(ctx context.Context, orderID string, userID int64) (*OrderResponse, error)
 
 	// cancellation
-	CancelOrderItem(ctx context.Context, orderID string, variantID int64) error
-	CancelOrder(ctx context.Context, orderID string, reason string) error
+	CancelOrder(ctx context.Context, orderID string, reason string, orderItemsID []int64) error
 
 	// returns
 	ReturnOrderItemRequest(ctx context.Context, orderID string, userID int64, itemID int64, reason string) error
@@ -145,13 +144,14 @@ type OrderBaseResponse struct {
 }
 
 type OrderResponse struct {
-	OrderID      string      `json:"public_order_id"`
-	Items        []OrderItem `json:"items"`
-	Subtotal     float64     `json:"subtotal"`
-	TaxAmount    float64     `json:"tax_amount"`
-	ShippingCost float64     `json:"shipping_cost"`
-	TotalAmount  float64     `json:"total_amount"`
-	Currency     string      `json:"currency"`
+	OrderID       string      `json:"public_order_id"`
+	Items         []OrderItem `json:"items"`
+	Subtotal      float64     `json:"subtotal"`
+	TaxAmount     float64     `json:"tax_amount"`
+	ShippingCost  float64     `json:"shipping_cost"`
+	TotalAmount   float64     `json:"total_amount"`
+	PayableAmount float64     `json:"payable_amount"`
+	Currency      string      `json:"currency"`
 
 	ShippingAddressID int64 `json:"shipping_address_id"`
 	BillingAddressID  int64 `json:"billing_address_id"`
@@ -194,13 +194,14 @@ type OrderFilter struct {
 	Limit int `form:"limit"`
 }
 
-type CancelOrderItemRequest struct {
-	VariantID int64 `json:"variant_id"`
-}
+// type CancelOrderItemRequest struct {
+// 	OrderItemID int64 `json:"variant_id"`
+// }
 
 type CancelOrderRequest struct {
-	OrderID string `json:"order_id"`
-	Reason  string `json:"reason"`
+	OrderID      string  `json:"order_id"`
+	Reason       string  `json:"reason"`
+	OrderItemsID []int64 `json:"items"`
 }
 
 type ReturnOrderItemRequest struct {
