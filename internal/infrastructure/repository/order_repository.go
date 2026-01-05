@@ -315,33 +315,6 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 	return nil
 }
 
-// // cancellation
-// func (r OrderRepository) CancelOrderItem(ctx context.Context, orderID string, variantID int64) error {
-// 	// update order item status
-// 	query := `UPDATE order_items SET status = $1 WHERE order_id = (SELECT id FROM orders
-// 	WHERE public_order_id = $2) AND product_variant_id = $3`
-// 	_, err := r.DB.Exec(ctx, query, "cancelled", orderID, variantID)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// update order prices
-// 	query = `UPDATE orders SET total_amount = (SELECT SUM(total_price) FROM order_items
-// 	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $1)) WHERE public_order_id = $1`
-// 	_, err = r.DB.Exec(ctx, query, orderID)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// update order status
-// 	query = `UPDATE orders SET status = $1 WHERE public_order_id = $2`
-// 	_, err = r.DB.Exec(ctx, query, "cancelled", orderID)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
-
 func (r OrderRepository) CancelOrder(ctx context.Context, orderID string, reason string, orderItemIDs []int64) error {
 
 	// Start transaction
@@ -832,195 +805,290 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (
 	return &result, nil
 }
 
-func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRefundRequest) error {
+func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRefundRequest) (err error) {
 
-	// start transaction
-	tx, err := r.DB.Begin(ctx)
+	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+
+	// rollback only if an error occurs
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// lock the return request row to prevent concurrent updates
+	var currentStatus string
+	var orderID int64
+
+	query := `
+		SELECT order_id, status
+		FROM order_returns
+		WHERE id = $1
+		FOR UPDATE
+	`
+	if err = tx.QueryRow(ctx, query, req.ReturnID).Scan(&orderID, &currentStatus); err != nil {
+		return err
+	}
+
+	// enforce valid state transitions
+	if currentStatus == "rejected" || currentStatus == "returned" {
+		return apperror.ErrReturnAlreadyProcessed
+	}
 
 	// update return request status
-	query := `UPDATE order_returns SET status = $1
-	 WHERE id = $2`
-	_, err = tx.Exec(ctx, query, req.Status, req.ReturnID)
-	if err != nil {
-		fmt.Println("Failed to update return request status", err)
+	query = `
+		UPDATE order_returns
+		SET status = $1
+		WHERE id = $2
+	`
+	if _, err = tx.Exec(ctx, query, req.Status, req.ReturnID); err != nil {
 		return err
 	}
 
 	// update return items status
-
 	if req.Status == "approved" {
-		query = `UPDATE return_items SET status = $1,approved_at = now()
-		 WHERE return_id = $2`
+		query = `
+			UPDATE return_items
+			SET status = 'approved',
+			    approved_at = now()
+			WHERE return_id = $1
+			  AND status = 'requested'
+		`
 	} else {
-		query = `UPDATE return_items SET status = $1
-		 WHERE return_id = $2`
+		query = `
+			UPDATE return_items
+			SET status = 'rejected'
+			WHERE return_id = $1
+			  AND status = 'requested'
+		`
 	}
-	_, err = tx.Exec(ctx, query, req.Status, req.ReturnID)
-	if err != nil {
-		fmt.Println("Failed to update return items status", err)
+
+	if _, err = tx.Exec(ctx, query, req.ReturnID); err != nil {
 		return err
 	}
 
-	// get order id
-	var orderID int64
-	orderItemIds := []int64{}
-	query = `SELECT order_id FROM order_returns WHERE id = $1`
-	if err := tx.QueryRow(ctx, query, req.ReturnID).Scan(&orderID); err != nil {
-		fmt.Println("Failed to get order id", err)
-		return err
-	}
-
-	query = `SELECT order_item_id FROM return_items WHERE return_id = $1`
+	// fetch affected order items
+	query = `
+		SELECT order_item_id
+		FROM return_items
+		WHERE return_id = $1
+	`
 	rows, err := tx.Query(ctx, query, req.ReturnID)
 	if err != nil {
-		fmt.Println("Failed to get order item ids", err)
 		return err
 	}
 	defer rows.Close()
+
+	orderItemIDs := make([]int64, 0)
 	for rows.Next() {
-		var orderItemID int64
-		if err := rows.Scan(&orderItemID); err != nil {
+		var id int64
+		if err = rows.Scan(&id); err != nil {
 			return err
 		}
-		orderItemIds = append(orderItemIds, orderItemID)
+		orderItemIDs = append(orderItemIDs, id)
 	}
 
+	// update order_items only on approval
 	if req.Status == "approved" {
 
-		// update order items status
-		query = `UPDATE order_items SET return_status = 'approved'
-		 WHERE id = ANY($1)`
-		_, err = tx.Exec(ctx, query, orderItemIds)
-		if err != nil {
-			fmt.Println("Failed to update order items status", err)
+		query = `
+			UPDATE order_items
+			SET return_status = 'approved'
+			WHERE id = ANY($1)
+			  AND return_status IS DISTINCT FROM 'approved'
+		`
+		if _, err = tx.Exec(ctx, query, orderItemIDs); err != nil {
 			return err
 		}
 
-		// update order status
-		query = `UPDATE orders SET return_status = $1
-		 WHERE id = $2`
-		_, err = tx.Exec(ctx, query, "approved", orderID)
-		if err != nil {
-			fmt.Println("Failed to update order status", err)
+		// check if all order items are now returned
+		var remaining int
+		query = `
+			SELECT COUNT(*)
+			FROM order_items
+			WHERE order_id = $1
+			  AND return_status IS DISTINCT FROM 'approved'
+		`
+		if err = tx.QueryRow(ctx, query, orderID).Scan(&remaining); err != nil {
 			return err
 		}
 
+		// update order return_status only if full return
+		if remaining == 0 {
+			query = `
+				UPDATE orders
+				SET return_status = 'approved'
+				WHERE id = $1
+			`
+			if _, err = tx.Exec(ctx, query, orderID); err != nil {
+				return err
+			}
+		}
 	}
 
 	// commit transaction
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-
-	return nil
-
+	return tx.Commit(ctx)
 }
 
-func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.UpdateReturnRefundRequest) error {
+func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.UpdateReturnRefundRequest) (err error) {
 
-	// get user id
-	query := `SELECT user_id FROM order_returns WHERE id = $1`
-	if err := r.DB.QueryRow(ctx, query, req.ReturnID).Scan(&req.UserID); err != nil {
-		fmt.Println("Failed to get user id", err)
-		return err
-	}
-
-	// start transaction
-	tx, err := r.DB.Begin(ctx)
+	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
 
-	// update order returns status
-	query = `UPDATE order_returns SET status = $1
-	 WHERE id = $2 RETURNING order_id`
-	if err := tx.QueryRow(ctx, query, "refunded", req.ReturnID).Scan(&req.RelatedOrder); err != nil {
-		fmt.Println("Failed to update order returns status", err)
+	// rollback only on error
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// lock return request and fetch required data
+	var (
+		currentStatus string
+		userID        int64
+		orderID       int64
+	)
+
+	query := `
+		SELECT user_id, order_id, status
+		FROM order_returns
+		WHERE id = $1
+		FOR UPDATE
+	`
+	if err = tx.QueryRow(ctx, query, req.ReturnID).Scan(&userID, &orderID, &currentStatus); err != nil {
 		return err
 	}
 
-	// update return items status
-	query = `UPDATE return_items SET status = $1
-	 WHERE return_id = $2`
-	_, err = tx.Exec(ctx, query, "refunded", req.ReturnID)
-	if err != nil {
-		fmt.Println("Failed to update return items status", err)
+	// enforce valid refund state
+	if currentStatus != "approved" {
+		return apperror.ErrInvalidReturnState
+	}
+
+	req.UserID = userID
+	req.RelatedOrder = orderID
+
+	// mark return as refunded
+	query = `
+		UPDATE order_returns
+		SET status = 'refunded'
+		WHERE id = $1
+	`
+	if _, err = tx.Exec(ctx, query, req.ReturnID); err != nil {
 		return err
 	}
+
+	// update return items status idempotently
+	query = `
+		UPDATE return_items
+		SET status = 'refunded'
+		WHERE return_id = $1
+		  AND status != 'refunded'
+	`
+	if _, err = tx.Exec(ctx, query, req.ReturnID); err != nil {
+		return err
+	}
+
 	// update order items status
-	query = `UPDATE order_items SET status = $1
-	 WHERE id IN (SELECT order_item_id FROM return_items WHERE return_id = $2)`
-	_, err = tx.Exec(ctx, query, "returned", req.ReturnID)
-	if err != nil {
-		fmt.Println("Failed to update order items status", err)
+	query = `
+		UPDATE order_items
+		SET status = 'returned'
+		WHERE id IN (
+			SELECT order_item_id
+			FROM return_items
+			WHERE return_id = $1
+		)
+		  AND status != 'returned'
+	`
+	if _, err = tx.Exec(ctx, query, req.ReturnID); err != nil {
 		return err
 	}
 
-	// update order status
-
-	// get product variant ids
-	var productVariantIds []int64
-	query = `SELECT product_variant_id FROM order_items oi
-	JOIN return_items ri ON oi.id = ri.order_item_id
-	WHERE ri.return_id = $1`
-	rows, err := tx.Query(ctx, query, req.ReturnID)
-	if err != nil {
-		fmt.Println("Failed to get product variant ids", err)
+	// check if all order items are returned
+	var remaining int
+	query = `
+		SELECT COUNT(*)
+		FROM order_items
+		WHERE order_id = $1
+		  AND status != 'returned'
+	`
+	if err = tx.QueryRow(ctx, query, orderID).Scan(&remaining); err != nil {
 		return err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var productVariantID int64
-		if err := rows.Scan(&productVariantID); err != nil {
+
+	// update order return_status only if full return
+	if remaining == 0 {
+		query = `
+			UPDATE orders
+			SET return_status = 'refunded'
+			WHERE id = $1
+		`
+		if _, err = tx.Exec(ctx, query, orderID); err != nil {
 			return err
 		}
-		productVariantIds = append(productVariantIds, productVariantID)
 	}
 
-	// update stocks of the variants
-
-	// process refund
 	var (
 		walletID      int64
 		balanceBefore float64
-		balanceAfter  float64
 	)
 
-	query = `SELECT id, balance FROM wallets WHERE user_id = $1 FOR UPDATE`
-	if err := tx.QueryRow(ctx, query, req.UserID).Scan(&walletID, &balanceBefore); err != nil {
-		fmt.Println("Failed to get wallet", err)
-		return err
-	}
-	balanceAfter = balanceBefore + req.RefundAmount
-	query = `UPDATE wallets SET balance = $1 WHERE id = $2`
-	_, err = tx.Exec(ctx, query, balanceAfter, walletID)
-	if err != nil {
-		fmt.Println("Failed to update wallet", err)
+	query = `
+		SELECT id, balance
+		FROM wallets
+		WHERE user_id = $1
+		FOR UPDATE
+	`
+	if err = tx.QueryRow(ctx, query, userID).Scan(&walletID, &balanceBefore); err != nil {
 		return err
 	}
 
-	query = `INSERT INTO wallet_transactions (wallet_id, amount,transaction_type, related_order, remarks, balance_before, balance_after) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err = tx.Exec(ctx, query, walletID, req.RefundAmount, "refund", req.RelatedOrder, req.Remarks, balanceBefore, balanceAfter)
-	if err != nil {
-		fmt.Printf("Refund amount : %f, Balance before : %f, Balance after : %f", req.RefundAmount, balanceBefore, balanceAfter)
-		fmt.Println("Failed to update wallet transaction", err)
+	balanceAfter := balanceBefore + req.RefundAmount
+
+	// update wallet balance
+	query = `
+		UPDATE wallets
+		SET balance = $1
+		WHERE id = $2
+	`
+	if _, err = tx.Exec(ctx, query, balanceAfter, walletID); err != nil {
 		return err
 	}
+
+	// record wallet transaction
+	query = `
+		INSERT INTO wallet_transactions (
+			wallet_id,
+			amount,
+			transaction_type,
+			related_order,
+			remarks,
+			balance_before,
+			balance_after
+		)
+		VALUES ($1, $2, 'refund', $3, $4, $5, $6)
+	`
+	if _, err = tx.Exec(
+		ctx,
+		query,
+		walletID,
+		req.RefundAmount,
+		orderID,
+		req.Remarks,
+		balanceBefore,
+		balanceAfter,
+	); err != nil {
+		return err
+	}
+
+	//
 
 	// commit transaction
-	if err := tx.Commit(ctx); err != nil {
-		fmt.Println("Process Return Refund : Failed to commit transaction", err)
-		return err
-	}
-
-	fmt.Println("Process Return Refund : Transaction Committed")
-
-	return nil
+	return tx.Commit(ctx)
 }
 
 // shipment

@@ -289,6 +289,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 		Role:             &user.Role,
 		IsVerified:       user.IsVerified,
 		Status:           &user.Status,
+		ProfilePicture:   user.ProfilePicture,
 		CreatedAt:        &user.CreatedAt,
 		DefaultAddressID: user.DefaultAddressID,
 		Addresses:        addresses,
@@ -316,6 +317,8 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 
 // update user profile
 func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, *apperror.APIError) {
+
+	fmt.Println("profile picture", *req.ProfilePicture)
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {

@@ -71,11 +71,11 @@ func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.Regist
 
 func (repo *UserRepository) GetUser(ctx context.Context, email string) (*domain.User, error) {
 	user := &domain.User{}
-	query := `SELECT id, email, phone, password, first_name, last_name, role,is_verified , status FROM users
+	query := `SELECT id, email, phone, password, first_name, last_name, role,is_verified , status, profile_img_url FROM users
     WHERE status = 'active' AND email = $1;`
 	err := repo.DB.QueryRow(ctx,
 		query, email).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status)
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.ProfilePicture)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperror.ErrUserNotFound
@@ -89,19 +89,19 @@ func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *domain.Google
 	user := &domain.User{}
 
 	// check if user exists with google sub
-	query := `SELECT id, email, COALESCE(phone,''), password, first_name, last_name, role,is_verified , status FROM users
+	query := `SELECT id, email, COALESCE(phone,''), password, first_name, last_name, role,is_verified , status, profile_img_url FROM users
     WHERE status = 'active' AND google_id = $1;`
 	err := repo.DB.QueryRow(ctx, query, req.Sub).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status)
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.ProfilePicture)
 
 	if err == nil {
 		return user, nil
 	}
 	// check if user exists with email
-	query = `SELECT id, email, COALESCE(phone,''), password, first_name, last_name, role,is_verified , status FROM users
+	query = `SELECT id, email, COALESCE(phone,''), password, first_name, last_name, role,is_verified , status, profile_img_url FROM users
     WHERE status = 'active' AND email = $1;`
 	err = repo.DB.QueryRow(ctx, query, req.Email).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status)
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.ProfilePicture)
 	if err == nil {
 		// update user with google sub
 		cmdTag, err := repo.DB.Exec(ctx, `UPDATE users SET google_id = $1 WHERE id = $2`, req.Sub, user.ID)
@@ -114,17 +114,18 @@ func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *domain.Google
 		return user, nil
 	}
 
-	query = `INSERT INTO users (email,first_name, last_name, password,provider, is_verified, google_id)
-    VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, email,first_name,last_name,role,is_verified,status;`
+	query = `INSERT INTO users (email,first_name, last_name, password,provider, is_verified, google_id, profile_img_url)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, email,first_name,last_name,role,is_verified,status;`
 
-	err = repo.DB.QueryRow(ctx, query, req.Email, req.FirstName, req.LastName, "", "google", req.Verified, req.Sub).Scan(
+	err = repo.DB.QueryRow(ctx, query, req.Email, req.FirstName, req.LastName, "", "google", req.Verified, req.Sub, "").Scan(
 		&user.ID,
 		&user.Email,
 		&user.FirstName,
 		&user.LastName,
 		&user.Role,
 		&user.IsVerified,
-		&user.Status)
+		&user.Status,
+		&user.ProfilePicture)
 
 	if err != nil {
 		return nil, err
@@ -134,10 +135,10 @@ func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *domain.Google
 
 func (repo *UserRepository) GetUserByID(ctx context.Context, userID int64) (*domain.User, error) {
 	user := &domain.User{}
-	query := `SELECT id, email, phone, first_name, last_name, role,is_verified , status, created_at, updated_at FROM users
+	query := `SELECT id, email, phone, first_name, last_name, role,is_verified , status, profile_img_url,created_at, updated_at FROM users
     WHERE status = 'active' AND id = $1;`
 	err := repo.DB.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Email, &user.Phone, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt)
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.ProfilePicture, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -150,14 +151,15 @@ func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64,
 	UPDATE users SET
         first_name = COALESCE($1, first_name),
         last_name  = COALESCE($2, last_name),
-        phone      = COALESCE($3, phone)
-    WHERE id = $4
-    RETURNING id, email, first_name, last_name, phone, is_verified, created_at`
+        phone      = COALESCE($3, phone),
+		profile_img_url = COALESCE($4, profile_img_url)
+    WHERE id = $5
+    RETURNING id, email, first_name, last_name, phone, is_verified, created_at, profile_img_url`
 
 	var updatedProfile domain.UserProfile
-	err := repo.DB.QueryRow(ctx, query, req.FirstName, req.LastName, req.Phone, userID).Scan(
+	err := repo.DB.QueryRow(ctx, query, req.FirstName, req.LastName, req.Phone, req.ProfilePicture, userID).Scan(
 		&updatedProfile.ID, &updatedProfile.Email, &updatedProfile.FirstName, &updatedProfile.LastName,
-		&updatedProfile.Phone, &updatedProfile.IsVerified, &updatedProfile.CreatedAt)
+		&updatedProfile.Phone, &updatedProfile.IsVerified, &updatedProfile.CreatedAt, &updatedProfile.ProfilePicture)
 
 	if err != nil {
 		var pgErr *pgconn.PgError

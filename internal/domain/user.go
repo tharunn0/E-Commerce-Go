@@ -52,6 +52,7 @@ type User struct {
 	IsVerified       bool       `json:"isVerified"`
 	Status           string     `json:"status"`
 	DefaultAddressID *int64     `json:"defaultAddressId,omitempty"`
+	ProfilePicture   *string    `json:"profilePicture,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
 	DeletedAt        *time.Time `json:"deletedAt,omitempty"`
@@ -66,6 +67,7 @@ type UserProfile struct {
 	IsVerified       bool       `json:"isVerified"`
 	Status           *string    `json:"status,omitempty"`
 	DefaultAddressID *int64     `json:"defaultAddressId,omitempty"`
+	ProfilePicture   *string    `json:"profilePicture,omitempty"`
 	CreatedAt        *time.Time `json:"createdAt"`
 	UpdatedAt        *time.Time `json:"updatedAt,omitempty"`
 
@@ -168,7 +170,8 @@ type UserStatusUpdateRequest struct {
 	Status string `json:"status" validate:"required,oneof=active inactive"`
 }
 type UpdateUserProfileRequest struct {
-	FirstName *string `json:"firstName" validate:"omitempty"`
-	LastName  *string `json:"lastName" validate:"omitempty"`
-	Phone     *string `json:"phone" validate:"omitempty"`
+	FirstName      *string `json:"first_name,omitempty"`
+	LastName       *string `json:"last_name,omitempty"`
+	Phone          *string `json:"phone,omitempty"`
+	ProfilePicture *string `json:"profile_img_url,omitempty"`
 }

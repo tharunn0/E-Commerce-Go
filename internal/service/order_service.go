@@ -1081,17 +1081,18 @@ func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.R
 }
 
 func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.ReturnOrderRequest) *apperror.APIError {
-	// get userid from context
+
+	// Getting userID from context
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get user ID.",
+			Status:  http.StatusUnauthorized,
+			Code:    "UNAUTHORIZED",
+			Message: "You are not authorized to perform this action.",
 		}
 	}
 
-	// validate request
+	// Basic request validation
 	if req.OrderID == "" {
 		return &apperror.APIError{
 			Status:  http.StatusBadRequest,
@@ -1100,6 +1101,7 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 		}
 	}
 
+	// Reason validation
 	if req.Reason == "" || len(req.Reason) < 5 {
 		return &apperror.APIError{
 			Status:  http.StatusBadRequest,
@@ -1108,7 +1110,7 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 		}
 	}
 
-	// fetch order
+	// Fetching order with user
 	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
@@ -1126,6 +1128,7 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 		}
 	}
 
+	// Converting status to string
 	strStatus := strings.ToUpper(string(order.Status))
 
 	if strStatus != string(domain.OrderStatusDelivered) {
@@ -1136,13 +1139,12 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 		}
 	}
 
-	// update order status
 	if err := s.orderRepo.ReturnOrderRequest(ctx, req.OrderID, userID, req.Reason); err != nil {
-		s.log.Error("Failed to update order status", zap.Error(err))
+		s.log.Error("Failed to create return request", zap.Error(err))
 		return &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
-			Message: "Failed to update order status.",
+			Message: "Failed to create return request.",
 		}
 	}
 
@@ -1173,18 +1175,15 @@ func (s *OrderService) GetReturnRequest(ctx context.Context, returnID int64) (*d
 
 func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRefundRequest) (*domain.FullReturnResponse, *apperror.APIError) {
 
-	// validate incoming status
-
 	if req.Status != "approved" && req.Status != "rejected" {
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "INVALID_STATUS",
-			Message: "Return request not verified yet",
+			Message: "Please provide a valid status.",
 		}
 	}
 
-	// fetch return request
-
+	// Fetching return request
 	returnRequest, err := s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
 	if err != nil {
 		return nil, &apperror.APIError{
@@ -1194,17 +1193,18 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 		}
 	}
 
-	// check if return request is already processed
-
+	// Current return status check
 	returnStatus := returnRequest.Status
 
 	switch returnStatus {
+
 	case "returned":
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "RETURN_ALREADY_RETURNED",
 			Message: "Return has been already returned",
 		}
+
 	case "rejected":
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
@@ -1213,8 +1213,7 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 		}
 	}
 
-	// update return request status
-
+	// Updating return request status
 	if err := s.orderRepo.UpdateReturnRequestStatus(ctx, req); err != nil {
 		s.log.Error("Failed to update return request status", zap.Error(err))
 		return nil, &apperror.APIError{
@@ -1224,7 +1223,6 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 		}
 	}
 
-	// get update return request
 	returnRequest, err = s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
 	if err != nil {
 		s.log.Error("Failed to get return request", zap.Error(err))
@@ -1238,9 +1236,12 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 	return returnRequest, nil
 }
 
-func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *domain.UpdateReturnRefundRequest) (*domain.FullReturnResponse, *apperror.APIError) {
+func (s *OrderService) ProcessReturnRefundRequest(
+	ctx context.Context,
+	req *domain.UpdateReturnRefundRequest,
+) (*domain.FullReturnResponse, *apperror.APIError) {
 
-	// get the return request
+	// Fetching the return request
 	returnRequest, err := s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
 	if err != nil {
 		return nil, &apperror.APIError{
@@ -1250,22 +1251,22 @@ func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *doma
 		}
 	}
 
-	fmt.Println("Return request status: ", returnRequest.Status)
-
-	// check if refund is already processed
 	switch returnRequest.Status {
+
 	case "rejected":
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "INVALID_STATUS",
 			Message: "Return has been already rejected",
 		}
+
 	case "requested":
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "INVALID_STATUS",
 			Message: "Return has not been verified yet",
 		}
+
 	case "refunded":
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
@@ -1274,10 +1275,7 @@ func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *doma
 		}
 	}
 
-	// process refund
-
 	req.RefundAmount = returnRequest.TotalRefundValue
-
 	if err := s.orderRepo.ProcessReturnRefund(ctx, req); err != nil {
 		s.log.Error("Failed to process return refund request", zap.Error(err))
 		return nil, &apperror.APIError{
@@ -1287,7 +1285,6 @@ func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *doma
 		}
 	}
 
-	// get update return request
 	returnRequest, err = s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
 	if err != nil {
 		s.log.Error("Failed to get return request", zap.Error(err))

@@ -74,6 +74,8 @@ var (
 	ErrPaymentCreateFail = errors.New("Payment creation failed")
 	ErrPaymentNotFound   = errors.New("Payment not found")
 
-	ErrReturnRequestNotFound = errors.New("Return request not found")
-	ErrReturnItemNotFound    = errors.New("Return item not found")
+	ErrReturnRequestNotFound  = errors.New("Return request not found")
+	ErrReturnItemNotFound     = errors.New("Return item not found")
+	ErrReturnAlreadyProcessed = errors.New("Return has been already processed")
+	ErrInvalidReturnState     = errors.New("Invalid return state")
 )
