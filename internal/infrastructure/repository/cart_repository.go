@@ -42,6 +42,17 @@ func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, product
 		}
 	}()
 
+	// check if enough stock is available
+	query = `SELECT stock FROM product_variants WHERE id = $1`
+	var stock int64
+	err = repo.DB.QueryRow(ctx, query, productVariantID).Scan(&stock)
+	if err != nil {
+		return nil, err
+	}
+	if stock < addQty {
+		return nil, apperror.ErrNotEnoughStock
+	}
+
 	// insert or update cart item
 	query = `
 		INSERT INTO cart_items (cart_id, product_variant_id, quantity)

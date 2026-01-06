@@ -47,8 +47,9 @@ var (
 	ErrQuantityExceeded       = errors.New("Quantity exceeded. Max 5 items allowed per variant")
 
 	// Product variant-related errors
-	ErrNoStock  = errors.New("No stock available")
-	ErrLowStock = errors.New("Stock is low")
+	ErrNoStock        = errors.New("No stock available")
+	ErrLowStock       = errors.New("Stock is low")
+	ErrNotEnoughStock = errors.New("Not enough stock")
 
 	// Wishlist-related errors
 	ErrWishlistNotFound          = errors.New("Wishlist not found")

@@ -481,6 +481,13 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	// 14. create order && update stock
 	if err := s.orderRepo.CreateOrder(ctx, orderData); err != nil {
 		s.log.Error("Failed to create order", zap.Error(err))
+		if err == apperror.ErrNotEnoughStock {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusConflict,
+				Code:    "NOT_ENOUGH_STOCK",
+				Message: "Not enough stock.",
+			}
+		}
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",

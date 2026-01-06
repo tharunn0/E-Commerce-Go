@@ -55,6 +55,13 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 				Message: apperror.ErrQuantityExceeded.Error(),
 			}
 		}
+		if err == apperror.ErrNotEnoughStock {
+			return nil, &apperror.APIError{
+				Status:  http.StatusConflict,
+				Code:    "NOT_ENOUGH_STOCK",
+				Message: "Not enough stock.",
+			}
+		}
 		s.log.Error("failed to add to cart", zap.String("function", "AddToCart"), zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,

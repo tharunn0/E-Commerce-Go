@@ -24,6 +24,8 @@ func NewOrderRepository(db *pgxpool.Pool) OrderRepository {
 
 func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrderData) error {
 
+	var query string
+
 	// begin transaction
 	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -31,12 +33,25 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 		return err
 	}
 
-	// ensure rollback on error
+	// rollback on error
 	defer tx.Rollback(ctx)
+
+	// check if enough stock is available
+	for _, item := range data.Items {
+		query = `SELECT stock FROM product_variants WHERE id = $1`
+		var stock int64
+		err = r.DB.QueryRow(ctx, query, item.ProductVariantID).Scan(&stock)
+		if err != nil {
+			return err
+		}
+		if stock < item.Quantity {
+			return apperror.ErrNotEnoughStock
+		}
+	}
 
 	var internalOrderID int64
 	// insert into orders
-	query := `INSERT INTO orders (user_id, public_order_id, total_amount, tax_amount, shipping_address_id, billing_address_id,estimated_delivery_date,status)
+	query = `INSERT INTO orders (user_id, public_order_id, total_amount, tax_amount, shipping_address_id, billing_address_id,estimated_delivery_date,status)
 	VALUES ($1, $2, $3, $4, $5, $6,$7,$8) RETURNING id`
 	err = tx.QueryRow(ctx, query, data.UserID, data.OrderID, data.TotalAmount, data.TaxAmount,
 		data.ShippingAddressID, data.BillingAddressID, data.EstimatedDeliveryDate, strings.ToLower(string(data.Status))).Scan(&internalOrderID)
@@ -180,6 +195,11 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, u
 		items = append(items, item)
 	}
 	order.Items = items
+
+	// change payment_status to refunded if order status is returned
+	if order.ReturnStatus != nil && *order.ReturnStatus == "returned" {
+		order.PaymentStatus = "refunded"
+	}
 
 	// order.Subtotal = order.TotalAmount - order.TaxAmount
 	return &order, nil
@@ -724,7 +744,7 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (
             r.created_at,
             COUNT(ri.id) AS total_items,
             COALESCE(SUM(ri.quantity), 0) AS total_quantity,
-            COALESCE(SUM(ri.order_item_price * ri.quantity), 0) AS total_refundable_amount
+            COALESCE(SUM(ri.order_item_price), 0) AS total_refundable_amount
         FROM order_returns r
         LEFT JOIN users u ON r.user_id = u.id 
         LEFT JOIN return_items ri ON ri.return_id = r.id
@@ -755,7 +775,7 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (
 
 	// Items query: fetch all return items
 	itemsQuery := `
-        SELECT 
+        SELECT DISTINCT ON (ri.id)
             ri.order_item_id AS "ItemOrderID",
             oi.product_name_at_purchase AS "ProductName",
             oi.sku_at_purchase AS "SKU",
@@ -768,8 +788,8 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (
             ri.approved_at AS "ApprovedAt"
         FROM return_items ri
         JOIN order_items oi ON ri.order_item_id = oi.id
-		JOIN product_variants pv ON oi.product_variant_id = pv.id
-		JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
+		LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
+		LEFT JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
         WHERE ri.return_id = $1
         ORDER BY ri.id`
 
@@ -972,22 +992,22 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 	req.UserID = userID
 	req.RelatedOrder = orderID
 
-	// mark return as refunded
+	// mark return as returned
 	query = `
 		UPDATE order_returns
-		SET status = 'refunded'
+		SET status = 'returned'
 		WHERE id = $1
 	`
 	if _, err = tx.Exec(ctx, query, req.ReturnID); err != nil {
 		return err
 	}
 
-	// update return items status idempotently
+	// update return items status idempotently (only for approved items)
 	query = `
 		UPDATE return_items
-		SET status = 'refunded'
+		SET status = 'returned'
 		WHERE return_id = $1
-		  AND status != 'refunded'
+		  AND status = 'approved'
 	`
 	if _, err = tx.Exec(ctx, query, req.ReturnID); err != nil {
 		return err
@@ -1001,6 +1021,7 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 			SELECT order_item_id
 			FROM return_items
 			WHERE return_id = $1
+			  AND status = 'returned'
 		)
 		  AND status != 'returned'
 	`
@@ -1024,7 +1045,7 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 	if remaining == 0 {
 		query = `
 			UPDATE orders
-			SET return_status = 'refunded'
+			SET return_status = 'returned'
 			WHERE id = $1
 		`
 		if _, err = tx.Exec(ctx, query, orderID); err != nil {
@@ -1084,6 +1105,25 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 	); err != nil {
 		return err
 	}
+
+	// Restock approved items
+	restockQuery := `
+		UPDATE product_variants pv
+		SET stock = pv.stock + ri.quantity
+		FROM return_items ri
+		JOIN order_items oi ON ri.order_item_id = oi.id
+		WHERE ri.return_id = $1
+		  AND oi.product_variant_id = pv.id
+		  AND ri.status = 'returned'
+	`
+	cmdTag, err := tx.Exec(ctx, restockQuery, req.ReturnID)
+	if err != nil {
+		return fmt.Errorf("failed to restock items: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("no items to restock")
+	}
+	fmt.Println("Restocked items:", cmdTag.RowsAffected())
 
 	//
 
