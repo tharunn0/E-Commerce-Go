@@ -419,3 +419,32 @@ CREATE TABLE refresh_tokens (
     issued_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     expiry_at TIMESTAMPTZ NOT NULL
 );
+
+-- Main offer details
+CREATE TABLE offers (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('fixed', 'percentage')),
+    discount_value NUMERIC(10,2) NOT NULL CHECK (discount_value >= 0),
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Links an offer to specific products
+CREATE TABLE product_offers (
+    id BIGSERIAL PRIMARY KEY,
+    offer_id BIGINT REFERENCES offers(id) ON DELETE CASCADE,
+    product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE(offer_id, product_id)
+);
+
+-- Links an offer to specific categories
+CREATE TABLE category_offers (
+    id BIGSERIAL PRIMARY KEY,
+    offer_id BIGINT REFERENCES offers(id) ON DELETE CASCADE,
+    category_id BIGINT REFERENCES categories(id) ON DELETE CASCADE,
+    UNIQUE(offer_id, category_id)
+);
