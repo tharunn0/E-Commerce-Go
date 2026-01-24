@@ -17,10 +17,11 @@ type Handler struct {
 	Wishlist *handler.WishlistHandler
 	Order    *handler.OrderHandler
 	Payment  *handler.PaymentHandler
+	Offer    *handler.OfferHandler
 }
 
 func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler,
-	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler, orderh *handler.OrderHandler, paymenth *handler.PaymentHandler) *Handler {
+	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler, orderh *handler.OrderHandler, paymenth *handler.PaymentHandler, offerh *handler.OfferHandler) *Handler {
 	return &Handler{
 		User:     userh,
 		Admin:    adminh,
@@ -30,6 +31,7 @@ func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, catego
 		Wishlist: wishlisth,
 		Order:    orderh,
 		Payment:  paymenth,
+		Offer:    offerh,
 	}
 }
 
@@ -216,8 +218,20 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		// payment routes
 		paymentRoute := g.Group("api/v1/payments")
 		paymentProtectedRoute := paymentRoute.Group("/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
-		paymentProtectedRoute.POST("/simulate", h.Payment.SimulatePayment)
-		paymentProtectedRoute.POST("/verify", h.Payment.VerifyPayment)
+		paymentProtectedRoute.POST("/razorpay/payment-link", h.Payment.CreatePaymentLink)
+		// paymentProtectedRoute.POST("/simulate", h.Payment.SimulatePayment)
+		// paymentProtectedRoute.POST("/verify", h.Payment.VerifyPayment)
+
+		paymentOpenRoute := paymentRoute.Group("/")
+		paymentOpenRoute.POST("/razorpay/webhook", h.Payment.Webhook)
 	}
+
+	// offer routes
+	offerAdminRoute := g.Group("api/v1/admin/offers").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+	offerAdminRoute.POST("/", h.Offer.CreateOffer)
+	// offerAdminRoute.GET("/", h.Offer.GetOffers)
+	// offerAdminRoute.GET("/:id", h.Offer.GetOfferByID)
+	// offerAdminRoute.PUT("/:id", h.Offer.UpdateOffer)
+	// offerAdminRoute.DELETE("/:id", h.Offer.DeleteOffer)
 
 }

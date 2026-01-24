@@ -30,7 +30,7 @@ func (h *WishlistHandler) AddToWishlist(c *gin.Context) {
 
 	wishlist, err := h.serv.AddToWishlist(ctx, req.ProductID)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Code, "message": err.Message})
+		c.JSON(err.Status, gin.H{"error": err.Code, "message": err.Message})
 		return
 	}
 

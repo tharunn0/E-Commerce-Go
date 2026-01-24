@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -26,14 +27,24 @@ func (s *WishlistService) AddToWishlist(ctx context.Context, productID int64) (*
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "INVALID_USER",
 			Message: "Failed to retreive user id from context",
 		}
 	}
 	if userID == 0 {
 		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
 			Code:    "INVALID_USER",
 			Message: "Invalid user ID",
+		}
+	}
+
+	if productID <= 0 {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_PRODUCT",
+			Message: "Invalid product ID",
 		}
 	}
 
@@ -41,29 +52,35 @@ func (s *WishlistService) AddToWishlist(ctx context.Context, productID int64) (*
 	if err != nil {
 		if err == apperror.ErrWishlistItemAlreadyExists {
 			return nil, &apperror.APIError{
+				Status:  http.StatusConflict,
 				Code:    "WISHLIST_ALREADY_EXISTS",
 				Message: "Product is already in wishlist",
 			}
 		}
 		s.log.Error("Failed to add to wishlist", zap.String("service-func", "WishlistService.AddToWishlist"), zap.Error(err))
 		return nil, &apperror.APIError{
-			Code:    "DB_ERROR",
-			Message: "Failed to add to wishlist",
+			Status:  http.StatusNotFound,
+			Code:    "INVALID_PRODUCT_ID",
+			Message: "Item not found",
 		}
 	}
 
 	if wishlistId == 0 {
 		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
 			Code:    "WISHLIST_ERROR",
 			Message: "Failed to get wishlist ID",
 		}
 	}
 
+	var _ domain.Wishlist
+
 	wishlist, err := s.repo.GetWishlistByID(ctx, wishlistId)
 	if err != nil {
 		s.log.Error("Failed to retrieve wishlist", zap.String("service-func", "WishlistService.AddToWishlist"), zap.Error(err))
 		return nil, &apperror.APIError{
-			Code:    "DB_ERROR",
+			Status:  http.StatusNotFound,
+			Code:    "WISHLIST_ERROR",
 			Message: "Failed to retrieve wishlist",
 		}
 	}

@@ -129,7 +129,7 @@ type ProductResponse struct {
 	IsDigital   bool                     `json:"is_digital"`
 	IsActive    *bool                    `json:"is_active,omitempty"`
 	ImageURL    string                   `json:"image_url"`
-	Rating      float64                  `json:"rating"`
+	Rating      *float64                 `json:"rating,omitempty"`
 	Reviews     []*Review                `json:"review,omitempty"`
 	CreatedAt   *time.Time               `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time               `json:"updated_at,omitempty"`

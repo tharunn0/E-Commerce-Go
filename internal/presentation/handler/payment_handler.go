@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -26,6 +29,57 @@ func NewPaymentHandler(orderService *service.OrderService, razorpayCfg config.Ra
 		logger:         logger,
 		razorpayClient: razorpayClient,
 	}
+}
+
+func (h *PaymentHandler) CreatePaymentLink(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	type Request struct {
+		InternalOrderID string `json:"internal_order_id"`
+	}
+
+	var req Request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request"})
+		return
+	}
+
+	order, apierr := h.orderService.GetOrderByID(ctx, req.InternalOrderID)
+	if apierr != nil {
+		c.JSON(400, gin.H{"error": "invalid order"})
+		return
+	}
+
+	data := map[string]any{
+		"amount":   order.TotalAmount * 100,
+		"currency": "INR",
+	}
+
+	res, err := h.razorpayClient.PaymentLink.Create(data, nil)
+	if err != nil {
+		h.logger.Error("failed to create payment link", zap.Error(err))
+		c.JSON(400, gin.H{"error": "failed to create payment link"})
+		return
+	}
+
+	fmt.Println(res)
+
+	c.JSON(200, gin.H{"msg": res})
+}
+
+func (h *PaymentHandler) Webhook(c *gin.Context) {
+
+	h.logger.Info("webhook request received")
+
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		h.logger.Error("failed to read request body", zap.Error(err))
+		c.JSON(400, gin.H{"error": "failed to read request body"})
+		return
+	}
+
+	h.logger.Info("request body", zap.String("body", string(body)))
 }
 
 func (h *PaymentHandler) SimulatePayment(c *gin.Context) {
