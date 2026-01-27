@@ -58,8 +58,9 @@ type SecuritySettings struct {
 }
 
 type RazorpaySettings struct {
-	KeyID     string
-	KeySecret string
+	KeyID         string
+	KeySecret     string
+	WebhookSecret string
 }
 
 func LoadConfig() *AppConfig {
@@ -107,8 +108,9 @@ func LoadConfig() *AppConfig {
 		},
 
 		Razorpay: RazorpaySettings{
-			KeyID:     getEnv("RAZORPAY_ID", ""),
-			KeySecret: getEnv("RAZORPAY_SECRET", ""),
+			KeyID:         getEnv("RAZORPAY_ID", ""),
+			KeySecret:     getEnv("RAZORPAY_SECRET", ""),
+			WebhookSecret: getEnv("RAZORPAY_WEBHOOK_SECRET", ""),
 		},
 	}
 }

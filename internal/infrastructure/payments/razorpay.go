@@ -45,3 +45,24 @@ func GenerateRazorpaySignature(orderID, razorpayTestSecret, paymentID string) st
 	mac.Write([]byte(orderID + "|" + paymentID))
 	return hex.EncodeToString(mac.Sum(nil))
 }
+
+func VerifyRazorpaySignature(body []byte, signature string, webhookSecret string) bool {
+
+	mac := hmac.New(sha256.New, []byte(webhookSecret))
+	mac.Write(body)
+
+	expectedSig := hex.EncodeToString(mac.Sum(nil))
+
+	return hmac.Equal([]byte(signature), []byte(expectedSig))
+}
+
+// mac := hmac.New(sha256.New, []byte(h.razorpayCfg.WebhookSecret))
+// 	mac.Write(body)
+
+// 	expectedSignature := hex.EncodeToString(mac.Sum(nil))
+
+// 	if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
+// 		h.logger.Error("invalid signature")
+// 		c.JSON(400, gin.H{"error": "invalid signature"})
+// 		return
+// 	}

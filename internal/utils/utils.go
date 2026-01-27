@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	mrand "math/rand"
@@ -296,4 +297,12 @@ func IsValueValid(value string, values []string) bool {
 		}
 	}
 	return false
+}
+
+func MapToStruct(m map[string]any, out any) error {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, out)
 }

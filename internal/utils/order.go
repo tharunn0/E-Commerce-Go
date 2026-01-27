@@ -28,3 +28,18 @@ func ValidateOrderItemsStock(variantMap map[int64]domain.VariantInfo, cart *doma
 	}
 	return nil
 }
+
+func CalculateOrderTotalAmount(order *domain.OrderResponse) *domain.OrderResponse {
+	deductableAmount := 0.0
+	for _, v := range order.Items {
+		if v.Status == "cancelled" {
+			deductableAmount += v.TotalPrice
+		}
+	}
+
+	order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
+	order.TotalAmount = order.Subtotal + order.TaxAmount + order.ShippingCost
+	order.PayableAmount = order.Subtotal + order.TaxAmount + order.ShippingCost - deductableAmount
+
+	return order
+}

@@ -512,14 +512,12 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	payment := &domain.Payment{
-		OrderID:    orderID,
-		UserID:     userID,
-		Amount:     int64(totalAmount) * 100,
-		Currency:   "INR",
-		Provider:   req.PaymentMethod,
-		Status:     paymentResp.Status,
-		GatewayRef: paymentResp.GatewayRef,
-		PaymentURL: paymentResp.PaymentURL,
+		OrderID:  orderID,
+		UserID:   userID,
+		Amount:   int64(totalAmount) * 100,
+		Currency: "INR",
+		Provider: req.PaymentMethod,
+		Status:   paymentResp.Status,
 	}
 
 	if err := s.paymentRepo.CreatePayment(ctx, payment); err != nil {
@@ -674,16 +672,19 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domai
 		}
 	}
 
-	deductableAmount := 0.0
-	for _, v := range order.Items {
-		if v.Status == "cancelled" {
-			deductableAmount += v.TotalPrice
-		}
-	}
+	// deductableAmount := 0.0
+	// for _, v := range order.Items {
+	// 	if v.Status == "cancelled" {
+	// 		deductableAmount += v.TotalPrice
+	// 	}
+	// }
 
-	order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
-	order.TotalAmount = order.Subtotal + order.TaxAmount + order.ShippingCost
-	order.PayableAmount = order.Subtotal + order.TaxAmount + order.ShippingCost - deductableAmount
+	// order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
+	// order.TotalAmount = order.Subtotal + order.TaxAmount + order.ShippingCost
+	// order.PayableAmount = order.Subtotal + order.TaxAmount + order.ShippingCost - deductableAmount
+
+	order = utils.CalculateOrderTotalAmount(order)
+
 	return order, nil
 }
 
@@ -1243,10 +1244,7 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 	return returnRequest, nil
 }
 
-func (s *OrderService) ProcessReturnRefundRequest(
-	ctx context.Context,
-	req *domain.UpdateReturnRefundRequest,
-) (*domain.FullReturnResponse, *apperror.APIError) {
+func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *domain.UpdateReturnRefundRequest) (*domain.FullReturnResponse, *apperror.APIError) {
 
 	// Fetching the return request
 	returnRequest, err := s.orderRepo.GetReturnRequest(ctx, req.ReturnID)

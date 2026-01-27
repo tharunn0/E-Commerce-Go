@@ -62,6 +62,7 @@ func main() {
 	cartServ := service.NewCartService(cartRepo, productRepo, log)
 	wishlistServ := service.NewWishlistService(wishlistRepo, log)
 	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, paymentRepo, razorpayClient, log)
+	paymentServ := service.NewPaymentService(orderRepo, paymentRepo, userRepo, razorpayClient, log)
 	offerServ := service.NewOfferService(offerRepo, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
@@ -71,7 +72,7 @@ func main() {
 	cartHandler := handler.NewCartHandler(cartServ, log)
 	wishlistHandler := handler.NewWishlistHandler(wishlistServ, log)
 	orderHandler := handler.NewOrderHandler(orderServ, log)
-	paymentHandler := handler.NewPaymentHandler(orderServ, cfg.Razorpay, log, razorpayClient)
+	paymentHandler := handler.NewPaymentHandler(orderServ, paymentServ, cfg.Razorpay, log, razorpayClient)
 	offerHandler := handler.NewOfferHandler(offerServ, log)
 
 	r := gin.New()
