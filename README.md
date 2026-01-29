@@ -39,3 +39,52 @@ A full-featured **E-Commerce Backend API** built using **Golang**, designed for 
 - **API Type:** RESTful API
 
 ---
+
+## 📦 Order & Post-Checkout Features
+
+### 🧾 Order Management
+- Order Creation from:
+  - Cart
+  - Direct Product Variant Checkout
+- Order Status Lifecycle Tracking
+- Order Item–level breakdown
+- User & Admin Order Views
+- Support for:
+  - Full Order Cancellation
+  - Partial Order Cancellation (per item)
+
+---
+
+### 🔄 Returns & Refunds
+- Order Return Requests
+- Full & Partial Returns
+- Refund Initiation & Processing
+- Refund Status Tracking
+- Refunds mapped to original payment method
+- Separate flows for:
+  - COD Refunds
+  - Online Payment Refunds
+
+---
+
+### 💳 Payments & Checkout Enhancements
+- Cash on Delivery (COD)
+- Razorpay Payment Gateway Integration
+  - Payment Link Creation
+  - Payment Capture & Verification
+  - Webhook Handling
+  - Secure Signature Validation
+- Payment Status Tracking
+- Safe Order Confirmation after Payment Success
+- Handling Payment Failures & Retries
+
+---
+
+### 🧠 Business Logic Enhancements
+- Transaction-safe Order & Payment Processing
+- Inventory Validation during Checkout
+- Item-level price calculation
+- Idempotent Payment & Webhook APIs
+- Support for real-world checkout edge cases
+
+---
