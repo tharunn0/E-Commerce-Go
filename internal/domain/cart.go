@@ -34,6 +34,8 @@ type Cart struct {
 
 type CartItem struct {
 	ProductVariantID int64          `json:"product_variant_id"`
+	ProductID        int64          `json:"product_id"`
+	CategoryID       int64          `json:"category_id"`
 	ProductName      string         `json:"product_name"`
 	SKU              string         `json:"sku"`
 	OriginalPrice    float64        `json:"original_price"`

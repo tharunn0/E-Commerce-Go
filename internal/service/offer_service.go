@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -20,8 +19,6 @@ func NewOfferService(repo domain.OfferRepository, log *zap.Logger) *OfferService
 }
 
 func (s *OfferService) CreateOffer(ctx context.Context, req *domain.CreateOfferRequest) *apperror.APIError {
-
-	fmt.Println("Create offer called")
 
 	// validate scopes
 
@@ -96,6 +93,13 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *domain.CreateOfferR
 	err := s.repo.CreateOffer(ctx, req)
 	if err != nil {
 		s.log.Error("Failed to create offer", zap.Error(err))
+		if err == apperror.ErrProductDoesNotExist {
+			return &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: "Scope ids not found",
+			}
+		}
 		return &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "DB_ERROR",
@@ -104,4 +108,30 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *domain.CreateOfferR
 	}
 
 	return nil
+}
+
+func (s *OfferService) GetAllProductOffers(ctx context.Context) ([]*domain.Offer, *apperror.APIError) {
+	offers, err := s.repo.GetAllProductOffers(ctx)
+	if err != nil {
+		s.log.Error("Failed to get product offers", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get product offers",
+		}
+	}
+	return offers, nil
+}
+
+func (s *OfferService) GetAllCategoryOffers(ctx context.Context) ([]*domain.Offer, *apperror.APIError) {
+	offers, err := s.repo.GetAllCategoryOffers(ctx)
+	if err != nil {
+		s.log.Error("Failed to get category offers", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get category offers",
+		}
+	}
+	return offers, nil
 }

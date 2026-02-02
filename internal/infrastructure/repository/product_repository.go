@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 )
 
@@ -217,6 +220,8 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		products = append(products, &p)
 	}
 
+	total = int64(len(products))
+
 	return products, total, nil
 }
 
@@ -237,6 +242,10 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 	err := repo.DB.QueryRow(ctx, query, id).Scan(&p.ID, &p.Name, &b.ID, &b.Name, &p.Description, &c.ID, &c.Name,
 		&p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, apperror.ErrProductDoesNotExist
+		}
+		log.Println("Failed to get product by id", "[id : ", id, "] [error : ", err, "]")
 		return nil, err
 	}
 	p.Brand = &b

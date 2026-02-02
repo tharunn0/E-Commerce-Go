@@ -7,41 +7,51 @@ import (
 
 type OfferRepository interface {
 	CreateOffer(ctx context.Context, req *CreateOfferRequest) error
+
+	GetAllCategoryOffers(ctx context.Context) ([]*Offer, error)
+	GetAllProductOffers(ctx context.Context) ([]*Offer, error)
+	GetCategoryOffers(ctx context.Context, ids []int64) ([]*Offer, error)
+	GetProductOffers(ctx context.Context, ids []int64) ([]*Offer, error)
+	// GetOfferByID(ctx context.Context, id int64) (*Offer, error)
+	// GetAllOffers(ctx context.Context) ([]Offer, error)
 }
 
 type Offer struct {
 	ID            int64     `json:"id"`
-	Name          string    `json:"name" binding:"required"`
+	Name          string    `json:"name"`
 	Description   string    `json:"description"`
-	DiscountType  string    `json:"discount_type" binding:"required,oneof=fixed percentage"`
-	DiscountValue float64   `json:"discount_value" binding:"required,gte=0"`
-	StartDate     time.Time `json:"start_date" binding:"required"`
-	EndDate       time.Time `json:"end_date" binding:"required"`
+	DiscountType  string    `json:"discount_type"`
+	DiscountValue float64   `json:"discount_value"`
+	StartDate     time.Time `json:"start_date"`
+	EndDate       time.Time `json:"end_date"`
 	IsActive      bool      `json:"is_active"`
 	CreatedAt     time.Time `json:"created_at"`
+
+	Scope       string  `json:"scope"` // product or category
+	EligibleIds []int64 `json:"eligible_ids"`
 }
 
 type ProductOffer struct {
 	ID        int64 `json:"id"`
-	OfferID   int64 `json:"offer_id" binding:"required"`
-	ProductID int64 `json:"product_id" binding:"required"`
+	OfferID   int64 `json:"offer_id"`
+	ProductID int64 `json:"product_id"`
 }
 
 type CategoryOffer struct {
 	ID         int64 `json:"id"`
-	OfferID    int64 `json:"offer_id" binding:"required"`
-	CategoryID int64 `json:"category_id" binding:"required"`
+	OfferID    int64 `json:"offer_id"`
+	CategoryID int64 `json:"category_id"`
 }
 
 type CreateOfferRequest struct {
-	Name        string `json:"name" binding:"required"`
+	Name        string `json:"name"`
 	Description string `json:"description"`
 
-	DiscountType  string    `json:"discount_type" binding:"required,oneof=fixed percentage"`
-	DiscountValue float64   `json:"discount_value" binding:"required,gte=0"`
-	StartDate     time.Time `json:"start_date" binding:"required"`
-	EndDate       time.Time `json:"end_date" binding:"required"`
+	DiscountType  string    `json:"discount_type"`
+	DiscountValue float64   `json:"discount_value"`
+	StartDate     time.Time `json:"start_date"`
+	EndDate       time.Time `json:"end_date"`
 
 	Scope    string  `json:"scope"`
-	ScopeIDs []int64 `json:"scope_ids" binding:"required"`
+	ScopeIDs []int64 `json:"scope_ids"`
 }

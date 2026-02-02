@@ -2,7 +2,7 @@ package domain
 
 import "time"
 
-type ProductVariant struct {
+type ProductVariant struct { // update product variant
 	ID            int64     `json:"id"`
 	ProductID     int64     `json:"product_id"`
 	SKU           string    `json:"sku"`
@@ -15,6 +15,30 @@ type ProductVariant struct {
 	VariantImages     []ProductVariantImage `json:"variant_images"`
 	VariantAttributes []VariantAttribute    `json:"variant_attributes,omitempty"`
 }
+
+type ProductVariantResponse struct { // get variant by id, create variant resposne
+	ID            int64                    `json:"id"`
+	BaseProduct   *BaseProduct             `json:"base_product,omitempty"`
+	SKU           string                   `json:"sku"`
+	OriginalPrice float64                  `json:"original_price"`
+	SalePrice     *float64                 `json:"sale_price"`
+	Stock         int                      `json:"stock"`
+	VariantImages []string                 `json:"variant_images"`
+	Attributes    []AttributeValueResponse `json:"attributes"`
+	CreatedAt     time.Time                `json:"created_at"`
+}
+type VariantBaseResponse struct { // get variants by product id
+	ID            int64                    `json:"id"`
+	SKU           string                   `json:"sku"`
+	OriginalPrice float64                  `json:"original_price"`
+	SalePrice     *float64                 `json:"sale_price"`
+	Stock         int                      `json:"stock"`
+	IsActive      bool                     `json:"is_active"`
+	Images        []string                 `json:"images"`
+	Attributes    []AttributeValueResponse `json:"attributes"`
+	CreatedAt     time.Time                `json:"created_at"`
+}
+
 type ProductVariantImage struct {
 	ID               int64     `json:"id"`
 	ProductVariantID int64     `json:"product_variant_id"`
@@ -57,18 +81,6 @@ type VariantStatusRequest struct {
 	Status bool `json:"is_active"`
 }
 
-type ProductVariantResponse struct {
-	ID            int64                    `json:"id"`
-	BaseProduct   BaseProduct              `json:"base_product"`
-	SKU           string                   `json:"sku"`
-	OriginalPrice float64                  `json:"original_price"`
-	SalePrice     *float64                 `json:"sale_price"`
-	Stock         int                      `json:"stock"`
-	VariantImages []string                 `json:"variant_images"`
-	Attributes    []AttributeValueResponse `json:"attributes"`
-	CreatedAt     time.Time                `json:"created_at"`
-}
-
 type AttributeValueResponse struct {
 	ID        int64  `json:"id"`
 	Attribute string `json:"attribute"`
@@ -79,18 +91,6 @@ type BaseProduct struct {
 	ID    int64                `json:"id"`
 	Name  string               `json:"name"`
 	Brand ProductBrandResponse `json:"brand"`
-}
-
-type VariantBaseResponse struct {
-	ID            int64                    `json:"id"`
-	SKU           string                   `json:"sku"`
-	OriginalPrice float64                  `json:"original_price"`
-	SalePrice     *float64                 `json:"sale_price"`
-	Stock         int                      `json:"stock"`
-	IsActive      bool                     `json:"is_active"`
-	Images        []string                 `json:"images"`
-	Attributes    []AttributeValueResponse `json:"attributes"`
-	CreatedAt     time.Time                `json:"created_at"`
 }
 
 type ProductVariantBaseResponse struct {

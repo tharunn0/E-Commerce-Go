@@ -89,7 +89,14 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 
 	res, err := s.razorpayClient.PaymentLink.Create(data, nil)
 	if err != nil {
-		s.log.Error("failed to create payment link", zap.Error(err))
+		s.log.Warn("failed to create payment link", zap.Error(err))
+		if err.Error() == "amount exceeds maximum amount allowed." {
+			return nil, &apperror.APIError{
+				Status:  http.StatusBadRequest,
+				Code:    "BAD_REQUEST",
+				Message: "Amount exceeds maximum amount allowed in current payment gateway.",
+			}
+		}
 		return nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "INTERNAL_SERVER_ERROR",

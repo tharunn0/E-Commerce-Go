@@ -229,6 +229,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 	// offer routes
 	offerAdminRoute := g.Group("api/v1/admin/offers").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 	offerAdminRoute.POST("/", h.Offer.CreateOffer)
+	offerAdminRoute.GET("/product", h.Offer.GetAllProductOffers)
+	offerAdminRoute.GET("/category", h.Offer.GetAllCategoryOffers)
 	// offerAdminRoute.GET("/", h.Offer.GetOffers)
 	// offerAdminRoute.GET("/:id", h.Offer.GetOfferByID)
 	// offerAdminRoute.PUT("/:id", h.Offer.UpdateOffer)

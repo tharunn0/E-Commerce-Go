@@ -12,6 +12,7 @@ type OrderRepository interface {
 
 	// cancellation
 	CancelOrder(ctx context.Context, orderID string, reason string, orderItemsID []int64) error
+	CancelOrderNew(ctx context.Context, orderID string, reason string, orderItemsID []int64) error
 
 	// returns
 	ReturnOrderItemRequest(ctx context.Context, orderID string, userID int64, itemID int64, reason string) error

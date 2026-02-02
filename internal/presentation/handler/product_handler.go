@@ -147,7 +147,7 @@ func (h *ProductHandler) GetProductByID(c *gin.Context) {
 	}
 	product, apierr := h.service.GetProductByID(ctx, idInt)
 	if apierr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": apierr.Code, "message": apierr.Message})
+		c.JSON(apierr.Status, gin.H{"error": apierr.Code, "message": apierr.Message})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "product": product})

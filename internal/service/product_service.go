@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -156,7 +157,15 @@ func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*doma
 	product, err := serv.repo.GetProductByID(ctx, id, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get product", zap.String("function", "GetProductByID"), zap.Error(err))
+		if err == apperror.ErrProductDoesNotExist {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "PRODUCT_NOT_FOUND",
+				Message: "Product not found",
+			}
+		}
 		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
 			Message: "Failed to get product",
 		}

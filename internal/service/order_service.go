@@ -22,17 +22,28 @@ type OrderService struct {
 	cartRepo    domain.CartRepository
 	orderRepo   domain.OrderRepository
 	paymentRepo domain.PaymentRepository
+	offerRepo   domain.OfferRepository
 	razorpay    *Razorpay.Client
 	log         *zap.Logger
 }
 
-func NewOrderService(userRepo domain.UserRepository, productRepo domain.ProductRepository, cartRepo domain.CartRepository, orderRepo domain.OrderRepository, paymentRepo domain.PaymentRepository, razorpay *Razorpay.Client, log *zap.Logger) *OrderService {
+func NewOrderService(
+	userRepo domain.UserRepository,
+	productRepo domain.ProductRepository,
+	cartRepo domain.CartRepository,
+	orderRepo domain.OrderRepository,
+	paymentRepo domain.PaymentRepository,
+	offerRepo domain.OfferRepository,
+	razorpay *Razorpay.Client,
+	log *zap.Logger,
+) *OrderService {
 	return &OrderService{
 		userRepo:    userRepo,
 		productRepo: productRepo,
 		cartRepo:    cartRepo,
 		orderRepo:   orderRepo,
 		paymentRepo: paymentRepo,
+		offerRepo:   offerRepo,
 		log:         log,
 		razorpay:    razorpay,
 	}
@@ -757,7 +768,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		}
 	}
 
-	err = s.orderRepo.CancelOrder(ctx, req.OrderID, req.Reason, req.OrderItemsID)
+	err = s.orderRepo.CancelOrderNew(ctx, req.OrderID, req.Reason, req.OrderItemsID)
 	if err != nil {
 		s.log.Error("Failed to cancel order", zap.Error(err))
 		return nil, &apperror.APIError{

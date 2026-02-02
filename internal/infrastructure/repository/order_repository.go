@@ -335,6 +335,170 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 	return nil
 }
 
+func (r OrderRepository) CancelOrderNew(
+	ctx context.Context,
+	orderID string,
+	reason string,
+	orderItemIDs []int64,
+) (err error) {
+
+	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	var internalOrderID int64
+	err = tx.QueryRow(ctx, `
+		SELECT id
+		FROM orders
+		WHERE public_order_id = $1
+		FOR UPDATE
+	`, orderID).Scan(&internalOrderID)
+	if err != nil {
+		return err
+	}
+
+	// FULL ORDER CANCELLATION
+	if len(orderItemIDs) == 0 {
+
+		// Cancel items + restore stock (transition-based)
+		_, err = tx.Exec(ctx, `
+			WITH cancelled_items AS (
+				UPDATE order_items
+				SET status = 'cancelled'
+				WHERE order_id = $1
+				  AND status != 'cancelled'
+				RETURNING product_variant_id, quantity
+			)
+			UPDATE product_variants pv
+			SET stock = pv.stock + ci.quantity,
+			    updated_at = now()
+			FROM cancelled_items ci
+			WHERE pv.id = ci.product_variant_id
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Cancel order
+		_, err = tx.Exec(ctx, `
+			UPDATE orders
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE id = $1
+			  AND status != 'cancelled'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Cancel shipment
+		_, err = tx.Exec(ctx, `
+			UPDATE shipments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status = 'pending'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		// Cancel payment
+		_, err = tx.Exec(ctx, `
+			UPDATE payments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status = 'pending'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit(ctx)
+	}
+
+	// PARTIAL ORDER CANCELLATION
+
+	// Cancel selected items + restore stock
+	_, err = tx.Exec(ctx, `
+		WITH cancelled_items AS (
+			UPDATE order_items
+			SET status = 'cancelled'
+			WHERE order_id = $1
+			  AND id = ANY($2)
+			  AND status != 'cancelled'
+			RETURNING product_variant_id, quantity
+		)
+		UPDATE product_variants pv
+		SET stock = pv.stock + ci.quantity,
+		    updated_at = now()
+		FROM cancelled_items ci
+		WHERE pv.id = ci.product_variant_id
+	`, internalOrderID, orderItemIDs)
+	if err != nil {
+		return err
+	}
+
+	// Check remaining active items
+	var remaining int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM order_items
+		WHERE order_id = $1
+		  AND status != 'cancelled'
+	`, internalOrderID).Scan(&remaining)
+	if err != nil {
+		return err
+	}
+
+	// If everything is cancelled, cascade
+	if remaining == 0 {
+
+		_, err = tx.Exec(ctx, `
+			UPDATE orders
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE id = $1
+			  AND status != 'cancelled'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(ctx, `
+			UPDATE shipments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status = 'pending'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(ctx, `
+			UPDATE payments
+			SET status = 'cancelled',
+			    updated_at = now()
+			WHERE order_id = $1
+			  AND status = 'pending'
+		`, internalOrderID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (r OrderRepository) CancelOrder(ctx context.Context, orderID string, reason string, orderItemIDs []int64) error {
 
 	// Start transaction

@@ -79,6 +79,7 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 			Message: "Failed to get cart.",
 		}
 	}
+
 	return cart, nil
 }
 

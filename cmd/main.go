@@ -61,7 +61,7 @@ func main() {
 	productServ := service.NewProductService(productRepo, log)
 	cartServ := service.NewCartService(cartRepo, productRepo, log)
 	wishlistServ := service.NewWishlistService(wishlistRepo, log)
-	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, paymentRepo, razorpayClient, log)
+	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, paymentRepo, offerRepo, razorpayClient, log)
 	paymentServ := service.NewPaymentService(orderRepo, paymentRepo, userRepo, razorpayClient, log)
 	offerServ := service.NewOfferService(offerRepo, log)
 

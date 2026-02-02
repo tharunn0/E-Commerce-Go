@@ -43,3 +43,27 @@ func (h *OfferHandler) CreateOffer(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Offer created successfully"})
 
 }
+
+func (h *OfferHandler) GetAllProductOffers(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	offers, apierr := h.serv.GetAllProductOffers(ctx)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{"code": apierr.Code, "error": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"offers": offers})
+}
+
+func (h *OfferHandler) GetAllCategoryOffers(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	offers, apierr := h.serv.GetAllCategoryOffers(ctx)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{"code": apierr.Code, "error": apierr.Message})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"offers": offers})
+}

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -89,11 +90,15 @@ func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, product
 
 func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*domain.Cart, error) {
 
+	log.Println("GetCartByID called")
+
 	var cartItems []*domain.CartItem
 	var _ domain.CartItem
 
 	query := `
 	SELECT ci.product_variant_id,
+	p.id,
+	c.id,
 	p.name as product_name, 
 	pv.sku, 
 	pv.original_price, 
@@ -104,8 +109,9 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 	FROM cart_items ci
 	LEFT JOIN product_variants pv ON ci.product_variant_id = pv.id
 	LEFT JOIN products p ON pv.product_id = p.id
+	LEFT JOIN categories c ON p.category_id = c.id
 	LEFT JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
-	WHERE cart_id = $1
+	WHERE ci.cart_id = $1
 	`
 	rows, err := repo.DB.Query(ctx, query, cartID)
 	if err != nil {
@@ -116,7 +122,7 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 	var totalPrice float64
 	for rows.Next() {
 		var cartItem domain.CartItem
-		err = rows.Scan(&cartItem.ProductVariantID, &cartItem.ProductName, &cartItem.SKU, &cartItem.OriginalPrice,
+		err = rows.Scan(&cartItem.ProductVariantID, &cartItem.ProductID, &cartItem.CategoryID, &cartItem.ProductName, &cartItem.SKU, &cartItem.OriginalPrice,
 			&cartItem.SalePrice, &cartItem.Stock, &cartItem.ImageURL, &cartItem.Quantity)
 		if err != nil {
 			return nil, err
@@ -148,10 +154,16 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 }
 
 func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (*domain.Cart, error) {
+
+	log.Println("GetCartByUserID called	")
+
 	var cartItems []*domain.CartItem
 	var _ domain.CartItem
 	query := `
-	SELECT ci.product_variant_id,
+	SELECT
+	ci.product_variant_id,
+	p.id,
+	ct.id,
 	p.name as product_name, 
 	pv.sku, 
 	pv.original_price, 
@@ -163,6 +175,7 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 	LEFT JOIN product_variants pv ON ci.product_variant_id = pv.id
 	LEFT JOIN products p ON pv.product_id = p.id
 	LEFT JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
+	LEFT JOIN categories ct ON p.category_id = ct.id
 	INNER JOIN carts c ON ci.cart_id = c.id
 	WHERE c.user_id = $1
 	`
@@ -174,7 +187,7 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 	var totalPrice float64
 	for rows.Next() {
 		var cartItem domain.CartItem
-		err = rows.Scan(&cartItem.ProductVariantID, &cartItem.ProductName, &cartItem.SKU, &cartItem.OriginalPrice,
+		err = rows.Scan(&cartItem.ProductVariantID, &cartItem.ProductID, &cartItem.CategoryID, &cartItem.ProductName, &cartItem.SKU, &cartItem.OriginalPrice,
 			&cartItem.SalePrice, &cartItem.Stock, &cartItem.ImageURL, &cartItem.Quantity)
 		if err != nil {
 			return nil, err

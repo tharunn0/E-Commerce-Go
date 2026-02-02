@@ -79,4 +79,10 @@ var (
 	ErrReturnItemNotFound     = errors.New("Return item not found")
 	ErrReturnAlreadyProcessed = errors.New("Return has been already processed")
 	ErrInvalidReturnState     = errors.New("Invalid return state")
+
+	// Product related errors
+	ErrProductDoesNotExist = errors.New("Product does not exist")
+
+	// Category related errors
+	ErrCategoryDoesNotExist = errors.New("Category does not exist")
 )
