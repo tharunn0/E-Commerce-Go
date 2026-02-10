@@ -8,27 +8,38 @@ import (
 type OfferRepository interface {
 	CreateOffer(ctx context.Context, req *CreateOfferRequest) error
 
-	GetAllCategoryOffers(ctx context.Context) ([]*Offer, error)
-	GetAllProductOffers(ctx context.Context) ([]*Offer, error)
-	GetCategoryOffers(ctx context.Context, ids []int64) ([]*Offer, error)
-	GetProductOffers(ctx context.Context, ids []int64) ([]*Offer, error)
+	// GetAllCategoryOffers(ctx context.Context) ([]*Offer, error)
+	// GetAllProductOffers(ctx context.Context) ([]*Offer, error)
+	// GetCategoryOffers(ctx context.Context, ids []int64) ([]*Offer, error)
+	// GetProductOffers(ctx context.Context, ids []int64) ([]*Offer, error)
+
+	GetAllActiveOffers(ctx context.Context, productIDs []int64, categoryIDs []int64) ([]*Offer, error)
+
 	// GetOfferByID(ctx context.Context, id int64) (*Offer, error)
 	// GetAllOffers(ctx context.Context) ([]Offer, error)
 }
 
 type Offer struct {
-	ID            int64     `json:"id"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
-	DiscountType  string    `json:"discount_type"`
-	DiscountValue float64   `json:"discount_value"`
-	StartDate     time.Time `json:"start_date"`
-	EndDate       time.Time `json:"end_date"`
-	IsActive      bool      `json:"is_active"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID            int64
+	Name          string
+	Description   string
+	DiscountType  string
+	DiscountValue float64
+	StartDate     time.Time
+	EndDate       time.Time
+	IsActive      bool
+	CreatedAt     time.Time
 
-	Scope       string  `json:"scope"` // product or category
-	EligibleIds []int64 `json:"eligible_ids"`
+	ProductIDs  []int64
+	CategoryIDs []int64
+}
+
+type AppliedOfferData struct {
+	OfferID        int64
+	OfferName      string
+	DiscountType   string
+	DiscountValue  float64
+	DiscountAmount float64
 }
 
 type ProductOffer struct {

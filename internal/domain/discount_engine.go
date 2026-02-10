@@ -1,136 +1,91 @@
 package domain
 
-import "time"
-
-func ApplyBestOffers(cart *Cart, offers []Offer) *Cart {
-	now := time.Now()
-
-	// Build fast lookup maps once (O(offers))
-	productMap := buildProductOfferMap(offers)
-	categoryMap := buildCategoryOfferMap(offers)
-
+func ApplyDiscounts(cart *Cart, offers []*Offer) {
 	var cartTotal float64
 
-	// Process each cart item (O(items))
 	for _, item := range cart.Items {
 
-		basePrice := item.OriginalPrice
-		bestDiscount := 0.0
+		// 1️⃣ Base prices
+		unitPrice := item.OriginalPrice
+		baseTotal := unitPrice * float64(item.Quantity)
 
-		// Collect all applicable offers for this item
-		candidates := gatherOffers(item, productMap, categoryMap)
+		var bestDiscount float64
 
-		// Find best discount among candidates
-		for _, offer := range candidates {
-			if !isOfferValid(offer, now) {
+		// 2️⃣ Evaluate offers
+		for _, offer := range offers {
+
+			applies := false
+
+			// product match
+			if containsId(offer.ProductIDs, item.ProductID) {
+				applies = true
+			}
+
+			// category match
+			if containsId(offer.CategoryIDs, item.CategoryID) {
+				applies = true
+			}
+
+			if !applies {
 				continue
 			}
 
-			discount := calculateDiscountAmount(basePrice, offer)
+			// 3️⃣ Calculate discount
+			var discount float64
+			switch offer.DiscountType {
+			case "percentage":
+				discount = baseTotal * (offer.DiscountValue / 100)
+			case "flat":
+				discount = offer.DiscountValue
+			default:
+				continue
+			}
 
 			if discount > bestDiscount {
 				bestDiscount = discount
 			}
+
+			if discount > 0 {
+				item.AppliedOffer = &AppliedOfferData{
+					OfferID:        offer.ID,
+					OfferName:      offer.Name,
+					DiscountType:   offer.DiscountType,
+					DiscountValue:  offer.DiscountValue,
+					DiscountAmount: discount,
+				}
+			}
+
 		}
 
-		// Apply final price
-		finalPrice := basePrice - bestDiscount
-		if finalPrice < 0 {
-			finalPrice = 0
+		// 4️⃣ Cap discount
+		if bestDiscount > baseTotal {
+			bestDiscount = baseTotal
 		}
 
-		item.SalePrice = floatPtr(finalPrice)
-		item.TotalPrice = finalPrice * float64(item.Quantity)
+		// 5️⃣ Apply result
+		if bestDiscount > 0 {
+			discountedTotal := baseTotal - bestDiscount
+			discountedUnit := discountedTotal / float64(item.Quantity)
 
+			item.SalePrice = &discountedUnit
+			item.TotalPrice = discountedTotal
+		} else {
+			item.SalePrice = nil
+			item.TotalPrice = baseTotal
+		}
+
+		// 6️⃣ Accumulate cart total
 		cartTotal += item.TotalPrice
 	}
 
 	cart.CartTotalPrice = cartTotal
-	return cart
 }
 
-func buildProductOfferMap(offers []Offer) map[int64][]Offer {
-	m := make(map[int64][]Offer)
-
-	for _, offer := range offers {
-		if offer.Scope != "product" {
-			continue
-		}
-
-		for _, id := range offer.EligibleIds {
-			m[id] = append(m[id], offer)
+func containsId(arr []int64, val int64) bool {
+	for _, v := range arr {
+		if v == val {
+			return true
 		}
 	}
-
-	return m
-}
-
-// Build categoryID -> []Offer map for O(1) lookups
-func buildCategoryOfferMap(offers []Offer) map[int64][]Offer {
-	m := make(map[int64][]Offer)
-
-	for _, offer := range offers {
-		if offer.Scope != "category" {
-			continue
-		}
-
-		for _, id := range offer.EligibleIds {
-			m[id] = append(m[id], offer)
-		}
-	}
-
-	return m
-}
-
-// Gather both product + category offers for an item
-func gatherOffers(
-	item *CartItem,
-	productMap map[int64][]Offer,
-	categoryMap map[int64][]Offer,
-) []Offer {
-
-	var result []Offer
-
-	if po, ok := productMap[item.ProductID]; ok {
-		result = append(result, po...)
-	}
-
-	if co, ok := categoryMap[item.CategoryID]; ok {
-		result = append(result, co...)
-	}
-
-	return result
-}
-
-// Check if offer is active and inside date range
-func isOfferValid(o Offer, now time.Time) bool {
-	if !o.IsActive {
-		return false
-	}
-
-	if now.Before(o.StartDate) || now.After(o.EndDate) {
-		return false
-	}
-
-	return true
-}
-
-// Returns discount amount (NOT final price)
-// Makes comparison easier
-func calculateDiscountAmount(price float64, offer Offer) float64 {
-	switch offer.DiscountType {
-
-	case "percentage":
-		return price * (offer.DiscountValue / 100)
-
-	case "flat":
-		return offer.DiscountValue
-	}
-
-	return 0
-}
-
-// Small helper to assign *float64
-func floatPtr(v float64) *float64 {
-	return &v
+	return false
 }

@@ -33,19 +33,22 @@ type Cart struct {
 }
 
 type CartItem struct {
-	ProductVariantID int64          `json:"product_variant_id"`
-	ProductID        int64          `json:"product_id"`
-	CategoryID       int64          `json:"category_id"`
-	ProductName      string         `json:"product_name"`
-	SKU              string         `json:"sku"`
-	OriginalPrice    float64        `json:"original_price"`
-	SalePrice        *float64       `json:"sale_price"`
-	Stock            int            `json:"stock"`
-	ImageURL         string         `json:"image_url"`
-	Quantity         int64          `json:"quantity"`
-	TotalPrice       float64        `json:"total_price"`
-	Status           CartItemStatus `json:"status,omitempty"`
-	Message          string         `json:"message,omitempty"`
+	ProductVariantID int64    `json:"product_variant_id"`
+	ProductID        int64    `json:"product_id"`
+	CategoryID       int64    `json:"category_id"`
+	ProductName      string   `json:"product_name"`
+	SKU              string   `json:"sku"`
+	OriginalPrice    float64  `json:"original_price"`
+	SalePrice        *float64 `json:"sale_price"`
+	Stock            int      `json:"stock"`
+	ImageURL         string   `json:"image_url"`
+	Quantity         int64    `json:"quantity"`
+	TotalPrice       float64  `json:"total_price"`
+
+	AppliedOffer *AppliedOfferData `json:"applied_offer,omitempty"`
+
+	Status  CartItemStatus `json:"status,omitempty"`
+	Message string         `json:"message,omitempty"`
 }
 
 type AddToCartRequest struct {

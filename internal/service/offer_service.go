@@ -111,27 +111,27 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *domain.CreateOfferR
 }
 
 func (s *OfferService) GetAllProductOffers(ctx context.Context) ([]*domain.Offer, *apperror.APIError) {
-	offers, err := s.repo.GetAllProductOffers(ctx)
-	if err != nil {
-		s.log.Error("Failed to get product offers", zap.Error(err))
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get product offers",
-		}
-	}
-	return offers, nil
+	// offers, err := s.repo.GetAllProductOffers(ctx)
+	// if err != nil {
+	// 	s.log.Error("Failed to get product offers", zap.Error(err))
+	// 	return nil, &apperror.APIError{
+	// 		Status:  http.StatusInternalServerError,
+	// 		Code:    "DB_ERROR",
+	// 		Message: "Failed to get product offers",
+	// 	}
+	// }
+	return []*domain.Offer{}, nil
 }
 
 func (s *OfferService) GetAllCategoryOffers(ctx context.Context) ([]*domain.Offer, *apperror.APIError) {
-	offers, err := s.repo.GetAllCategoryOffers(ctx)
-	if err != nil {
-		s.log.Error("Failed to get category offers", zap.Error(err))
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get category offers",
-		}
-	}
-	return offers, nil
+	// offers, err := s.repo.GetAllCategoryOffers(ctx)
+	// if err != nil {
+	// 	s.log.Error("Failed to get category offers", zap.Error(err))
+	// 	return nil, &apperror.APIError{
+	// 		Status:  http.StatusInternalServerError,
+	// 		Code:    "DB_ERROR",
+	// 		Message: "Failed to get category offers",
+	// 	}
+	// }
+	return []*domain.Offer{}, nil
 }

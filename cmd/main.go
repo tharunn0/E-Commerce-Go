@@ -59,7 +59,7 @@ func main() {
 	authServ := service.NewAuthService(authRepo, mailer, log, &cfg.Security)
 	catergoryServ := service.NewCategoryService(categoryRepo, log)
 	productServ := service.NewProductService(productRepo, log)
-	cartServ := service.NewCartService(cartRepo, productRepo, log)
+	cartServ := service.NewCartService(cartRepo, productRepo, offerRepo, log)
 	wishlistServ := service.NewWishlistService(wishlistRepo, log)
 	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, paymentRepo, offerRepo, razorpayClient, log)
 	paymentServ := service.NewPaymentService(orderRepo, paymentRepo, userRepo, razorpayClient, log)

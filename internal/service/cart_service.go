@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -12,12 +13,22 @@ import (
 
 type CartService struct {
 	productRepo domain.ProductRepository
+	offerRepo   domain.OfferRepository
 	cartRepo    domain.CartRepository
 	log         *zap.Logger
 }
 
-func NewCartService(cartRepo domain.CartRepository, productRepo domain.ProductRepository, log *zap.Logger) *CartService {
-	return &CartService{cartRepo: cartRepo, productRepo: productRepo, log: log}
+func NewCartService(
+	cartRepo domain.CartRepository,
+	productRepo domain.ProductRepository,
+	offerRepo domain.OfferRepository,
+	log *zap.Logger) *CartService {
+	return &CartService{
+		cartRepo:    cartRepo,
+		productRepo: productRepo,
+		offerRepo:   offerRepo,
+		log:         log,
+	}
 }
 
 func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartRequest) (*domain.Cart, *apperror.APIError) {
@@ -113,7 +124,11 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 		}
 	}
 
+	var productIDs []int64
+	var categoryIDs []int64
 	for _, item := range cart.Items {
+		productIDs = append(productIDs, item.ProductID)
+		categoryIDs = append(categoryIDs, item.CategoryID)
 		if variantInfo[item.ProductVariantID].Stock < item.Quantity {
 			if variantInfo[item.ProductVariantID].Stock == 0 {
 				item.Status = "OUT_OF_STOCK"
@@ -124,6 +139,22 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 		}
 	}
 
+	offers, err := s.offerRepo.GetAllActiveOffers(ctx, productIDs, categoryIDs)
+	if err != nil {
+		s.log.Error("failed to get offers", zap.String("function", "GetAllActiveOffers"), zap.Error(err))
+		return nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get offers.",
+		}
+	}
+
+	if len(offers) == 0 {
+		log.Println("no offers found", "function", "GetAllActiveOffers")
+	} else {
+		log.Println("offers found", "function", "GetAllActiveOffers")
+	}
+
+	domain.ApplyDiscounts(cart, offers)
 	return cart, nil
 }
 
