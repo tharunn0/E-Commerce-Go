@@ -22,19 +22,10 @@ type ProductVariantResponse struct { // get variant by id, create variant respos
 	SKU           string                   `json:"sku"`
 	OriginalPrice float64                  `json:"original_price"`
 	SalePrice     *float64                 `json:"sale_price"`
-	Stock         int                      `json:"stock"`
-	VariantImages []string                 `json:"variant_images"`
-	Attributes    []AttributeValueResponse `json:"attributes"`
-	CreatedAt     time.Time                `json:"created_at"`
-}
-type VariantBaseResponse struct { // get variants by product id
-	ID            int64                    `json:"id"`
-	SKU           string                   `json:"sku"`
-	OriginalPrice float64                  `json:"original_price"`
-	SalePrice     *float64                 `json:"sale_price"`
+	AppliedOffer  *AppliedOfferData        `json:"applied_offer,omitempty"`
 	Stock         int                      `json:"stock"`
 	IsActive      bool                     `json:"is_active"`
-	Images        []string                 `json:"images"`
+	VariantImages []string                 `json:"variant_images"`
 	Attributes    []AttributeValueResponse `json:"attributes"`
 	CreatedAt     time.Time                `json:"created_at"`
 }
@@ -88,21 +79,22 @@ type AttributeValueResponse struct {
 }
 
 type BaseProduct struct {
-	ID    int64                `json:"id"`
-	Name  string               `json:"name"`
-	Brand ProductBrandResponse `json:"brand"`
+	ID         int64                `json:"id"`
+	Name       string               `json:"name"`
+	Brand      ProductBrandResponse `json:"brand"`
+	CategoryID int64                `json:"category_id"`
 }
 
 type ProductVariantBaseResponse struct {
-	ProductID   int64                 `json:"product_id"`
-	ProductName string                `json:"product_name"`
-	BrandName   string                `json:"brand_name"`
-	MinPrice    float64               `json:"min_price"`
-	MaxPrice    float64               `json:"max_price"`
-	IsDigital   bool                  `json:"is_digital"`
-	Variants    []VariantBaseResponse `json:"variants"`
-	ImageURL    string                `json:"image_url"`
-	CreatedAt   time.Time             `json:"created_at"`
+	ProductID   int64                     `json:"product_id"`
+	ProductName string                    `json:"product_name"`
+	BrandName   string                    `json:"brand_name"`
+	MinPrice    float64                   `json:"min_price"`
+	MaxPrice    float64                   `json:"max_price"`
+	IsDigital   bool                      `json:"is_digital"`
+	Variants    []*ProductVariantResponse `json:"variants"`
+	ImageURL    string                    `json:"image_url"`
+	CreatedAt   time.Time                 `json:"created_at"`
 }
 
 type VariantOrderInfo struct {

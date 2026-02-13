@@ -11,12 +11,13 @@ import (
 )
 
 type ProductService struct {
-	repo domain.ProductRepository
-	log  *zap.Logger
+	repo   domain.ProductRepository
+	offers domain.OfferRepository
+	log    *zap.Logger
 }
 
-func NewProductService(repo domain.ProductRepository, log *zap.Logger) *ProductService {
-	return &ProductService{repo: repo, log: log}
+func NewProductService(repo domain.ProductRepository, offers domain.OfferRepository, log *zap.Logger) *ProductService {
+	return &ProductService{repo: repo, offers: offers, log: log}
 }
 
 // Brand operations
@@ -322,6 +323,20 @@ func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productI
 			Message: "Product variants not found",
 		}
 	}
+
+	if len(productvariants.Variants) > 0 {
+		offers, err := serv.offers.GetAllActiveOffers(ctx, []int64{productID}, []int64{productvariants.Variants[0].BaseProduct.CategoryID})
+		if err != nil {
+			serv.log.Error("failed to get offers", zap.Error(err))
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "DB_ERROR",
+				Message: "Failed to get offers",
+			}
+		}
+		domain.ApplyDiscountsToVariants(productvariants.Variants, offers)
+	}
+
 	return productvariants, nil
 }
 

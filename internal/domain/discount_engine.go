@@ -1,5 +1,7 @@
 package domain
 
+import "fmt"
+
 func ApplyDiscounts(cart *Cart, offers []*Offer) {
 	var cartTotal float64
 
@@ -79,6 +81,82 @@ func ApplyDiscounts(cart *Cart, offers []*Offer) {
 	}
 
 	cart.CartTotalPrice = cartTotal
+}
+
+func ApplyDiscountsToVariants(variants []*ProductVariantResponse, offers []*Offer) {
+
+	fmt.Println("apply discounts to variants called")
+
+	for _, variant := range variants {
+
+		if variant == nil || variant.BaseProduct == nil {
+			continue
+		}
+
+		unitPrice := variant.OriginalPrice
+		baseTotal := unitPrice // quantity = 1
+
+		var bestDiscount float64
+		var bestOffer *AppliedOfferData
+
+		// evaluate offers
+		for _, offer := range offers {
+
+			applies := false
+
+			// product match
+			if containsId(offer.ProductIDs, variant.BaseProduct.ID) {
+				applies = true
+			}
+
+			// category match
+			if containsId(offer.CategoryIDs, variant.BaseProduct.CategoryID) {
+				applies = true
+			}
+
+			if !applies {
+				continue
+			}
+
+			// calculate discount
+			var discount float64
+			switch offer.DiscountType {
+			case "percentage":
+				discount = baseTotal * (offer.DiscountValue / 100)
+			case "flat":
+				discount = offer.DiscountValue
+			default:
+				continue
+			}
+
+			// keep best offer
+			if discount > bestDiscount {
+				bestDiscount = discount
+				bestOffer = &AppliedOfferData{
+					OfferID:        offer.ID,
+					OfferName:      offer.Name,
+					DiscountType:   offer.DiscountType,
+					DiscountValue:  offer.DiscountValue,
+					DiscountAmount: discount,
+				}
+			}
+		}
+
+		// cap discount
+		if bestDiscount > baseTotal {
+			bestDiscount = baseTotal
+		}
+
+		// apply result
+		if bestDiscount > 0 {
+			discountedPrice := baseTotal - bestDiscount
+			variant.SalePrice = &discountedPrice
+			variant.AppliedOffer = bestOffer
+		} else {
+			variant.SalePrice = nil
+			variant.AppliedOffer = nil
+		}
+	}
 }
 
 func containsId(arr []int64, val int64) bool {

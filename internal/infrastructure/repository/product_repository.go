@@ -395,7 +395,9 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 
 func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int64, activeOnly bool) (*domain.ProductVariantResponse, error) {
 
-	var variant domain.ProductVariantResponse
+	variant := domain.ProductVariantResponse{}
+	baseProduct := &domain.BaseProduct{}
+	variant.BaseProduct = baseProduct
 	// get variant
 	query := `
 		SELECT id, product_id, sku, original_price, sale_price, stock, created_at FROM product_variants WHERE id = $1
@@ -449,11 +451,12 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 		variant.Attributes = append(variant.Attributes, attrVal)
 	}
 	// get base product
-	query = `SELECT p.name, br.id, br.name FROM products p
+	query = `SELECT p.name, br.id, br.name,c.id FROM products p
 			LEFT JOIN brands br ON br.id = p.brand_id
+			LEFT JOIN categories c ON c.id = p.category_id
 			WHERE p.id = $1`
 	err = repo.DB.QueryRow(ctx, query, variant.BaseProduct.ID).Scan(
-		&variant.BaseProduct.Name, &variant.BaseProduct.Brand.ID, &variant.BaseProduct.Brand.Name)
+		&variant.BaseProduct.Name, &variant.BaseProduct.Brand.ID, &variant.BaseProduct.Brand.Name, &variant.BaseProduct.CategoryID)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +467,7 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 }
 
 func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, productID int64, activeOnly bool) (*domain.ProductVariantBaseResponse, error) {
-	var productvariants domain.ProductVariantBaseResponse
+	productvariants := domain.ProductVariantBaseResponse{}
 
 	query := `
 		SELECT p.id, p.name as product_name, b.name as brand_name,p.min_price, p.max_price, p.is_digital,p.image_url, p.created_at FROM products p
@@ -482,6 +485,19 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 	if err != nil {
 		return nil, err
 	}
+
+	var baseProduct domain.BaseProduct
+
+	query = `SELECT p.name, br.id, br.name,c.id FROM products p
+			LEFT JOIN brands br ON br.id = p.brand_id
+			LEFT JOIN categories c ON c.id = p.category_id
+			WHERE p.id = $1`
+	err = repo.DB.QueryRow(ctx, query, productID).Scan(
+		&baseProduct.Name, &baseProduct.Brand.ID, &baseProduct.Brand.Name, &baseProduct.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+
 	// get variants
 	query = `
 		SELECT id, sku, original_price, sale_price, stock, is_active, created_at FROM product_variants WHERE product_id = $1 AND is_active = true
@@ -492,12 +508,12 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var variant domain.VariantBaseResponse
+		var variant domain.ProductVariantResponse
 		err := rows.Scan(&variant.ID, &variant.SKU, &variant.OriginalPrice, &variant.SalePrice, &variant.Stock, &variant.IsActive, &variant.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
-		productvariants.Variants = append(productvariants.Variants, variant)
+		productvariants.Variants = append(productvariants.Variants, &variant)
 	}
 
 	for i := range productvariants.Variants {
@@ -515,12 +531,16 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 			if err != nil {
 				return nil, err
 			}
-			productvariants.Variants[i].Images = append(productvariants.Variants[i].Images, image)
+			productvariants.Variants[i].VariantImages = append(productvariants.Variants[i].VariantImages, image)
 		}
 
 		if productvariants.Variants[i].SalePrice != nil && *productvariants.Variants[i].SalePrice == 0 {
 			productvariants.Variants[i].SalePrice = nil
 		}
+
+		// set base product
+		productvariants.Variants[i].BaseProduct = &baseProduct
+
 	}
 
 	// get variant attributes
