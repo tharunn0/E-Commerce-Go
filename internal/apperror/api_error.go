@@ -85,4 +85,7 @@ var (
 
 	// Category related errors
 	ErrCategoryDoesNotExist = errors.New("Category does not exist")
+
+	// Coupon related errors
+	ErrCouponCodeAlreadyExists = errors.New("Coupon code already exists")
 )

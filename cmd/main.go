@@ -53,6 +53,7 @@ func main() {
 	orderRepo := repository.NewOrderRepository(pgdb)
 	paymentRepo := repository.NewPaymentRepository(pgdb)
 	offerRepo := repository.NewOfferRepository(pgdb)
+	couponRepo := repository.NewCouponRepository(pgdb)
 
 	userServ := service.NewUserService(userRepo, authRepo, log, mailer)
 	adminServ := service.NewAdminService(adminRepo, log, authRepo)
@@ -64,6 +65,7 @@ func main() {
 	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, paymentRepo, offerRepo, razorpayClient, log)
 	paymentServ := service.NewPaymentService(orderRepo, paymentRepo, userRepo, razorpayClient, log)
 	offerServ := service.NewOfferService(offerRepo, log)
+	couponServ := service.NewCouponService(couponRepo, log)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
 	adminHandler := handler.NewAdminHandler(adminServ, log, authServ)
@@ -74,12 +76,13 @@ func main() {
 	orderHandler := handler.NewOrderHandler(orderServ, log)
 	paymentHandler := handler.NewPaymentHandler(orderServ, paymentServ, cfg.Razorpay, log, razorpayClient)
 	offerHandler := handler.NewOfferHandler(offerServ, log)
+	couponHandler := handler.NewCouponHandler(couponServ, log)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), middleware.RequestLogger(log))
 
 	handler := routes.NewHandler(userHandler, adminHandler, categoryHandler, productHandler,
-		cartHandler, wishlistHandler, orderHandler, paymentHandler, offerHandler)
+		cartHandler, wishlistHandler, orderHandler, paymentHandler, offerHandler, couponHandler)
 
 	routes.RegisterRoutes(r, log, handler, &cfg.Security)
 

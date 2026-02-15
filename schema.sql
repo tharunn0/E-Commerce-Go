@@ -207,13 +207,18 @@ CREATE TABLE coupons (
     description TEXT,
     discount_type VARCHAR(20) NOT NULL
         CHECK (discount_type IN ('fixed', 'percentage')),
-    discount_value NUMERIC(10,2) NOT NULL CHECK (discount_value >= 0),
-    min_order_amount NUMERIC(12,2) DEFAULT 0 CHECK (min_order_amount >= 0),
-    max_discount_amount NUMERIC(12,2) DEFAULT 0 CHECK (max_discount_amount >= 0),
-    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    discount_value NUMERIC(10,2) NOT NULL
+        CHECK (discount_value >= 0),
+    min_order_amount NUMERIC(12,2) NOT NULL DEFAULT 0
+        CHECK (min_order_amount >= 0),
+    max_discount_amount NUMERIC(12,2)
+        CHECK (max_discount_amount >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    valid_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     valid_to TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (valid_to IS NULL OR valid_to > valid_from)
 );
 
 
@@ -260,10 +265,10 @@ CREATE TABLE order_coupons (
         REFERENCES orders(id) ON DELETE CASCADE,
     coupon_id BIGINT NOT NULL
         REFERENCES coupons(id) ON DELETE RESTRICT,
-    discount_applied NUMERIC(12,2) NOT NULL CHECK (discount_applied >= 0),
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    discount_applied NUMERIC(12,2) NOT NULL
+        CHECK (discount_applied >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 
 CREATE TABLE payments (
     id BIGSERIAL PRIMARY KEY,

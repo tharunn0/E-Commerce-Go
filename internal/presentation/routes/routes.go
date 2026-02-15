@@ -18,20 +18,32 @@ type Handler struct {
 	Order    *handler.OrderHandler
 	Payment  *handler.PaymentHandler
 	Offer    *handler.OfferHandler
+	Coupon   *handler.CouponHandler
 }
 
-func NewHandler(userh *handler.UserHandler, adminh *handler.AdminHandler, categoryh *handler.CategoryHandler,
-	producth *handler.ProductHandler, carth *handler.CartHandler, wishlisth *handler.WishlistHandler, orderh *handler.OrderHandler, paymenth *handler.PaymentHandler, offerh *handler.OfferHandler) *Handler {
+func NewHandler(
+	user *handler.UserHandler,
+	admin *handler.AdminHandler,
+	category *handler.CategoryHandler,
+	product *handler.ProductHandler,
+	cart *handler.CartHandler,
+	wishlist *handler.WishlistHandler,
+	order *handler.OrderHandler,
+	payment *handler.PaymentHandler,
+	offer *handler.OfferHandler,
+	coupon *handler.CouponHandler,
+) *Handler {
 	return &Handler{
-		User:     userh,
-		Admin:    adminh,
-		Category: categoryh,
-		Product:  producth,
-		Cart:     carth,
-		Wishlist: wishlisth,
-		Order:    orderh,
-		Payment:  paymenth,
-		Offer:    offerh,
+		User:     user,
+		Admin:    admin,
+		Category: category,
+		Product:  product,
+		Cart:     cart,
+		Wishlist: wishlist,
+		Order:    order,
+		Payment:  payment,
+		Offer:    offer,
+		Coupon:   coupon,
 	}
 }
 
@@ -226,14 +238,26 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		paymentOpenRoute.POST("/razorpay/webhook", h.Payment.Webhook)
 	}
 
-	// offer routes
-	offerAdminRoute := g.Group("api/v1/admin/offers").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
-	offerAdminRoute.POST("/", h.Offer.CreateOffer)
-	offerAdminRoute.GET("/product", h.Offer.GetAllProductOffers)
-	offerAdminRoute.GET("/category", h.Offer.GetAllCategoryOffers)
-	// offerAdminRoute.GET("/", h.Offer.GetOffers)
-	// offerAdminRoute.GET("/:id", h.Offer.GetOfferByID)
-	// offerAdminRoute.PUT("/:id", h.Offer.UpdateOffer)
-	// offerAdminRoute.DELETE("/:id", h.Offer.DeleteOffer)
+	{
+		// offer routes
+		offerAdminRoute := g.Group("api/v1/admin/offers").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		offerAdminRoute.POST("/", h.Offer.CreateOffer)
+		offerAdminRoute.GET("/product", h.Offer.GetAllProductOffers)
+		offerAdminRoute.GET("/category", h.Offer.GetAllCategoryOffers)
+		// offerAdminRoute.GET("/", h.Offer.GetOffers)
+		// offerAdminRoute.GET("/:id", h.Offer.GetOfferByID)
+		// offerAdminRoute.PUT("/:id", h.Offer.UpdateOffer)
+		// offerAdminRoute.DELETE("/:id", h.Offer.DeleteOffer)}
+	}
+
+	{
+		// coupon routes
+		couponAdminRoute := g.Group("api/v1/admin/coupons").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		couponAdminRoute.POST("/", h.Coupon.CreateCoupon)
+		// couponAdminRoute.GET("/", h.Coupon.GetAllCoupons)
+		// couponAdminRoute.GET("/:id", h.Coupon.GetCouponByID)
+		// couponAdminRoute.PUT("/:id", h.Coupon.UpdateCoupon)
+		// couponAdminRoute.DELETE("/:id", h.Coupon.DeleteCoupon)
+	}
 
 }
