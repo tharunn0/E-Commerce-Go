@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,4 +39,30 @@ func (h *CouponHandler) CreateCoupon(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Coupon created successfully", "status": "success", "data": created})
+}
+
+func (h *CouponHandler) ListAllCoupons(c *gin.Context) {
+
+	log.Println("list all coupons hit")
+
+	ctx := c.Request.Context()
+
+	var filter domain.ListCouponsFilter
+	_ = c.ShouldBindQuery(&filter)
+
+	log.Println("filter :", filter)
+
+	coupons, apierr := h.serv.ListAllCoupons(ctx, &filter)
+	if apierr != nil {
+		h.log.Error("coupon listing failed", zap.String("error", apierr.Code), zap.String("message", apierr.Message))
+		c.JSON(apierr.Status, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Coupons fetched successfully", "status": "success", "data": coupons})
+
+}
+
+func (h *CouponHandler) ApplyCoupon(c *gin.Context) {
+
 }

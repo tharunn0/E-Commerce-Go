@@ -8,6 +8,8 @@ import (
 
 type CouponRepository interface {
 	CreateCoupon(ctx context.Context, req *CreateCouponRequest) (*CouponResponse, error)
+
+	ListAllCoupons(ctx context.Context, filter *ListCouponsFilter) ([]CouponResponse, error)
 }
 
 type CreateCouponRequest struct {
@@ -32,8 +34,18 @@ type CouponResponse struct {
 	ValidFrom         time.Time  `json:"valid_from"`
 	ValidTo           time.Time  `json:"valid_to"`
 	IsActive          bool       `json:"is_active"`
-	CreatedAt         time.Time  `json:"created_at"`
+	CreatedAt         *time.Time `json:"created_at,omitempty"`
 	UpdatedAt         *time.Time `json:"updated_at,omitempty"`
+}
+
+type ListCouponsFilter struct {
+	CouponCode   string `form:"code"`
+	DiscountType string `form:"type"`
+
+	ValidFrom *time.Time `form:"valid_from" time_format:"2006-01-02"`
+	ValidTo   *time.Time `form:"valid_to" time_format:"2006-01-02"`
+
+	IsActive *bool `form:"active"`
 }
 
 func (req *CreateCouponRequest) Validate() error {

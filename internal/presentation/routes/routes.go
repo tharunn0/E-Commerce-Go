@@ -254,10 +254,17 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		// coupon routes
 		couponAdminRoute := g.Group("api/v1/admin/coupons").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		couponAdminRoute.POST("/", h.Coupon.CreateCoupon)
-		// couponAdminRoute.GET("/", h.Coupon.GetAllCoupons)
+		couponAdminRoute.GET("/", h.Coupon.ListAllCoupons)
 		// couponAdminRoute.GET("/:id", h.Coupon.GetCouponByID)
 		// couponAdminRoute.PUT("/:id", h.Coupon.UpdateCoupon)
 		// couponAdminRoute.DELETE("/:id", h.Coupon.DeleteCoupon)
+
+		couponUserRoute := g.Group("api/v1/coupons").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		couponUserRoute.GET("/", h.Coupon.ListAllCoupons)
+		// couponUserRoute.GET("/:id", h.Coupon.GetCouponByID)
+
+		checkoutRoute := g.Group("api/v1/checkout").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		checkoutRoute.POST("/apply-coupon", h.Coupon.ApplyCoupon)
 	}
 
 }

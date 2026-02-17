@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
@@ -52,3 +54,28 @@ func (serv *CouponService) CreateCoupon(ctx context.Context, req *domain.CreateC
 
 	return created, nil
 }
+
+func (serv *CouponService) ListAllCoupons(ctx context.Context, filter *domain.ListCouponsFilter) ([]domain.CouponResponse, *apperror.APIError) {
+
+	if !utils.IsAdmin(ctx) {
+		filter = nil
+	}
+
+	log.Println("filter is nil:", filter == nil)
+
+	coupons, err := serv.repo.ListAllCoupons(ctx, filter)
+	if err != nil {
+		serv.log.Error("coupon listing failed", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "COUPON_LISTING_FAILED",
+			Message: "Failed to list coupons",
+		}
+	}
+
+	return coupons, nil
+}
+
+// func (serv *CouponService) ApplyCoupon(ctx context.Context, couponCode string) (*domain.CheckoutResponse, *apperror.APIError) {
+
+// }

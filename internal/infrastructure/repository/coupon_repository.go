@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,7 +27,13 @@ func (repo *CouponRepository) CreateCoupon(ctx context.Context, req *domain.Crea
 				RETURNING id, code, description, discount_type, discount_value, min_order_amount, max_discount_amount, valid_from, valid_to, is_active, created_at, updated_at`
 
 	var coupon domain.CouponResponse
-	err := repo.db.QueryRow(ctx, query, req.CouponCode, req.Description, req.DiscountType, req.DiscountValue, req.MinOrderAmount, req.MaxDiscountAmount, req.ValidFrom, req.ValidTo).Scan(&coupon.ID, &coupon.CouponCode, &coupon.Description, &coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount, &coupon.MaxDiscountAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.IsActive, &coupon.CreatedAt, &coupon.UpdatedAt)
+	err := repo.db.QueryRow(ctx, query, req.CouponCode, req.Description, req.DiscountType,
+		req.DiscountValue, req.MinOrderAmount, req.MaxDiscountAmount,
+		req.ValidFrom, req.ValidTo).Scan(
+		&coupon.ID, &coupon.CouponCode, &coupon.Description,
+		&coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount,
+		&coupon.MaxDiscountAmount, &coupon.ValidFrom, &coupon.ValidTo, &coupon.IsActive,
+		&coupon.CreatedAt, &coupon.UpdatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -39,4 +46,94 @@ func (repo *CouponRepository) CreateCoupon(ctx context.Context, req *domain.Crea
 	}
 
 	return &coupon, nil
+}
+
+func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *domain.ListCouponsFilter) ([]domain.CouponResponse, error) {
+
+	query := `SELECT 
+			id,
+			code,
+			description,
+			discount_type,
+			discount_value,
+			min_order_amount,
+			max_discount_amount,
+			is_active,
+			valid_from,
+			valid_to,
+			created_at,
+			updated_at
+		FROM coupons
+		WHERE 1=1`
+
+	args := []any{}
+	argPos := 1
+
+	if filter == nil {
+		query += `
+			AND is_active = true
+			AND valid_from <= NOW()
+			AND valid_to >= NOW()
+			`
+	} else {
+		if filter.CouponCode != "" {
+			query += fmt.Sprintf(" AND code LIKE $%d", argPos)
+			args = append(args, "%"+filter.CouponCode+"%")
+			argPos++
+		}
+
+		if filter.DiscountType != "" {
+			query += fmt.Sprintf(" AND discount_type = $%d", argPos)
+			args = append(args, filter.DiscountType)
+			argPos++
+		}
+
+		if filter.ValidFrom != nil {
+			query += fmt.Sprintf(" AND valid_from >= $%d", argPos)
+			args = append(args, *filter.ValidFrom)
+			argPos++
+		}
+
+		if filter.ValidTo != nil {
+			query += fmt.Sprintf(" AND valid_to <= $%d", argPos)
+			args = append(args, *filter.ValidTo)
+			argPos++
+		}
+
+		if filter.IsActive != nil {
+			query += fmt.Sprintf(" AND is_active = $%d", argPos)
+			args = append(args, *filter.IsActive)
+			argPos++
+		}
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	fmt.Println("query :", query)
+	fmt.Println("args :", args)
+
+	rows, err := repo.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var coupons []domain.CouponResponse
+	for rows.Next() {
+		var coupon domain.CouponResponse
+		err := rows.Scan(
+			&coupon.ID, &coupon.CouponCode, &coupon.Description,
+			&coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount,
+			&coupon.MaxDiscountAmount, &coupon.IsActive, &coupon.ValidFrom, &coupon.ValidTo,
+			&coupon.CreatedAt, &coupon.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		coupons = append(coupons, coupon)
+	}
+
+	fmt.Println("len of coupons :", len(coupons))
+
+	return coupons, nil
+
 }
