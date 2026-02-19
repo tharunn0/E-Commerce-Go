@@ -19,6 +19,7 @@ type Handler struct {
 	Payment  *handler.PaymentHandler
 	Offer    *handler.OfferHandler
 	Coupon   *handler.CouponHandler
+	Report   *handler.ReportHandler
 }
 
 func NewHandler(
@@ -32,6 +33,7 @@ func NewHandler(
 	payment *handler.PaymentHandler,
 	offer *handler.OfferHandler,
 	coupon *handler.CouponHandler,
+	report *handler.ReportHandler,
 ) *Handler {
 	return &Handler{
 		User:     user,
@@ -44,6 +46,7 @@ func NewHandler(
 		Payment:  payment,
 		Offer:    offer,
 		Coupon:   coupon,
+		Report:   report,
 	}
 }
 
@@ -264,6 +267,14 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 		checkoutRoute := g.Group("api/v1/checkout").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
 		checkoutRoute.POST("/apply-coupon", h.Coupon.ApplyCoupon)
+	}
+
+	{
+		// admin report and analytics routes
+		reportAdminRoute := g.Group("api/v1/admin/reports").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		reportAdminRoute.GET("/sales", h.Report.GetSalesReport)
+		// reportAdminRoute.GET("/inventory", h.Admin.GetInventoryReport)
+		// reportAdminRoute.GET("/customers", h.Admin.GetCustomerReport)
 	}
 
 }
