@@ -65,4 +65,22 @@ func (h *CouponHandler) ListAllCoupons(c *gin.Context) {
 
 func (h *CouponHandler) ApplyCoupon(c *gin.Context) {
 
+	log.Println("[handler] apply coupon hit")
+
+	ctx := c.Request.Context()
+
+	var req domain.ApplyCouponRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	coupon, _, apierr := h.serv.ApplyCoupon(ctx, &req)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Coupon applied successfully", "status": "success", "data": coupon})
+
 }

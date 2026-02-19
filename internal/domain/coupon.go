@@ -29,7 +29,7 @@ type CouponResponse struct {
 	ID                int        `json:"id"`
 	CouponCode        string     `json:"coupon_code"`
 	Description       string     `json:"description"`
-	DiscountType      string     `json:"discount_type"`
+	DiscountType      string     `json:"discount_type"` // percentage or fixed
 	DiscountValue     float64    `json:"discount_value"`
 	MinOrderAmount    float64    `json:"min_order_amount"`
 	MaxDiscountAmount float64    `json:"max_discount_amount"`
@@ -48,6 +48,20 @@ type ListCouponsFilter struct {
 	ValidTo   *time.Time `form:"valid_to" time_format:"2006-01-02"`
 
 	IsActive *bool `form:"active"`
+}
+
+type ApplyCouponRequest struct {
+	CouponCode   string       `json:"coupon_code"`
+	AddressID    int64        `json:"address_id"`
+	DeliveryType DeliveryType `json:"delivery_type"`
+}
+
+type CouponData struct {
+	CouponCode       string
+	DiscountType     string
+	DiscountValue    float64
+	DiscountedAmount float64
+	Message          string
 }
 
 func (req *CreateCouponRequest) Validate() error {
@@ -84,5 +98,69 @@ func (req *CreateCouponRequest) Validate() error {
 	if req.ValidFrom.After(req.ValidTo) {
 		return errors.New("valid from cannot be after valid to")
 	}
+	return nil
+}
+
+func ValidateCoupon(coupon *CouponResponse, now time.Time) error {
+	if coupon == nil {
+		return errors.New("coupon not found")
+	}
+	if coupon.IsActive == false {
+		return errors.New("coupon is not active")
+	}
+
+	if now.Before(coupon.ValidFrom) {
+		return errors.New("coupon is not yet valid")
+	}
+	if now.After(coupon.ValidTo) {
+		return errors.New("coupon is expired")
+	}
+	return nil
+}
+
+func ApplyCouponToCart(cart *Cart, coupon *CouponResponse) error {
+	if cart == nil || coupon == nil {
+		return errors.New("invalid input")
+	}
+
+	var discount float64
+
+	// calculate discount
+	switch coupon.DiscountType {
+	case "percentage":
+		discount = (cart.CartTotalPrice * coupon.DiscountValue) / 100
+
+	case "fixed":
+		discount = coupon.DiscountValue
+
+	default:
+		return errors.New("invalid discount type")
+	}
+
+	couponData := &CouponData{}
+
+	// max discount cap
+	if coupon.MaxDiscountAmount > 0 && discount > coupon.MaxDiscountAmount {
+		discount = coupon.MaxDiscountAmount
+		couponData.Message = "Maximum discount applied"
+	} else {
+		couponData.Message = "Discount applied successfully"
+	}
+
+	if discount > cart.CartTotalPrice {
+		discount = cart.CartTotalPrice
+		couponData.Message = "Discount is greater than cart total"
+	}
+
+	cart.CartTotalPrice -= discount
+
+	cart.CouponData = &CouponData{
+		CouponCode:       coupon.CouponCode,
+		DiscountType:     coupon.DiscountType,
+		DiscountValue:    coupon.DiscountValue,
+		DiscountedAmount: discount,
+		Message:          couponData.Message,
+	}
+
 	return nil
 }

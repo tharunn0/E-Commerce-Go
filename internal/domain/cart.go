@@ -30,6 +30,7 @@ type VariantInfo struct {
 type Cart struct {
 	Items          []*CartItem `json:"items"`
 	CartTotalPrice float64     `json:"cart_total_price"`
+	CouponData     *CouponData `json:"coupon_data,omitempty"`
 }
 
 type CartItem struct {
