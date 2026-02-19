@@ -109,9 +109,6 @@ func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *domain
 
 	query += " ORDER BY created_at DESC"
 
-	fmt.Println("query :", query)
-	fmt.Println("args :", args)
-
 	rows, err := repo.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -132,8 +129,36 @@ func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *domain
 		coupons = append(coupons, coupon)
 	}
 
-	fmt.Println("len of coupons :", len(coupons))
-
 	return coupons, nil
 
+}
+
+func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string) (*domain.CouponResponse, error) {
+	query := `SELECT 
+		id,
+		code,
+		description,
+		discount_type,
+		discount_value,
+		min_order_amount,
+		max_discount_amount,
+		is_active,
+		valid_from,
+		valid_to,
+		created_at,
+		updated_at
+	FROM coupons
+	WHERE code = $1`
+
+	var coupon domain.CouponResponse
+	err := repo.db.QueryRow(ctx, query, couponCode).Scan(
+		&coupon.ID, &coupon.CouponCode, &coupon.Description,
+		&coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount,
+		&coupon.MaxDiscountAmount, &coupon.IsActive, &coupon.ValidFrom, &coupon.ValidTo,
+		&coupon.CreatedAt, &coupon.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &coupon, nil
 }

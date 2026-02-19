@@ -156,6 +156,24 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		return nil, notEnoughStockError, nil
 	}
 
+	var productIDs []int64
+	var categoryIDs []int64
+	for _, item := range cart.Items {
+		productIDs = append(productIDs, item.ProductID)
+		categoryIDs = append(categoryIDs, item.CategoryID)
+	}
+
+	offers, err := s.offerRepo.GetAllActiveOffers(ctx, productIDs, categoryIDs)
+	if err != nil {
+		s.log.Error("failed to get offers", zap.String("function", "GetAllActiveOffers"), zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Code:    "DB_ERROR",
+			Message: "Failed to get offers.",
+		}
+	}
+
+	domain.ApplyDiscounts(cart, offers)
+
 	// shipping charge
 	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
 

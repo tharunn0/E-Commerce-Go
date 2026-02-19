@@ -65,7 +65,7 @@ func main() {
 	orderServ := service.NewOrderService(userRepo, productRepo, cartRepo, orderRepo, paymentRepo, offerRepo, razorpayClient, log)
 	paymentServ := service.NewPaymentService(orderRepo, paymentRepo, userRepo, razorpayClient, log)
 	offerServ := service.NewOfferService(offerRepo, log)
-	couponServ := service.NewCouponService(couponRepo, log)
+	couponServ := service.NewCouponService(couponRepo, log, userRepo, cartRepo)
 
 	userHandler := handler.NewUserHandler(userServ, log, authServ, oauth)
 	adminHandler := handler.NewAdminHandler(adminServ, log, authServ)

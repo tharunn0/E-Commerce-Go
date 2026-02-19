@@ -61,36 +61,6 @@ func (h *OrderHandler) CheckoutCart(c *gin.Context) {
 
 }
 
-// checkout product variant
-func (h *OrderHandler) CheckoutProductVariant(c *gin.Context) {
-
-	ctx := c.Request.Context()
-
-	// extract request body
-	var req domain.ProductVariantCheckoutRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "BAD_REQUEST",
-			"message": "Invalid request body.",
-		})
-		return
-	}
-
-	// validate and get product variant
-	productVariant, err := h.serv.CheckoutProductVariant(ctx, &req)
-	if err != nil {
-		c.JSON(err.Status, gin.H{
-			"error":   err.Code,
-			"message": err.Message,
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Product variant checked out successfully",
-		"variant": productVariant,
-	})
-}
-
 // ORDER HANDLERS
 
 // create order

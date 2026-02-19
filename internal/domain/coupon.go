@@ -10,6 +10,8 @@ type CouponRepository interface {
 	CreateCoupon(ctx context.Context, req *CreateCouponRequest) (*CouponResponse, error)
 
 	ListAllCoupons(ctx context.Context, filter *ListCouponsFilter) ([]CouponResponse, error)
+
+	FetchCoupon(ctx context.Context, couponCode string) (*CouponResponse, error)
 }
 
 type CreateCouponRequest struct {
