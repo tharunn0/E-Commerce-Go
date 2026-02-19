@@ -88,4 +88,5 @@ var (
 
 	// Coupon related errors
 	ErrCouponCodeAlreadyExists = errors.New("Coupon code already exists")
+	ErrCouponNotFound          = errors.New("Coupon not found")
 )

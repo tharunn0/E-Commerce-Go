@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -157,6 +158,9 @@ func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string
 		&coupon.MaxDiscountAmount, &coupon.IsActive, &coupon.ValidFrom, &coupon.ValidTo,
 		&coupon.CreatedAt, &coupon.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperror.ErrCouponNotFound
+		}
 		return nil, err
 	}
 

@@ -214,7 +214,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 
 	if req.CouponCode != "" {
 		coupon, err := s.repo.FetchCoupon(ctx, req.CouponCode)
-		if err != nil {
+		if err != nil && err != apperror.ErrCouponNotFound {
 			s.log.Error("Failed to get coupon", zap.Error(err))
 			return nil, nil, &apperror.APIError{
 				Status:  http.StatusInternalServerError,
@@ -223,21 +223,32 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 			}
 		}
 
-		err = domain.ValidateCoupon(coupon, time.Now())
-		if err != nil {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusBadRequest,
-				Code:    "BAD_REQUEST",
-				Message: err.Error(),
+		if err == apperror.ErrCouponNotFound {
+			cart.CouponData = &domain.CouponData{
+				CouponCode:       req.CouponCode,
+				DiscountType:     "nil",
+				DiscountValue:    0,
+				DiscountedAmount: 0,
+				Message:          "Invalid or expired coupon",
 			}
-		}
+		} else {
 
-		err = domain.ApplyCouponToCart(cart, coupon)
-		if err != nil {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusBadRequest,
-				Code:    "BAD_REQUEST",
-				Message: err.Error(),
+			err = domain.ValidateCoupon(coupon, time.Now())
+			if err != nil {
+				return nil, nil, &apperror.APIError{
+					Status:  http.StatusBadRequest,
+					Code:    "BAD_REQUEST",
+					Message: err.Error(),
+				}
+			}
+
+			err = domain.ApplyCouponToCart(cart, coupon)
+			if err != nil {
+				return nil, nil, &apperror.APIError{
+					Status:  http.StatusBadRequest,
+					Code:    "BAD_REQUEST",
+					Message: err.Error(),
+				}
 			}
 		}
 	}
