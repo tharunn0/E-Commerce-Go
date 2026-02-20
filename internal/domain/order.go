@@ -43,6 +43,7 @@ type CreateOrderRequest struct {
 	AddressID     int64         `json:"address_id"`
 	DeliveryType  DeliveryType  `json:"delivery_type"`
 	PaymentMethod PaymentMethod `json:"payment_method"`
+	CouponCode    string        `json:"coupon_code"`
 }
 
 type OrderStatus string
@@ -80,20 +81,22 @@ type CreateOrderData struct {
 }
 
 type OrderItem struct {
-	ItemID           int64   `json:"item_id"`
-	ProductVariantID int64   `json:"product_variant_id"`
-	SKU              string  `json:"sku_at_purchase"`
-	ProductName      string  `json:"product_name_at_purchase"`
-	Quantity         int64   `json:"quantity"`
-	UnitPrice        float64 `json:"unit_price"`
-	TotalPrice       float64 `json:"total_price"`
-	Status           string  `json:"item_status"`
-	ImageURL         string  `json:"image_url"`
+	ItemID           int64             `json:"item_id"`
+	ProductVariantID int64             `json:"product_variant_id"`
+	SKU              string            `json:"sku_at_purchase"`
+	ProductName      string            `json:"product_name_at_purchase"`
+	Quantity         int64             `json:"quantity"`
+	UnitPrice        float64           `json:"unit_price"`
+	TotalPrice       float64           `json:"total_price"`
+	OfferData        *AppliedOfferData `json:"offer_data,omitempty"`
+	Status           string            `json:"item_status"`
+	ImageURL         string            `json:"image_url"`
 }
 
 type CreateOrderResponse struct {
 	OrderID      string      `json:"public_order_id"`
 	Items        []OrderItem `json:"items"`
+	CouponData   *CouponData `json:"coupon_data,omitempty"`
 	Subtotal     float64     `json:"subtotal"`
 	TaxAmount    float64     `json:"tax_amount"`
 	ShippingCost float64     `json:"shipping_cost"`

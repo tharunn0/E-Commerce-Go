@@ -23,6 +23,7 @@ type OrderService struct {
 	orderRepo   domain.OrderRepository
 	paymentRepo domain.PaymentRepository
 	offerRepo   domain.OfferRepository
+	couponRepo  domain.CouponRepository
 	razorpay    *Razorpay.Client
 	log         *zap.Logger
 }
@@ -34,6 +35,7 @@ func NewOrderService(
 	orderRepo domain.OrderRepository,
 	paymentRepo domain.PaymentRepository,
 	offerRepo domain.OfferRepository,
+	couponRepo domain.CouponRepository,
 	razorpay *Razorpay.Client,
 	log *zap.Logger,
 ) *OrderService {
@@ -44,6 +46,7 @@ func NewOrderService(
 		orderRepo:   orderRepo,
 		paymentRepo: paymentRepo,
 		offerRepo:   offerRepo,
+		couponRepo:  couponRepo,
 		log:         log,
 		razorpay:    razorpay,
 	}
@@ -442,6 +445,68 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
+	var productIds, categoryIds []int64
+
+	for _, item := range cart.Items {
+		productIds = append(productIds, item.ProductID)
+		categoryIds = append(categoryIds, item.CategoryID)
+	}
+
+	// apply existing offers
+
+	offers, err := s.offerRepo.GetAllActiveOffers(ctx, productIds, categoryIds)
+	if err != nil {
+		s.log.Error("Failed to get offers", zap.Error(err))
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get offers.",
+		}
+	}
+
+	if len(offers) > 0 {
+		domain.ApplyDiscounts(cart, offers)
+	}
+
+	// apply coupons
+
+	if req.CouponCode != "" {
+		coupon, err := s.couponRepo.FetchCoupon(ctx, req.CouponCode)
+		if err != nil {
+			s.log.Error("Failed to get coupon", zap.Error(err))
+			if err == apperror.ErrCouponNotFound {
+				return nil, nil, &apperror.APIError{
+					Status:  http.StatusNotFound,
+					Code:    "NOT_FOUND",
+					Message: apperror.ErrCouponNotFound.Error(),
+				}
+			}
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusInternalServerError,
+				Code:    "DB_ERROR",
+				Message: "Failed to get coupon.",
+			}
+		}
+
+		err = domain.ValidateCoupon(coupon, time.Now())
+		if err != nil {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusBadRequest,
+				Code:    "BAD_REQUEST",
+				Message: err.Error(),
+			}
+		}
+
+		err = domain.ApplyCouponToCart(cart, coupon)
+		if err != nil {
+			return nil, nil, &apperror.APIError{
+				Status:  http.StatusBadRequest,
+				Code:    "BAD_REQUEST",
+				Message: err.Error(),
+			}
+		}
+	}
+
 	// 9. calculate shipping charge
 	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
 
@@ -457,7 +522,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	// 11. calculate total amount
-	totalAmount := cart.CartTotalPrice
+	totalAmount := cart.CartTotalPrice + shippingAmount
 
 	orderData := &domain.CreateOrderData{
 		UserID:                userID,
@@ -486,6 +551,9 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		} else {
 			item.UnitPrice = cartItem.OriginalPrice
 		}
+
+		item.OfferData = cartItem.AppliedOffer
+
 		items = append(items, item)
 	}
 	orderData.Items = items
@@ -599,6 +667,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		Payment:               payment,
 		CreatedAt:             time.Now(),
 	}
+
+	resp.CouponData = cart.CouponData
 
 	if req.PaymentMethod == domain.PaymentMethodCOD {
 		resp.Payment = nil
