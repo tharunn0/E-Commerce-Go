@@ -78,6 +78,7 @@ type CreateOrderData struct {
 	EstimatedDeliveryDate time.Time   `db:"estimated_delivery_date"`
 
 	OrderSource string
+	CouponData  *CouponData
 }
 
 type OrderItem struct {

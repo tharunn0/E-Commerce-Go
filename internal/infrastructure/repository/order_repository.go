@@ -91,14 +91,22 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 		}
 	}
 
-	// empty cart
-	if data.OrderSource == "cart" {
-		query = `DELETE FROM cart_items 
-	 	USING carts C 
-	 	WHERE cart_items.cart_id = C.id AND C.user_id = $1`
-		_, err = tx.Exec(ctx, query, data.UserID)
+	// if coupon is applied, update coupon usage
+	if data.CouponData != nil {
+
+		// fetch coupon id
+		query = `SELECT id FROM coupons WHERE code = $1`
+		var couponID int64
+		err = r.DB.QueryRow(ctx, query, data.CouponData.CouponCode).Scan(&couponID)
 		if err != nil {
-			fmt.Println("error emptying cart", err)
+			fmt.Println("error fetching coupon id", err)
+			return err
+		}
+
+		query = `INSERT INTO order_coupons (order_id, coupon_id, discount_applied) VALUES ($1, $2, $3)`
+		_, err = tx.Exec(ctx, query, internalOrderID, couponID, data.CouponData.DiscountedAmount)
+		if err != nil {
+			fmt.Println("error updating coupon usage", err)
 			return err
 		}
 	}

@@ -534,6 +534,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		DeliveryType:          strings.ToLower(string(req.DeliveryType)),
 		EstimatedDeliveryDate: estimatedDeliveryDate,
 		OrderSource:           "cart",
+		CouponData:            cart.CouponData,
 	}
 
 	// 12. create order items
@@ -673,8 +674,13 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	if req.PaymentMethod == domain.PaymentMethodCOD {
 		resp.Payment = nil
 	}
-
 	s.log.Info("Order created successfully", zap.Any("order", resp))
+
+	// clear cart if order creation is successful
+	if req.PaymentMethod != domain.PaymentMethodCOD {
+		s.cartRepo.EmptyCart(ctx, userID)
+	}
+
 	return resp, nil, nil
 }
 
