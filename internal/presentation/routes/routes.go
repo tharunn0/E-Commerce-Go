@@ -273,7 +273,7 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		// admin report and analytics routes
 		reportAdminRoute := g.Group("api/v1/admin/reports").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		reportAdminRoute.GET("/sales", h.Report.GetSalesReport)
-		// reportAdminRoute.GET("/inventory", h.Admin.GetInventoryReport)
+		reportAdminRoute.GET("/top", h.Report.GetTopSelling)
 		// reportAdminRoute.GET("/customers", h.Admin.GetCustomerReport)
 	}
 

@@ -52,3 +52,35 @@ func (h *ReportHandler) GetSalesReport(c *gin.Context) {
 	})
 
 }
+
+func (h *ReportHandler) GetTopSelling(c *gin.Context) {
+
+	ctx := c.Request.Context()
+
+	var req domain.TopSellingRequest
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "invalid request",
+		})
+		return
+	}
+
+	resp, apierr := h.serv.GetTopSelling(ctx, req)
+	if apierr != nil {
+
+		c.JSON(apierr.Status, gin.H{
+			"error":   apierr.Code,
+			"message": apierr.Message,
+		})
+		return
+
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":      "success",
+		"top_selling": resp,
+	})
+
+}

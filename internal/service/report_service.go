@@ -50,7 +50,53 @@ func (s *ReportService) GetSalesReport(ctx context.Context, req domain.SalesRepo
 	}
 
 	reportResp.SalesReportRequest = req
-	reportResp.NetRevenue = reportResp.GrossRevenue - reportResp.CouponDiscount
 
 	return &reportResp, nil
+}
+
+func (s *ReportService) GetTopSelling(ctx context.Context, req domain.TopSellingRequest) (*domain.TopSellingResponse, *apperror.APIError) {
+
+	//validate the request
+	now := time.Now()
+	if err := req.Validate(now); err != nil {
+		s.log.Error("error validating top selling request", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: err.Error(),
+		}
+	}
+
+	// fetch top items
+	var resp domain.TopSellingResponse
+	var items []domain.TopStatItem
+	var err error
+
+	switch req.Type {
+	case "product":
+		items, err = s.repo.GetTopSellingProducts(ctx, &req)
+	case "category":
+		items, err = s.repo.GetTopSellingCategories(ctx, &req)
+	case "brand":
+		items, err = s.repo.GetTopSellingBrands(ctx, &req)
+	}
+
+	if err != nil {
+		s.log.Error("error fetching top items", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "INTERNAL_ERROR",
+			Message: "internal error",
+		}
+	}
+
+	resp = domain.TopSellingResponse{
+		Type:  req.Type,
+		From:  req.From,
+		To:    req.To,
+		Items: items,
+	}
+
+	s.log.Info("top items fetched successfully")
+	return &resp, nil
 }
