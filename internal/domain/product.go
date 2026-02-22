@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -164,4 +165,38 @@ type ProductFilter struct {
 	Order      string  `form:"order"`
 	MinPrice   float64 `form:"min_price"`
 	MaxPrice   float64 `form:"max_price"`
+}
+
+func (f *ProductFilter) IsFiltersValid() bool {
+
+	if f.Sort == "price" {
+		f.Sort = "min_price"
+	}
+
+	if f.Sort == "" || f.Order == "" {
+		return true
+	}
+
+	f.Order = strings.ToUpper(f.Order)
+	f.Sort = strings.ToLower(f.Sort)
+
+	validOrder := map[string]struct{}{
+		"ASC":  {},
+		"DESC": {},
+	}
+	validSortCol := map[string]struct{}{
+		"min_price":  {},
+		"name":       {},
+		"created_at": {},
+		"rating":     {},
+	}
+
+	if _, ok := validOrder[f.Order]; !ok {
+		return false
+	}
+	if _, ok := validSortCol[f.Sort]; !ok {
+		return false
+	}
+
+	return true
 }

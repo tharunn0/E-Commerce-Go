@@ -191,40 +191,6 @@ func IsValidStatus(status string) bool {
 	return status == "active" || status == "blocked" || status == "deleted"
 }
 
-func IsFiltersValid(f *domain.ProductFilter) bool {
-
-	if f.Sort == "price" {
-		f.Sort = "base_price"
-	}
-
-	if f.Sort == "" || f.Order == "" {
-		return true
-	}
-
-	f.Order = strings.ToUpper(f.Order)
-	f.Sort = strings.ToLower(f.Sort)
-
-	validOrder := map[string]struct{}{
-		"ASC":  {},
-		"DESC": {},
-	}
-	validSortCol := map[string]struct{}{
-		"base_price": {},
-		"name":       {},
-		"created_at": {},
-		"rating":     {},
-	}
-
-	if _, ok := validOrder[f.Order]; !ok {
-		return false
-	}
-	if _, ok := validSortCol[f.Sort]; !ok {
-		return false
-	}
-
-	return true
-}
-
 func ExtractAuthToken(rawtoken string) (string, error) {
 
 	if rawtoken == "" {

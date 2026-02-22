@@ -201,6 +201,8 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		argIndex++
 	}
 
+	log.Println("query", query)
+
 	rows, err := repo.DB.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err

@@ -126,7 +126,7 @@ func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.Prod
 	isAdmin := utils.IsAdmin(ctx)
 	activeOnly := !utils.IsAdmin(ctx)
 
-	if !utils.IsFiltersValid(filter) {
+	if !filter.IsFiltersValid() {
 		return nil, 0, &apperror.APIError{
 			Code:    "INVALID_FILTERS",
 			Message: "Filters contain invalid values",
