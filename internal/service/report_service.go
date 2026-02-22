@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -24,22 +25,20 @@ func NewReportService(repo domain.ReportRepository, log *zap.Logger) *ReportServ
 
 func (s *ReportService) GetSalesReport(ctx context.Context, req domain.SalesReportRequest) (*domain.SalesReportResponse, *apperror.APIError) {
 
+	log.Println("From: ", req.From)
+	log.Println("To: ", req.To)
+
 	// check if from is after 2020 and to is after from
-	if req.FromDate.IsZero() || req.ToDate.IsZero() {
-		// if to and from date is empty ,set it to last 30 days
-		req.ToDate = time.Now()
-		req.FromDate = req.ToDate.AddDate(0, 0, -30)
-	} else {
-		now := time.Now()
-		if req.FromDate.Before(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) ||
-			req.ToDate.Before(req.FromDate) || req.ToDate.After(now) {
-			return nil, &apperror.APIError{
-				Status:  http.StatusBadRequest,
-				Code:    "INVALID_DATE_RANGE",
-				Message: "invalid date range",
-			}
+	if err := req.Validate(time.Now()); err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: err.Error(),
 		}
 	}
+
+	log.Println("From: ", req.From)
+	log.Println("To: ", req.To)
 	reportResp, err := s.repo.GetSalesReport(ctx, &req)
 	if err != nil {
 		return nil, &apperror.APIError{

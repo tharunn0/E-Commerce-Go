@@ -15,8 +15,8 @@ type ReportRepository interface {
 }
 
 type SalesReportRequest struct {
-	FromDate time.Time `json:"from"`
-	ToDate   time.Time `json:"to"`
+	From time.Time `form:"from" time_format:"2006-01-02"`
+	To   time.Time `form:"to" time_format:"2006-01-02"`
 	// Total         float64   `json:"total"`
 	// TotalPaid     float64   `json:"total_paid"`
 	// TotalRefunded float64   `json:"total_refunded"`
@@ -94,5 +94,27 @@ func (r *TopSellingRequest) Validate(now time.Time) error {
 		return errors.New("limit must be between 1 and 10")
 	}
 
+	return nil
+}
+
+func (r *SalesReportRequest) Validate(now time.Time) error {
+	// Default dates
+	if r.From.IsZero() {
+		r.From = now.AddDate(0, 0, -30)
+	}
+	if r.To.IsZero() {
+		r.To = now
+	}
+
+	// Date validation
+	if r.From.After(now) {
+		return errors.New("from date cannot be in the future")
+	}
+	if r.From.After(r.To) {
+		return errors.New("from date cannot be after to date")
+	}
+	if r.To.After(now) {
+		return errors.New("to date cannot be in the future")
+	}
 	return nil
 }

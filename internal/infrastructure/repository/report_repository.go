@@ -51,7 +51,7 @@ WHERE
 
 `
 
-	row := r.db.QueryRow(ctx, query, req.FromDate, req.ToDate)
+	row := r.db.QueryRow(ctx, query, req.From, req.To)
 
 	var sales domain.SalesReportResponse
 	err := row.Scan(&sales.TotalOrders, &sales.GrossRevenue, &sales.ReturnedAmount, &sales.CouponDiscount)

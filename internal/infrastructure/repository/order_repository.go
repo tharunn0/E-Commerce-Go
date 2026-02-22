@@ -40,7 +40,7 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	for _, item := range data.Items {
 		query = `SELECT stock FROM product_variants WHERE id = $1`
 		var stock int64
-		err = r.DB.QueryRow(ctx, query, item.ProductVariantID).Scan(&stock)
+		err = tx.QueryRow(ctx, query, item.ProductVariantID).Scan(stock)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 		// fetch coupon id
 		query = `SELECT id FROM coupons WHERE code = $1`
 		var couponID int64
-		err = r.DB.QueryRow(ctx, query, data.CouponData.CouponCode).Scan(&couponID)
+		err = tx.QueryRow(ctx, query, data.CouponData.CouponCode).Scan(&couponID)
 		if err != nil {
 			fmt.Println("error fetching coupon id", err)
 			return err
@@ -355,11 +355,7 @@ func (r OrderRepository) CancelOrderNew(
 		return err
 	}
 
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	var internalOrderID int64
 	err = tx.QueryRow(ctx, `
