@@ -63,6 +63,8 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 		}
 	}
 
+	fmt.Println("Used Referral Code: ", req.ReferralCode)
+
 	existingUser, err := serv.repo.GetUser(ctx, req.Email)
 	if err == nil && existingUser != nil {
 		serv.log.Warn("duplicate user registration attempt", zap.String("email", req.Email))
@@ -84,7 +86,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	}
 
 	req.Password = hashedPass
-	serv.log.Debug("registering user", zap.String("service", "UserService"), zap.Any("request", req))
+	// serv.log.Debug("registering user", zap.String("service", "UserService"), zap.Any("request", req))
 
 	// generate referral code
 
@@ -97,7 +99,6 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 			Message: "Could not generate referral code. Please try again.",
 		}
 	}
-	req.ReferralCode = refCode
 
 	err = serv.repo.RegisterUser(ctx, req, refCode)
 	if err != nil {

@@ -27,6 +27,8 @@ var (
 	ErrUserNotFound    = errors.New("User not found")
 	ErrInvalidPassword = errors.New("Invalid password")
 
+	ErrInvalidReferralCode = errors.New("Invalid referral code")
+
 	// Address-related errors
 
 	ErrAddressNotFoundForUser = errors.New("Address not found for user")
@@ -89,4 +91,5 @@ var (
 	// Coupon related errors
 	ErrCouponCodeAlreadyExists = errors.New("Coupon code already exists")
 	ErrCouponNotFound          = errors.New("Coupon not found")
+	ErrCouponAlreadyUsed       = errors.New("Coupon already used")
 )

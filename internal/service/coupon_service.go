@@ -213,7 +213,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 	// apply coupons
 
 	if req.CouponCode != "" {
-		coupon, err := s.repo.FetchCoupon(ctx, req.CouponCode)
+		coupon, err := s.repo.FetchCoupon(ctx, req.CouponCode, userID)
 		if err != nil && err != apperror.ErrCouponNotFound {
 			s.log.Error("Failed to get coupon", zap.Error(err))
 			return nil, nil, &apperror.APIError{

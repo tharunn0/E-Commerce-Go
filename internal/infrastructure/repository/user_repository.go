@@ -21,29 +21,37 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	}
 }
 
-func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.RegisterRequest, refCode string) error {
+func (repo *UserRepository) RegisterUser(
+	ctx context.Context,
+	req *domain.RegisterRequest,
+	refCode string,
+) error {
 
 	tx, err := repo.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback(ctx)
 
 	userID := int64(0)
 	err = tx.QueryRow(ctx,
 		`INSERT INTO users (first_name,last_name,email,phone,password, referral_code)
-	 VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
-	`,
-		req.FirstName, req.LastName, req.Email, req.Phone, req.Password, refCode).Scan(&userID)
+		 VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+		req.FirstName,
+		req.LastName,
+		req.Email,
+		req.Phone,
+		req.Password,
+		refCode,
+	).Scan(&userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			if pgErr.Code == "23505" {
-				switch pgErr.ConstraintName {
-				case "users_email_key":
-					return apperror.ErrEmailExists
-				case "users_phone_key":
-					return apperror.ErrPhoneExists
-				}
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			switch pgErr.ConstraintName {
+			case "users_email_key":
+				return apperror.ErrEmailExists
+			case "users_phone_key":
+				return apperror.ErrPhoneExists
 			}
 		}
 		return err
@@ -51,32 +59,61 @@ func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.Regist
 
 	// create cart
 	_, _ = tx.Exec(ctx,
-		`INSERT INTO carts (user_id)
-	 VALUES ($1)
-	`,
-		userID)
+		`INSERT INTO carts (user_id) VALUES ($1)`,
+		userID,
+	)
 
 	// create wallet
-
 	_, _ = tx.Exec(ctx,
 		`INSERT INTO wallets (user_id,balance,is_admin)
-	 VALUES ($1,0,$2)
-	`,
-		userID, false)
+		 VALUES ($1,0,$2)`,
+		userID,
+		false,
+	)
 
 	// create wishlist
-
 	_, _ = tx.Exec(ctx,
-		`INSERT INTO wishlists (user_id)
-	 VALUES ($1)
-	`,
-		userID)
+		`INSERT INTO wishlists (user_id) VALUES ($1)`,
+		userID,
+	)
+
+	// ===== referral handling (fixed logic) =====
+	if req.ReferralCode != "" {
+
+		var referrerUserID int64
+		err = tx.QueryRow(ctx,
+			`SELECT id FROM users WHERE referral_code = $1`,
+			req.ReferralCode,
+		).Scan(&referrerUserID)
+
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperror.ErrInvalidReferralCode
+			}
+			return err
+		}
+
+		// prevent self-referral
+		if referrerUserID == userID {
+			return apperror.ErrInvalidReferralCode
+		}
+
+		// insert into referrals
+		_, _ = tx.Exec(ctx,
+			`INSERT INTO referrals (referrer_user_id,referred_user_id,referral_code,status)
+			 VALUES ($1,$2,$3,$4)`,
+			referrerUserID,
+			userID,
+			req.ReferralCode,
+			"pending",
+		)
+	}
 
 	// commit transaction
-	err = tx.Commit(ctx)
-	if err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
+
 	return nil
 }
 

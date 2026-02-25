@@ -455,3 +455,53 @@ CREATE TABLE category_offers (
     category_id BIGINT REFERENCES categories(id) ON DELETE CASCADE,
     UNIQUE(offer_id, category_id)
 );
+
+
+CREATE TYPE referral_status AS ENUM (
+    'pending',      -- user signed up
+    'qualified',    -- met conditions (e.g., first order)
+    'rewarded',     -- reward given
+    'expired',      -- time expired
+    'cancelled'     -- fraud / refund etc
+);
+
+CREATE TABLE referrals (
+    id BIGSERIAL PRIMARY KEY,
+
+    referrer_user_id BIGINT NOT NULL
+        REFERENCES users(id) ON DELETE CASCADE,
+
+    referred_user_id BIGINT NOT NULL UNIQUE
+        REFERENCES users(id) ON DELETE CASCADE,
+
+    referral_code VARCHAR(50) NOT NULL,
+
+    status referral_status DEFAULT 'pending',
+
+    qualified_at TIMESTAMPTZ,
+    rewarded_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE referral_coupons (
+    id BIGSERIAL PRIMARY KEY,
+
+    referral_id BIGINT NOT NULL
+        REFERENCES referrals(id) ON DELETE CASCADE,
+
+    user_id BIGINT NOT NULL
+        REFERENCES users(id) ON DELETE CASCADE,
+
+    coupon_code VARCHAR(50) NOT NULL UNIQUE,
+
+    discount_amount NUMERIC(12,2) NOT NULL, -- 5000
+    min_order_amount NUMERIC(12,2) NOT NULL, -- 50000
+
+    is_used BOOLEAN DEFAULT FALSE,
+    used_at TIMESTAMPTZ,
+
+    expires_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);

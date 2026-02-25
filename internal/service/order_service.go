@@ -471,7 +471,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	// apply coupons
 
 	if req.CouponCode != "" {
-		coupon, err := s.couponRepo.FetchCoupon(ctx, req.CouponCode)
+		coupon, err := s.couponRepo.FetchCoupon(ctx, req.CouponCode, userID)
 		if err != nil {
 			s.log.Error("Failed to get coupon", zap.Error(err))
 			if err == apperror.ErrCouponNotFound {

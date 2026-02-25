@@ -4,7 +4,9 @@ import (
 	// "context"
 
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -40,8 +42,9 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	for _, item := range data.Items {
 		query = `SELECT stock FROM product_variants WHERE id = $1`
 		var stock int64
-		err = tx.QueryRow(ctx, query, item.ProductVariantID).Scan(stock)
+		err = tx.QueryRow(ctx, query, item.ProductVariantID).Scan(&stock)
 		if err != nil {
+			log.Println("error fetching stock", err)
 			return err
 		}
 		if stock < item.Quantity {
@@ -94,20 +97,79 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	// if coupon is applied, update coupon usage
 	if data.CouponData != nil {
 
-		// fetch coupon id
-		query = `SELECT id FROM coupons WHERE code = $1`
 		var couponID int64
-		err = tx.QueryRow(ctx, query, data.CouponData.CouponCode).Scan(&couponID)
+		var isReferral bool
+
+		// 🔹 Step 1: check referral coupon existence
+		query := `SELECT id, is_used FROM referral_coupons
+	          WHERE coupon_code = $1 AND user_id = $2`
+
+		var isUsed bool
+		err := tx.QueryRow(ctx, query,
+			data.CouponData.CouponCode,
+			data.UserID,
+		).Scan(&couponID, &isUsed)
+
 		if err != nil {
-			fmt.Println("error fetching coupon id", err)
-			return err
+
+			if errors.Is(err, pgx.ErrNoRows) {
+
+				// 🔹 referral not found → try normal coupon
+				query = `SELECT id FROM coupons WHERE code = $1`
+				err = tx.QueryRow(ctx, query,
+					data.CouponData.CouponCode,
+				).Scan(&couponID)
+
+				if err != nil {
+					if errors.Is(err, pgx.ErrNoRows) {
+						return apperror.ErrCouponNotFound
+					}
+					fmt.Println("error fetching coupon id from coupons:", err)
+					return err
+				}
+
+				isReferral = false
+
+			} else {
+				fmt.Println("error fetching referral coupon:", err)
+				return err
+			}
+
+		} else {
+			// 🔹 referral exists
+			isReferral = true
+
+			// 🚨 already used check
+			if isUsed {
+				return apperror.ErrCouponAlreadyUsed
+			}
+
+			// 🔹 mark referral coupon used
+			query = `UPDATE referral_coupons
+		         SET is_used = true, used_at = now()
+		         WHERE id = $1 AND user_id = $2`
+
+			_, err = tx.Exec(ctx, query, couponID, data.UserID)
+			if err != nil {
+				fmt.Println("error updating referral coupon usage:", err)
+				return err
+			}
 		}
 
-		query = `INSERT INTO order_coupons (order_id, coupon_id, discount_applied) VALUES ($1, $2, $3)`
-		_, err = tx.Exec(ctx, query, internalOrderID, couponID, data.CouponData.DiscountedAmount)
-		if err != nil {
-			fmt.Println("error updating coupon usage", err)
-			return err
+		// 🔹 only normal coupons go into order_coupons
+		if !isReferral {
+			query = `INSERT INTO order_coupons (order_id, coupon_id, discount_applied)
+		         VALUES ($1, $2, $3)`
+
+			_, err = tx.Exec(ctx, query,
+				internalOrderID,
+				couponID,
+				data.CouponData.DiscountedAmount,
+			)
+			if err != nil {
+				fmt.Println("error inserting order coupon:", err)
+				return err
+			}
 		}
 	}
 
@@ -285,7 +347,7 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 	 WHERE o.id = shipments.order_id AND o.public_order_id = $2`
 	}
 
-	cmdTag, err := r.DB.Exec(ctx, query, statusString, orderID)
+	cmdTag, err := tx.Exec(ctx, query, statusString, orderID)
 	if err != nil {
 		return err
 	}
@@ -296,7 +358,7 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 	query = `UPDATE orders
 	 SET status = $1
 	 WHERE public_order_id = $2`
-	cmdTag, err = r.DB.Exec(ctx, query, statusString, orderID)
+	cmdTag, err = tx.Exec(ctx, query, statusString, orderID)
 	if err != nil {
 		return err
 	}
@@ -315,7 +377,7 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 	SET status = $1
 	FROM orders o
 	WHERE oi.order_id = o.id AND o.public_order_id = $2`
-	cmdTag, err = r.DB.Exec(ctx, query, pstatus, orderID)
+	cmdTag, err = tx.Exec(ctx, query, pstatus, orderID)
 	if err != nil {
 		return err
 	}
@@ -328,12 +390,78 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 		 SET status = 'paid', paid_at = now()
 		 FROM orders o
 		 WHERE o.id = payments.order_id AND o.public_order_id = $1`
-		cmdTag, err = r.DB.Exec(ctx, query, orderID)
+		cmdTag, err = tx.Exec(ctx, query, orderID)
 		if err != nil {
 			return err
 		}
 		if cmdTag.RowsAffected() == 0 {
 			return apperror.ErrOrderItemNotFound
+		}
+	}
+
+	// make referral qualified if order is delivered
+	if statusString == "delivered" {
+		query := `
+WITH delivered_order AS (
+    SELECT o.user_id
+    FROM orders o
+    WHERE o.public_order_id = $1
+      AND o.status = 'delivered'
+),
+
+first_delivery AS (
+    SELECT d.user_id
+    FROM delivered_order d
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM orders o2
+        WHERE o2.user_id = d.user_id
+          AND o2.status = 'delivered'
+          AND o2.public_order_id <> $1
+    )
+),
+
+qualified_referral AS (
+    UPDATE referrals r
+    SET status = 'qualified',
+        qualified_at = NOW()
+    FROM first_delivery fd
+    WHERE r.referred_user_id = fd.user_id
+      AND r.status = 'pending'
+    RETURNING r.id, r.referrer_user_id
+)
+
+INSERT INTO referral_coupons (
+    referral_id,
+    user_id,
+    coupon_code,
+    discount_amount,
+    min_order_amount,
+    expires_at
+)
+SELECT
+    qr.id,
+    qr.referrer_user_id,
+    'REF' || qr.referrer_user_id || '-' || substr(md5(random()::text), 1, 6),
+    5000,
+    50000,
+    NOW() + INTERVAL '30 days'
+FROM qualified_referral qr
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM referral_coupons rc
+    WHERE rc.referral_id = qr.id
+);
+`
+
+		_, err := tx.Exec(ctx, query, orderID)
+
+		// ✅ DO NOT break order flow
+		if err != nil {
+			log.Println("referral coupon issuance failed",
+				"orderID", orderID,
+				"err", err,
+			)
 		}
 	}
 

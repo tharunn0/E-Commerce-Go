@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -134,8 +136,40 @@ func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *domain
 
 }
 
-func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string) (*domain.CouponResponse, error) {
+func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string, userID int64) (*domain.CouponResponse, error) {
+
+	// fetch referral first ,if not exist move to coupons
 	query := `SELECT 
+		id,
+		coupon_code,
+		discount_amount,
+		min_order_amount,
+		created_at
+	FROM referral_coupons
+	WHERE coupon_code = $1 AND is_used = false AND user_id = $2`
+	var coupon domain.CouponResponse
+	err := repo.db.QueryRow(ctx, query, couponCode, userID).Scan(
+		&coupon.ID, &coupon.CouponCode, &coupon.DiscountValue, &coupon.MinOrderAmount,
+		&coupon.CreatedAt)
+
+	log.Println("Referral Coupon : ", coupon)
+
+	coupon.DiscountType = "fixed"
+	coupon.MaxDiscountAmount = coupon.DiscountValue
+	coupon.IsActive = true
+	coupon.ValidFrom = time.Now()
+	coupon.ValidTo = time.Now().AddDate(1, 0, 0)
+
+	if err == nil {
+		return &coupon, nil
+	}
+
+	if !errors.Is(err, pgx.ErrNoRows) {
+		log.Println("Error fetching referral coupon:", err)
+		return nil, err
+	}
+
+	query = `SELECT 
 		id,
 		code,
 		description,
@@ -151,13 +185,13 @@ func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string
 	FROM coupons
 	WHERE code = $1`
 
-	var coupon domain.CouponResponse
-	err := repo.db.QueryRow(ctx, query, couponCode).Scan(
+	err = repo.db.QueryRow(ctx, query, couponCode).Scan(
 		&coupon.ID, &coupon.CouponCode, &coupon.Description,
 		&coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount,
 		&coupon.MaxDiscountAmount, &coupon.IsActive, &coupon.ValidFrom, &coupon.ValidTo,
 		&coupon.CreatedAt, &coupon.UpdatedAt)
 	if err != nil {
+		log.Println("Error fetching coupon:", err)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperror.ErrCouponNotFound
 		}
@@ -165,4 +199,43 @@ func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string
 	}
 
 	return &coupon, nil
+}
+
+func (repo *CouponRepository) ListReferralRewards(ctx context.Context, userID int64) ([]domain.CouponResponse, error) {
+	query := `SELECT id,
+		coupon_code,
+		discount_amount,
+		min_order_amount,
+		created_at
+	FROM referral_coupons
+	WHERE user_id = $1 AND is_used = false`
+
+	rows, err := repo.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var coupons []domain.CouponResponse
+	for rows.Next() {
+		var coupon domain.CouponResponse
+		err := rows.Scan(
+			&coupon.ID, &coupon.CouponCode, &coupon.DiscountValue, &coupon.MinOrderAmount,
+			&coupon.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		coupons = append(coupons, coupon)
+	}
+
+	for i := range coupons {
+		coupons[i].Description = "Referral Coupon"
+		coupons[i].DiscountType = "FIXED"
+		coupons[i].MaxDiscountAmount = coupons[i].DiscountValue
+		coupons[i].IsActive = true
+		coupons[i].ValidFrom = time.Now()
+		coupons[i].ValidTo = coupons[i].CreatedAt.AddDate(2, 0, 0)
+	}
+
+	return coupons, nil
 }
