@@ -7,7 +7,7 @@ import (
 
 type UserRepository interface {
 	// auth operations
-	RegisterUser(ctx context.Context, req *RegisterRequest) error
+	RegisterUser(ctx context.Context, req *RegisterRequest, refCode string) error
 	GetUser(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, userID int64) (*User, error)
 	GoogleSignIn(ctx context.Context, req *GoogleSignInRequest) (*User, error)
@@ -56,6 +56,7 @@ type User struct {
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
 	DeletedAt        *time.Time `json:"deletedAt,omitempty"`
+	ReferralCode     string     `json:"referralCode,omitempty"`
 }
 type UserProfile struct {
 	ID               int64      `json:"id"`
@@ -70,6 +71,7 @@ type UserProfile struct {
 	ProfilePicture   *string    `json:"profilePicture,omitempty"`
 	CreatedAt        *time.Time `json:"createdAt"`
 	UpdatedAt        *time.Time `json:"updatedAt,omitempty"`
+	ReferralCode     string     `json:"referralCode,omitempty"`
 
 	Addresses []*UserAddress `json:"addresses,omitempty"`
 }
@@ -111,6 +113,7 @@ type RegisterRequest struct {
 	ConfirmPassword string `json:"confirm_password" validate:"required,min=8"`
 	FirstName       string `json:"firstName" validate:"required"`
 	LastName        string `json:"lastName" validate:"required"`
+	ReferralCode    string `json:"referral_code"`
 }
 
 type AdminRegisterRequest struct {

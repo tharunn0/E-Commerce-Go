@@ -273,7 +273,7 @@ func (h *UserHandler) GoogleCallback(c *gin.Context) {
 	state, err := c.Cookie("oauth_state")
 	if err != nil {
 		h.logger.Error("error getting oauth state", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":   "GOOGLE_SIGN_IN_FAILED",
 			"message": "Could not retrieve necessary state. Please try again.",
 		})

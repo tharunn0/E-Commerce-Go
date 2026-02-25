@@ -99,7 +99,9 @@ CREATE TABLE users (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     deleted_at TIMESTAMPTZ,
-    profile_img_url VARCHAR(255)
+    profile_img_url VARCHAR(255),
+    referral_code VARCHAR UNIQUE NOT NULL,
+    referred_by_user_id BIGINT NULL
 );
 
 

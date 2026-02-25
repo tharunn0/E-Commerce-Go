@@ -86,7 +86,20 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 	req.Password = hashedPass
 	serv.log.Debug("registering user", zap.String("service", "UserService"), zap.Any("request", req))
 
-	err = serv.repo.RegisterUser(ctx, req)
+	// generate referral code
+
+	refCode, err := utils.GenerateReferralCode(req.FirstName)
+	if err != nil {
+		serv.log.Error("failed to generate referral code", zap.String("email", req.Email))
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "REFERRAL_CODE_GENERATION_FAILED",
+			Message: "Could not generate referral code. Please try again.",
+		}
+	}
+	req.ReferralCode = refCode
+
+	err = serv.repo.RegisterUser(ctx, req, refCode)
 	if err != nil {
 		serv.log.Error("user registration failed", zap.String("email", req.Email), zap.Error(err))
 		return &apperror.APIError{
@@ -262,7 +275,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 
 	user, err := serv.repo.GetUserByID(ctx, userID)
 	if err != nil {
-		serv.log.Debug("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
+		serv.log.Error("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
 			Code:    "DB_ERROR",
@@ -272,7 +285,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 
 	addresses, err := serv.repo.GetUserAddresses(ctx, userID)
 	if err != nil {
-		serv.log.Debug("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
+		serv.log.Error("failed to fetch user addresses from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
 			Code:    "DB_ERROR",
@@ -292,6 +305,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 		ProfilePicture:   user.ProfilePicture,
 		CreatedAt:        &user.CreatedAt,
 		DefaultAddressID: user.DefaultAddressID,
+		ReferralCode:     user.ReferralCode,
 		Addresses:        addresses,
 	}
 

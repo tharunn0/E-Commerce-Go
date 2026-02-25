@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
@@ -271,4 +273,52 @@ func MapToStruct(m map[string]any, out any) error {
 		return err
 	}
 	return json.Unmarshal(b, out)
+}
+
+const randomPartLength = 4 // tune: 3–5 is common
+
+// GenerateReferralCode creates a referral code like THARUN8F3K
+func GenerateReferralCode(firstName string) (string, error) {
+	prefix := normalizeName(firstName)
+
+	randomPart, err := secureRandomString(randomPartLength)
+	if err != nil {
+		return "", err
+	}
+
+	return prefix + randomPart, nil
+}
+
+// normalizeName extracts clean uppercase prefix from first name
+func normalizeName(name string) string {
+	name = strings.ToUpper(strings.TrimSpace(name))
+
+	var b strings.Builder
+	for _, r := range name {
+		if unicode.IsLetter(r) {
+			b.WriteRune(r)
+		}
+		if b.Len() >= 6 { // limit prefix length
+			break
+		}
+	}
+
+	if b.Len() == 0 {
+		return "USER"
+	}
+
+	return b.String()
+}
+
+// secureRandomString generates a crypto-safe random uppercase string
+func secureRandomString(n int) (string, error) {
+	// Each byte → 8 bits → base32 gives good density
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+
+	encoded := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(bytes)
+
+	return encoded[:n], nil
 }

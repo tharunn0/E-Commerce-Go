@@ -21,13 +21,19 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	}
 }
 
-func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.RegisterRequest) error {
+func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.RegisterRequest, refCode string) error {
+
+	tx, err := repo.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+
 	userID := int64(0)
-	err := repo.DB.QueryRow(ctx,
-		`INSERT INTO users (first_name,last_name,email,phone,password)
-	 VALUES ($1,$2,$3,$4,$5) RETURNING id
+	err = tx.QueryRow(ctx,
+		`INSERT INTO users (first_name,last_name,email,phone,password, referral_code)
+	 VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
 	`,
-		req.FirstName, req.LastName, req.Email, req.Phone, req.Password).Scan(&userID)
+		req.FirstName, req.LastName, req.Email, req.Phone, req.Password, refCode).Scan(&userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -44,7 +50,7 @@ func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.Regist
 	}
 
 	// create cart
-	_, _ = repo.DB.Exec(ctx,
+	_, _ = tx.Exec(ctx,
 		`INSERT INTO carts (user_id)
 	 VALUES ($1)
 	`,
@@ -52,7 +58,7 @@ func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.Regist
 
 	// create wallet
 
-	_, _ = repo.DB.Exec(ctx,
+	_, _ = tx.Exec(ctx,
 		`INSERT INTO wallets (user_id,balance,is_admin)
 	 VALUES ($1,0,$2)
 	`,
@@ -60,12 +66,17 @@ func (repo *UserRepository) RegisterUser(ctx context.Context, req *domain.Regist
 
 	// create wishlist
 
-	_, _ = repo.DB.Exec(ctx,
+	_, _ = tx.Exec(ctx,
 		`INSERT INTO wishlists (user_id)
 	 VALUES ($1)
 	`,
 		userID)
 
+	// commit transaction
+	err = tx.Commit(ctx)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -135,10 +146,10 @@ func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *domain.Google
 
 func (repo *UserRepository) GetUserByID(ctx context.Context, userID int64) (*domain.User, error) {
 	user := &domain.User{}
-	query := `SELECT id, email, phone, first_name, last_name, role,is_verified , status, profile_img_url,created_at, updated_at FROM users
+	query := `SELECT id, email, phone, first_name, last_name, role,is_verified , status, referral_code,profile_img_url,created_at, updated_at FROM users
     WHERE status = 'active' AND id = $1;`
 	err := repo.DB.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Email, &user.Phone, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.ProfilePicture, &user.CreatedAt, &user.UpdatedAt)
+		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.ReferralCode, &user.ProfilePicture, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
