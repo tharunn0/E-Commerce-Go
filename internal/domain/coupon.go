@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -67,39 +69,70 @@ type CouponData struct {
 }
 
 func (req *CreateCouponRequest) Validate() error {
-	if req.CouponCode == "" {
+	code := strings.ToUpper(strings.TrimSpace(req.CouponCode))
+
+	// --- Coupon code ---
+	if code == "" {
 		return errors.New("coupon code is required")
 	}
-	if len(req.CouponCode) < 3 || len(req.CouponCode) > 10 {
+	if len(code) < 3 || len(code) > 10 {
 		return errors.New("coupon code must be between 3 and 10 characters long")
 	}
-	if req.Description == "" {
+	if !regexp.MustCompile(`^[A-Z0-9]+$`).MatchString(code) {
+		return errors.New("coupon code must be uppercase alphanumeric")
+	}
+	req.CouponCode = code
+
+	if strings.TrimSpace(req.Description) == "" {
 		return errors.New("description is required")
 	}
 	if len(req.Description) < 10 {
 		return errors.New("description must be at least 10 characters long")
 	}
+
 	if req.DiscountType != "percentage" && req.DiscountType != "fixed" {
 		return errors.New("discount type is invalid")
 	}
-	if req.DiscountValue <= 0 {
-		return errors.New("invalid discount value")
+	switch req.DiscountType {
+
+	case "percentage":
+		if req.DiscountValue <= 0 || req.DiscountValue > 100 {
+			return errors.New("percentage discount must be between 0 and 100")
+		}
+		if req.MaxDiscountAmount <= 0 {
+			return errors.New("max discount amount required for percentage coupon")
+		}
+
+	case "fixed":
+		if req.DiscountValue <= 0 {
+			return errors.New("fixed discount must be greater than 0")
+		}
+
+		if req.MaxDiscountAmount > 0 {
+			return errors.New("max discount amount should not be set for fixed coupons")
+		}
 	}
-	if req.MinOrderAmount <= 0 {
-		return errors.New("invalid min order amount")
+
+	if req.MinOrderAmount < 0 {
+		return errors.New("min order amount cannot be negative")
 	}
-	if req.MaxDiscountAmount <= 0 {
-		return errors.New("invalid max discount amount")
+
+	if req.DiscountType == "fixed" && req.MinOrderAmount > 0 &&
+		req.DiscountValue > req.MinOrderAmount {
+		return errors.New("discount cannot exceed minimum order amount")
 	}
-	if req.ValidFrom.IsZero() {
-		return errors.New("invalid valid from")
-	}
-	if req.ValidTo.IsZero() {
-		return errors.New("invalid valid to")
+
+	if req.ValidFrom.IsZero() || req.ValidTo.IsZero() {
+		return errors.New("valid from and valid to are required")
 	}
 	if req.ValidFrom.After(req.ValidTo) {
 		return errors.New("valid from cannot be after valid to")
 	}
+
+	if req.ValidTo.Before(time.Now()) {
+		return errors.New("coupon already expired")
+	}
+
 	return nil
 }
 
