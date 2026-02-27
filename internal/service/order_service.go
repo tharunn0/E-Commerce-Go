@@ -524,6 +524,14 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	// 11. calculate total amount
 	totalAmount := cart.CartTotalPrice + shippingAmount
 
+	if totalAmount > 50_000 && req.PaymentMethod == domain.PaymentMethodCOD {
+		return nil, nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Order amount exceeded. Should be less than 50000 for COD.",
+		}
+	}
+
 	orderData := &domain.CreateOrderData{
 		UserID:                userID,
 		OrderID:               orderID,
@@ -593,6 +601,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
+	var _ domain.PaymentResponse
 	// 15. create payment and payment response
 	paymentResp, err := gateway.CreatePayment(ctx, domain.PaymentRequest{
 		OrderID:  orderID,
@@ -607,6 +616,14 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 			Code:    "DB_ERROR",
 			Message: "Failed to initialize payment.",
 		}
+	}
+
+	if paymentResp.GatewayRef != nil {
+		fmt.Println("Payment created : ", *paymentResp.GatewayRef)
+	}
+
+	if paymentResp.PaymentURL != nil {
+		fmt.Println("Payment URL : ", *paymentResp.PaymentURL)
 	}
 
 	payment := &domain.Payment{
@@ -626,8 +643,6 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 			Message: "Failed to create payment.",
 		}
 	}
-
-	s.log.Info("Payment initialized", zap.Any("payment", payment))
 
 	neworder, err := s.orderRepo.GetUserOrderByID(ctx, orderID, 0)
 	if err != nil {

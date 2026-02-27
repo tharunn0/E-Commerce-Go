@@ -8,6 +8,14 @@ type APIError struct {
 	Message string `json:"message"`
 }
 
+func New(status int, code string, message string) *APIError {
+	return &APIError{
+		Status:  status,
+		Code:    code,
+		Message: message,
+	}
+}
+
 var (
 	// Generic errors
 	ErrInvalidInput     = errors.New("Invalid input")
