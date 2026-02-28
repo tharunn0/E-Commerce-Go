@@ -1,4 +1,4 @@
-package routes
+package server
 
 import (
 	"github.com/gin-gonic/gin"
@@ -22,7 +22,7 @@ type Handler struct {
 	Report   *handler.ReportHandler
 }
 
-func NewHandler(
+func NewRouteHandler(
 	user *handler.UserHandler,
 	admin *handler.AdminHandler,
 	category *handler.CategoryHandler,

@@ -20,8 +20,8 @@ type OrderRepository struct {
 	DB *pgxpool.Pool
 }
 
-func NewOrderRepository(db *pgxpool.Pool) OrderRepository {
-	return OrderRepository{DB: db}
+func NewOrderRepository(db *pgxpool.Pool) *OrderRepository {
+	return &OrderRepository{DB: db}
 }
 
 func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrderData) error {

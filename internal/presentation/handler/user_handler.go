@@ -22,7 +22,7 @@ type UserHandler struct {
 	oauth    *oauth2.Config
 }
 
-func NewUserHandler(srv *service.UserService, log *zap.Logger, authserv *service.AuthService, oauth *oauth2.Config) *UserHandler {
+func NewUserHandler(srv *service.UserService, authserv *service.AuthService, log *zap.Logger, oauth *oauth2.Config) *UserHandler {
 	return &UserHandler{
 		service:  srv,
 		logger:   log,
