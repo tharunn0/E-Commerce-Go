@@ -89,6 +89,13 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 	}
 
 	{
+		// wallets routes
+		walletProtected := g.Group("/api/v1/wallet/").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		walletProtected.GET("/", h.User.GetWallet)
+		walletProtected.GET("/transactions", h.User.GetWalletTransactions)
+	}
+
+	{
 
 		//admin auth routes
 		adminAuth := g.Group("/api/v1/auth/admin/")

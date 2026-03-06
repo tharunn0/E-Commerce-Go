@@ -518,3 +518,54 @@ func (serv *UserService) DeleteUserAddress(ctx context.Context, addressID int64)
 	}
 	return nil
 }
+
+func (serv *UserService) GetWallet(ctx context.Context) (*domain.Wallet, *apperror.APIError) {
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
+	wallet, err := serv.repo.GetWallet(ctx, userID)
+	if err != nil {
+		serv.log.Debug("failed to fetch wallet from db", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "Wallet not found.",
+		}
+	}
+	return wallet, nil
+}
+
+func (serv *UserService) GetWalletTransactions(ctx context.Context, filter *domain.TransactionFilter) ([]*domain.WalletTransaction, *apperror.APIError) {
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusUnauthorized,
+			Code:    "INVALID_USER_ID",
+			Message: "Invalid user ID.",
+		}
+	}
+
+	if err := filter.Validate(); err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: err.Error(),
+		}
+	}
+
+	transactions, err := serv.repo.GetWalletTransactions(ctx, userID, filter)
+	if err != nil {
+		serv.log.Debug("failed to fetch wallet transactions from db", zap.Int64("user_id", userID), zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusNotFound,
+			Code:    "NOT_FOUND",
+			Message: "Wallet transactions not found.",
+		}
+	}
+	return transactions, nil
+}

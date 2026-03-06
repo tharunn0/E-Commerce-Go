@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -365,4 +366,107 @@ func (repo *UserRepository) DeleteUserAddress(ctx context.Context, userID int64,
 		return errors.New("FAILED_TO_DELETE_USER_ADDRESS")
 	}
 	return nil
+}
+
+// user wallet ops
+
+func (repo *UserRepository) GetWallet(ctx context.Context, userID int64) (*domain.Wallet, error) {
+	wallet := &domain.Wallet{}
+	query := `SELECT id, balance, created_at, updated_at FROM wallets
+    WHERE user_id = $1;`
+	err := repo.DB.QueryRow(ctx, query, userID).Scan(&wallet.ID, &wallet.Balance, &wallet.CreatedAt, &wallet.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return wallet, nil
+}
+
+func (repo *UserRepository) GetWalletTransactions(
+	ctx context.Context,
+	userID int64,
+	filter *domain.TransactionFilter,
+) ([]*domain.WalletTransaction, error) {
+
+	query := `
+	SELECT
+		wt.id,
+		wt.wallet_id,
+		wt.amount,
+		wt.transaction_type,
+		wt.related_order,
+		wt.remarks,
+		wt.balance_before,
+		wt.balance_after,
+		wt.created_at
+	FROM wallet_transactions wt
+	JOIN wallets w ON w.id = wt.wallet_id
+	WHERE w.user_id = $1
+	`
+
+	args := []interface{}{userID}
+	paramIndex := 2
+
+	if filter != nil {
+
+		// if type is empty skip it, else add it to the query
+		if filter.Type != "" {
+			query += fmt.Sprintf(" AND wt.transaction_type = $%d", paramIndex)
+			args = append(args, filter.Type)
+			paramIndex++
+		}
+
+		query += fmt.Sprintf(" AND wt.created_at BETWEEN $%d AND $%d", paramIndex, paramIndex+1)
+		args = append(args, filter.StartDate, filter.EndDate)
+		paramIndex += 2
+	}
+
+	// Always sort transactions
+	query += " ORDER BY wt.created_at DESC"
+
+	if filter != nil && filter.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", paramIndex)
+		args = append(args, filter.Limit)
+		paramIndex++
+	}
+
+	if filter != nil && filter.Page > 0 && filter.Limit > 0 {
+		offset := (filter.Page - 1) * filter.Limit
+		query += fmt.Sprintf(" OFFSET $%d", paramIndex)
+		args = append(args, offset)
+	}
+
+	rows, err := repo.DB.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transactions []*domain.WalletTransaction
+
+	for rows.Next() {
+		t := &domain.WalletTransaction{}
+
+		err := rows.Scan(
+			&t.ID,
+			&t.WalletID,
+			&t.Amount,
+			&t.Type,
+			&t.RelatedOrderID,
+			&t.Remark,
+			&t.BalanceBefore,
+			&t.BalanceAfter,
+			&t.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		transactions = append(transactions, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return transactions, nil
 }

@@ -23,6 +23,9 @@ type UserRepository interface {
 	UpdateDefaultUserAddress(ctx context.Context, userID int64, addressID int64) error
 	UpdateUserAddress(ctx context.Context, userID int64, req *UpdateUserAddressRequest) (*UserAddress, error)
 	DeleteUserAddress(ctx context.Context, userID int64, addressID int64) error
+
+	GetWallet(ctx context.Context, userID int64) (*Wallet, error)
+	GetWalletTransactions(ctx context.Context, userID int64, filter *TransactionFilter) ([]*WalletTransaction, error)
 }
 
 type AdminRepository interface {

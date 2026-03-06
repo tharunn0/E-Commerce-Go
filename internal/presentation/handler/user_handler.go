@@ -594,3 +594,45 @@ func (h *UserHandler) DeleteUserAddress(c *gin.Context) {
 		"message": "User address deleted successfully",
 	})
 }
+
+// wallets handlers
+
+func (h *UserHandler) GetWallet(c *gin.Context) {
+	ctx := c.Request.Context()
+	wallet, apiErr := h.service.GetWallet(ctx)
+	if apiErr != nil {
+		c.JSON(apiErr.Status, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"wallet": wallet,
+	})
+}
+
+func (h *UserHandler) GetWalletTransactions(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req domain.TransactionFilter
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "INVALID_REQUEST",
+			"message": "Please provide a valid transaction filter.",
+		})
+		return
+	}
+
+	walletTransactions, apiErr := h.service.GetWalletTransactions(ctx, &req)
+	if apiErr != nil {
+		c.JSON(apiErr.Status, gin.H{
+			"error":   apiErr.Code,
+			"message": apiErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"walletTransactions": walletTransactions,
+	})
+}
