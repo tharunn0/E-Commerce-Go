@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
+	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/payments"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
@@ -25,6 +26,7 @@ type OrderService struct {
 	offerRepo   domain.OfferRepository
 	couponRepo  domain.CouponRepository
 	razorpay    *Razorpay.Client
+	cfg         config.OrderSettings
 	log         *zap.Logger
 }
 
@@ -37,6 +39,7 @@ func NewOrderService(
 	offerRepo domain.OfferRepository,
 	couponRepo domain.CouponRepository,
 	razorpay *Razorpay.Client,
+	cfg config.OrderSettings,
 	log *zap.Logger,
 ) *OrderService {
 	return &OrderService{
@@ -49,6 +52,7 @@ func NewOrderService(
 		couponRepo:  couponRepo,
 		log:         log,
 		razorpay:    razorpay,
+		cfg:         cfg,
 	}
 }
 
@@ -524,11 +528,11 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	// 11. calculate total amount
 	totalAmount := cart.CartTotalPrice + shippingAmount
 
-	if totalAmount > 50_000 && req.PaymentMethod == domain.PaymentMethodCOD {
+	if totalAmount > float64(s.cfg.MaxCodOrderAmount) && req.PaymentMethod == domain.PaymentMethodCOD {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
-			Message: "Order amount exceeded. Should be less than 50000 for COD.",
+			Message: fmt.Sprintf("Order amount exceeded. Should be less than %d for COD.", s.cfg.MaxCodOrderAmount),
 		}
 	}
 
@@ -1344,6 +1348,13 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 	// Updating return request status
 	if err := s.orderRepo.UpdateReturnRequestStatus(ctx, req); err != nil {
 		s.log.Error("Failed to update return request status", zap.Error(err))
+		if err == apperror.ErrInvalidReturnState {
+			return nil, &apperror.APIError{
+				Status:  http.StatusConflict,
+				Code:    "INVALID_STATUS",
+				Message: "Return has not been returned yet",
+			}
+		}
 		return nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "DB_ERROR",
@@ -1353,6 +1364,7 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 
 	returnRequest, err = s.orderRepo.GetReturnRequest(ctx, req.ReturnID)
 	if err != nil {
+
 		s.log.Error("Failed to get return request", zap.Error(err))
 		return nil, &apperror.APIError{
 			Status:  http.StatusNotFound,

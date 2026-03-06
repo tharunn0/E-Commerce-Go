@@ -13,6 +13,7 @@ type AppConfig struct {
 	Postgres PostgresSettings
 	Security SecuritySettings
 	Razorpay RazorpaySettings
+	Order    OrderSettings
 }
 
 type AppSettings struct {
@@ -63,6 +64,11 @@ type RazorpaySettings struct {
 	WebhookSecret string
 }
 
+type OrderSettings struct {
+	MaxOrderAmount    int64
+	MaxCodOrderAmount int64
+}
+
 func LoadConfig() *AppConfig {
 	return &AppConfig{
 		App: AppSettings{
@@ -111,6 +117,10 @@ func LoadConfig() *AppConfig {
 			KeyID:         getEnv("RAZORPAY_ID", ""),
 			KeySecret:     getEnv("RAZORPAY_SECRET", ""),
 			WebhookSecret: getEnv("RAZORPAY_WEBHOOK_SECRET", ""),
+		},
+		Order: OrderSettings{
+			MaxOrderAmount:    int64(getEnvAsInt("ALL_ORDER_MAX_AMOUNT", 10_00_000)),
+			MaxCodOrderAmount: int64(getEnvAsInt("COD_ORDER_MAX_AMOUNT", 50_000)),
 		},
 	}
 }

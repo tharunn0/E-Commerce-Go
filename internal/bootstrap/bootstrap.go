@@ -76,7 +76,7 @@ func NewServices(r *Repositories, deps ServiceDeps) *Services {
 		Order: service.NewOrderService(
 			r.UserRepo, r.ProductRepo, r.CartRepo, r.OrderRepo,
 			r.PaymentRepo, r.OfferRepo, r.CouponRepo,
-			deps.Razorpay, deps.Logger,
+			deps.Razorpay, deps.Cfg.Order, deps.Logger,
 		),
 		Payment: service.NewPaymentService(
 			r.OrderRepo, r.PaymentRepo, r.UserRepo,

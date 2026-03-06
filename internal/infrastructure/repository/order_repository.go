@@ -373,13 +373,25 @@ func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID strin
 		pstatus = "shipped"
 	}
 
-	query = `UPDATE order_items oi
-	SET status = $1
-	FROM orders o
-	WHERE oi.order_id = o.id AND o.public_order_id = $2`
-	cmdTag, err = tx.Exec(ctx, query, pstatus, orderID)
-	if err != nil {
-		return err
+	if pstatus == "shipped" {
+
+		query = `UPDATE order_items oi
+		SET status = $1
+		FROM orders o
+		WHERE oi.order_id = o.id AND o.public_order_id = $2 AND oi.status != 'cancelled'`
+		cmdTag, err = tx.Exec(ctx, query, pstatus, orderID)
+		if err != nil {
+			return err
+		}
+	} else {
+		query = `UPDATE order_items oi
+		SET status = $1
+		FROM orders o
+		WHERE oi.order_id = o.id AND o.public_order_id = $2 AND oi.status = 'shipped'`
+		cmdTag, err = tx.Exec(ctx, query, pstatus, orderID)
+		if err != nil {
+			return err
+		}
 	}
 	if cmdTag.RowsAffected() == 0 {
 		return apperror.ErrOrderItemNotFound
@@ -456,7 +468,6 @@ WHERE NOT EXISTS (
 
 		_, err := tx.Exec(ctx, query, orderID)
 
-		// ✅ DO NOT break order flow
 		if err != nil {
 			log.Println("referral coupon issuance failed",
 				"orderID", orderID,
@@ -471,12 +482,7 @@ WHERE NOT EXISTS (
 	return nil
 }
 
-func (r OrderRepository) CancelOrderNew(
-	ctx context.Context,
-	orderID string,
-	reason string,
-	orderItemIDs []int64,
-) (err error) {
+func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, reason string, orderItemIDs []int64) (err error) {
 
 	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -825,7 +831,7 @@ func (r OrderRepository) ReturnOrderRequest(ctx context.Context, orderID string,
 	 'requested' as status, 
 	 $2 as reason, 
 	 now() as requested_at 
-	 FROM order_items WHERE order_id = $3`
+	 FROM order_items WHERE order_id = $3 AND status = 'delivered'`
 	_, err = tx.Exec(ctx, query, returnID, reason, internalOrderID)
 	if err != nil {
 		fmt.Println("failed to insert return items", err, query)
@@ -851,14 +857,13 @@ func (r OrderRepository) ReturnOrderRequest(ctx context.Context, orderID string,
 }
 
 func (r OrderRepository) ReturnOrderItemRequest(ctx context.Context, orderID string, userID int64, itemID int64, reason string) error {
-	// Use a transaction to ensure consistency
 	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	fmt.Println("transaction started")
-	defer tx.Rollback(ctx) // Will be ignored if commit succeeds
+	defer tx.Rollback(ctx)
 
 	var internalOrderID int64
 	query := `SELECT id FROM orders WHERE public_order_id = $1`
@@ -1129,11 +1134,7 @@ func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *dom
 	}
 
 	// rollback only if an error occurs
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	// lock the return request row to prevent concurrent updates
 	var currentStatus string
@@ -1214,7 +1215,7 @@ func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *dom
 			UPDATE order_items
 			SET return_status = 'approved'
 			WHERE id = ANY($1)
-			  AND return_status IS DISTINCT FROM 'approved'
+			  AND return_status IS DISTINCT FROM 'approved' AND return_status IS DISTINCT FROM 'cancelled'
 		`
 		if _, err = tx.Exec(ctx, query, orderItemIDs); err != nil {
 			return err
@@ -1226,7 +1227,7 @@ func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *dom
 			SELECT COUNT(*)
 			FROM order_items
 			WHERE order_id = $1
-			  AND return_status IS DISTINCT FROM 'approved'
+			  AND return_status IS DISTINCT FROM 'approved' AND return_status IS DISTINCT FROM 'cancelled'
 		`
 		if err = tx.QueryRow(ctx, query, orderID).Scan(&remaining); err != nil {
 			return err
@@ -1281,7 +1282,8 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 	}
 
 	// enforce valid refund state
-	if currentStatus != "approved" {
+	if currentStatus != "returned" {
+		fmt.Println("invalid state, state : ", currentStatus)
 		return apperror.ErrInvalidReturnState
 	}
 
