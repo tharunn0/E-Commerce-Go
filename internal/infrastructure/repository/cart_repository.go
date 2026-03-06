@@ -110,7 +110,6 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 	LEFT JOIN product_variants pv ON ci.product_variant_id = pv.id
 	LEFT JOIN products p ON pv.product_id = p.id
 	LEFT JOIN categories c ON p.category_id = c.id
-	LEFT JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
 	WHERE ci.cart_id = $1
 	`
 	rows, err := repo.DB.Query(ctx, query, cartID)
@@ -147,6 +146,8 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 		cartItems = append(cartItems, &cartItem)
 	}
 
+	log.Println("cart items, ", cartItems)
+
 	return &domain.Cart{
 		Items:          cartItems,
 		CartTotalPrice: totalPrice,
@@ -174,7 +175,6 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 	FROM cart_items ci
 	LEFT JOIN product_variants pv ON ci.product_variant_id = pv.id
 	LEFT JOIN products p ON pv.product_id = p.id
-	LEFT JOIN product_variant_images pvi ON pv.id = pvi.product_variant_id
 	LEFT JOIN categories ct ON p.category_id = ct.id
 	INNER JOIN carts c ON ci.cart_id = c.id
 	WHERE c.user_id = $1
@@ -211,6 +211,8 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 		totalPrice += cartItem.TotalPrice
 		cartItems = append(cartItems, &cartItem)
 	}
+
+	log.Println("cart items, ", cartItems)
 
 	return &domain.Cart{
 		Items:          cartItems,

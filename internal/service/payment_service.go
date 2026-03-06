@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/razorpay/razorpay-go"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
@@ -14,16 +15,18 @@ import (
 type PaymentService struct {
 	orderRepo      domain.OrderRepository
 	paymentRepo    domain.PaymentRepository
+	cartRepo       domain.CartRepository
 	userRepo       domain.UserRepository
 	razorpayClient *razorpay.Client
 	log            *zap.Logger
 }
 
-func NewPaymentService(orderRepo domain.OrderRepository, paymentRepo domain.PaymentRepository, userRepo domain.UserRepository, razorpayClient *razorpay.Client, log *zap.Logger) *PaymentService {
+func NewPaymentService(orderRepo domain.OrderRepository, paymentRepo domain.PaymentRepository, userRepo domain.UserRepository, cartRepo domain.CartRepository, razorpayClient *razorpay.Client, log *zap.Logger) *PaymentService {
 	return &PaymentService{
 		orderRepo:      orderRepo,
 		paymentRepo:    paymentRepo,
 		userRepo:       userRepo,
+		cartRepo:       cartRepo,
 		razorpayClient: razorpayClient,
 		log:            log,
 	}
@@ -152,6 +155,23 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, event *domain.Webhoo
 			Code:    "INTERNAL_SERVER_ERROR",
 			Message: "Failed to update order payment status",
 		}
+	}
+
+	userIDStr := event.Payload.Payment.Entity.Notes.UserID
+
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		s.log.Error("failed to parse user id", zap.Error(err))
+		return &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "INTERNAL_SERVER_ERROR",
+			Message: "Failed to parse user id",
+		}
+	}
+
+	// if payment is successful clear cart
+	if fetchedPayment.Captured {
+		s.cartRepo.EmptyCart(ctx, userID)
 	}
 
 	s.log.Info("payment verified successfully", zap.String("order_id", event.Payload.Payment.Entity.Notes.InternalOrderID))

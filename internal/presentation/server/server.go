@@ -10,7 +10,7 @@ import (
 func StartServer(handlers *bootstrap.Handlers, deps bootstrap.ServerDeps) {
 
 	handler := NewRouteHandler(handlers.User, handlers.Admin, handlers.Category, handlers.Product,
-		handlers.Cart, handlers.Wishlist, handlers.Order, handlers.Payment, handlers.Offer, handlers.Coupon, handlers.Report)
+		handlers.Cart, handlers.Wishlist, handlers.Order, handlers.Payment, handlers.Offer, handlers.Coupon, handlers.Report, handlers.Review)
 
 	r := gin.New()
 	r.Use(gin.Recovery(), middleware.RequestLogger(deps.Logger))

@@ -696,7 +696,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	s.log.Info("Order created successfully", zap.Any("order", resp))
 
 	// clear cart if order creation is successful
-	if req.PaymentMethod != domain.PaymentMethodCOD {
+	if req.PaymentMethod == domain.PaymentMethodCOD {
 		s.cartRepo.EmptyCart(ctx, userID)
 	}
 

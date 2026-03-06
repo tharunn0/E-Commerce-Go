@@ -30,6 +30,7 @@ type Repositories struct {
 	OfferRepo    *repository.OfferRepository
 	CouponRepo   *repository.CouponRepository
 	ReportRepo   *repository.ReportRepository
+	ReviewRepo   *repository.ReviewRepository
 }
 
 func NewRepositories(deps RepoDeps) *Repositories {
@@ -46,6 +47,7 @@ func NewRepositories(deps RepoDeps) *Repositories {
 		OfferRepo:    repository.NewOfferRepository(deps.DB),
 		CouponRepo:   repository.NewCouponRepository(deps.DB),
 		ReportRepo:   repository.NewReportRepository(deps.DB),
+		ReviewRepo:   repository.NewReviewRepository(deps.DB),
 	}
 }
 
@@ -62,6 +64,7 @@ type Services struct {
 	Offer    *service.OfferService
 	Coupon   *service.CouponService
 	Report   *service.ReportService
+	Review   *service.ReviewService
 }
 
 func NewServices(r *Repositories, deps ServiceDeps) *Services {
@@ -79,12 +82,13 @@ func NewServices(r *Repositories, deps ServiceDeps) *Services {
 			deps.Razorpay, deps.Cfg.Order, deps.Logger,
 		),
 		Payment: service.NewPaymentService(
-			r.OrderRepo, r.PaymentRepo, r.UserRepo,
+			r.OrderRepo, r.PaymentRepo, r.UserRepo, r.CartRepo,
 			deps.Razorpay, deps.Logger,
 		),
 		Offer:  service.NewOfferService(r.OfferRepo, deps.Logger),
 		Coupon: service.NewCouponService(r.CouponRepo, deps.Logger, r.UserRepo, r.CartRepo, r.OfferRepo),
 		Report: service.NewReportService(r.ReportRepo, deps.Logger),
+		Review: service.NewReviewService(r.ReviewRepo, deps.Logger),
 	}
 }
 
@@ -100,6 +104,7 @@ type Handlers struct {
 	Offer    *handler.OfferHandler
 	Coupon   *handler.CouponHandler
 	Report   *handler.ReportHandler
+	Review   *handler.ReviewHandler
 }
 
 func NewHandlers(s *Services, deps HandlerDeps) *Handlers {
@@ -115,5 +120,6 @@ func NewHandlers(s *Services, deps HandlerDeps) *Handlers {
 		Offer:    handler.NewOfferHandler(s.Offer, deps.Logger),
 		Coupon:   handler.NewCouponHandler(s.Coupon, deps.Logger),
 		Report:   handler.NewReportHandler(s.Report, deps.Logger),
+		Review:   handler.NewReviewHandler(s.Review, deps.Logger),
 	}
 }

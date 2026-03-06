@@ -20,6 +20,7 @@ type Handler struct {
 	Offer    *handler.OfferHandler
 	Coupon   *handler.CouponHandler
 	Report   *handler.ReportHandler
+	Review   *handler.ReviewHandler
 }
 
 func NewRouteHandler(
@@ -34,6 +35,7 @@ func NewRouteHandler(
 	offer *handler.OfferHandler,
 	coupon *handler.CouponHandler,
 	report *handler.ReportHandler,
+	review *handler.ReviewHandler,
 ) *Handler {
 	return &Handler{
 		User:     user,
@@ -47,6 +49,7 @@ func NewRouteHandler(
 		Offer:    offer,
 		Coupon:   coupon,
 		Report:   report,
+		Review:   review,
 	}
 }
 
@@ -274,6 +277,15 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 		checkoutRoute := g.Group("api/v1/checkout").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
 		checkoutRoute.POST("/apply-coupon", h.Coupon.ApplyCoupon)
+	}
+
+	{
+		// review routes
+		reviewRoute := g.Group("api/v1/reviews").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		reviewRoute.POST("/", h.Review.CreateReview)
+
+		reviewAdminRoute := g.Group("api/v1/admin/reviews").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		reviewAdminRoute.DELETE("/:id", h.Review.DeleteReview)
 	}
 
 	{

@@ -82,6 +82,7 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 	}
 
 	cart, err := s.cartRepo.GetCartByID(ctx, *cartID)
+	log.Println("cart :", cart)
 	if err != nil {
 
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", *cartID), zap.Error(err))
@@ -154,7 +155,12 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 		log.Println("offers found", "function", "GetAllActiveOffers")
 	}
 
+	log.Println("cart before discounts ", cart)
+
 	domain.ApplyDiscounts(cart, offers)
+
+	log.Println("cart after discounts ", cart)
+
 	return cart, nil
 }
 
