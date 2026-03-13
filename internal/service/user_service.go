@@ -270,7 +270,16 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 }
 
 // get user profile
-func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*domain.UserProfile, *apperror.APIError) {
+func (serv *UserService) GetUserProfile(ctx context.Context) (*domain.UserProfile, *apperror.APIError) {
+
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: "User ID not found",
+		}
+	}
 
 	isAdmin := utils.IsAdmin(ctx)
 
@@ -333,7 +342,14 @@ func (serv *UserService) GetUserProfile(ctx context.Context, userID int64) (*dom
 // update user profile
 func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, *apperror.APIError) {
 
-	fmt.Println("profile picture", *req.ProfilePicture)
+	err := req.Validate()
+	if err != nil {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "INVALID_REQUEST",
+			Message: err.Error(),
+		}
+	}
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -343,6 +359,7 @@ func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.Upda
 			Message: "Invalid user ID.",
 		}
 	}
+	serv.log.Debug("update user profile", zap.Int64("user id", userID))
 	updatedProfile, err := serv.repo.UpdateUserProfile(ctx, userID, req)
 	if err != nil {
 		if err == apperror.ErrPhoneExists {

@@ -181,3 +181,19 @@ type UpdateUserProfileRequest struct {
 	Phone          *string `json:"phone,omitempty"`
 	ProfilePicture *string `json:"profile_img_url,omitempty"`
 }
+
+func (req *UpdateUserProfileRequest) Validate() error {
+	if req.FirstName != nil && *req.FirstName == "" {
+		req.FirstName = nil
+	}
+	if req.LastName != nil && *req.LastName == "" {
+		req.LastName = nil
+	}
+	if req.Phone != nil && *req.Phone == "" {
+		req.Phone = nil
+	}
+	if req.ProfilePicture != nil && *req.ProfilePicture == "" {
+		req.ProfilePicture = nil
+	}
+	return nil
+}

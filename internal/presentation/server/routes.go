@@ -281,8 +281,12 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 	{
 		// review routes
-		reviewRoute := g.Group("api/v1/reviews").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
-		reviewRoute.POST("/", h.Review.CreateReview)
+
+		reviewOpenRoute := g.Group("api/v1/reviews").Use(middleware.AuthContextMiddleware(logger, cfg.JWTSecret))
+		reviewOpenRoute.GET("/:product_id", h.Review.GetProductReviews)
+
+		reviewRoute := g.Group("api/v1/products").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))
+		reviewRoute.POST("/:product_id/reviews", h.Review.CreateReview)
 
 		reviewAdminRoute := g.Group("api/v1/admin/reviews").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		reviewAdminRoute.DELETE("/:id", h.Review.DeleteReview)
@@ -290,10 +294,10 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 
 	{
 		// admin report and analytics routes
-		reportAdminRoute := g.Group("api/v1/admin/reports").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
-		reportAdminRoute.GET("/sales", h.Report.GetSalesReport)
-		reportAdminRoute.GET("/top", h.Report.GetTopSelling)
-		// reportAdminRoute.GET("/customers", h.Admin.GetCustomerReport)
+		reportAdminRoute := g.Group("api/v1/admin").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
+		reportAdminRoute.GET("/reports/sales", h.Report.GetSalesReport)
+		reportAdminRoute.GET("/reports/top", h.Report.GetTopSelling)
+		reportAdminRoute.GET("/analytics/revenue", h.Report.GetRevenueAnalytics)
 	}
 
 }

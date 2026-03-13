@@ -470,5 +470,3 @@ func (repo *UserRepository) GetWalletTransactions(
 
 	return transactions, nil
 }
-
-var _ domain.Review

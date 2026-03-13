@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -120,31 +121,31 @@ LIMIT $3;
 func (r *ReportRepository) GetTopSellingCategories(ctx context.Context, req *domain.TopSellingRequest) ([]domain.TopStatItem, error) {
 
 	query := `SELECT
-    c.id,
-    c.name,
-    SUM(oi.quantity) AS total_sold,
-    SUM(oi.total_price) AS total_revenue
-FROM order_items oi
-JOIN product_variants pv 
-    ON pv.id = oi.product_variant_id
-JOIN products p
-    ON p.id = pv.product_id
-JOIN categories c
-    ON c.id = p.category_id
-JOIN orders o
-    ON o.id = oi.order_id
-WHERE
-    oi.status = 'delivered'
-    AND o.status IN ('delivered', 'shipped')
-    AND o.created_at >= $1
-    AND o.created_at <= $2
-GROUP BY
-    c.id,
-    c.name
-ORDER BY
-    total_sold DESC,
-    total_revenue DESC
-LIMIT $3;
+    	c.id,
+    	c.name,
+    	SUM(oi.quantity) AS total_sold,
+    	SUM(oi.total_price) AS total_revenue
+	FROM order_items oi
+	JOIN product_variants pv 
+    	ON pv.id = oi.product_variant_id
+	JOIN products p
+    	ON p.id = pv.product_id
+	JOIN categories c
+    	ON c.id = p.category_id
+	JOIN orders o
+    	ON o.id = oi.order_id
+	WHERE
+    	oi.status = 'delivered'
+    	AND o.status IN ('delivered', 'shipped')
+    	AND o.created_at >= $1
+    	AND o.created_at <= $2
+	GROUP BY
+    	c.id,
+    	c.name
+	ORDER BY
+    	total_sold DESC,
+    	total_revenue DESC
+	LIMIT $3;
 `
 
 	log.Println("Limit: ", req.Limit)
@@ -171,31 +172,31 @@ LIMIT $3;
 func (r *ReportRepository) GetTopSellingBrands(ctx context.Context, req *domain.TopSellingRequest) ([]domain.TopStatItem, error) {
 
 	query := `SELECT
-    b.id,
-    b.name,
-    SUM(oi.quantity) AS total_sold,
-    SUM(oi.total_price) AS total_revenue
-FROM order_items oi
-JOIN product_variants pv 
-    ON pv.id = oi.product_variant_id
-JOIN products p
-    ON p.id = pv.product_id
-JOIN brands b
-    ON b.id = p.brand_id
-JOIN orders o
-    ON o.id = oi.order_id
-WHERE
-    oi.status = 'delivered'
-    AND o.status IN ('delivered', 'shipped')
-    AND o.created_at >= $1
-    AND o.created_at <= $2
-GROUP BY
-    b.id,
-    b.name
-ORDER BY
-    total_sold DESC,
-    total_revenue DESC
-LIMIT $3;
+    	b.id,
+    	b.name,
+    	SUM(oi.quantity) AS total_sold,
+    	SUM(oi.total_price) AS total_revenue
+	FROM order_items oi
+	JOIN product_variants pv 
+    	ON pv.id = oi.product_variant_id
+	JOIN products p
+    	ON p.id = pv.product_id
+	JOIN brands b
+    	ON b.id = p.brand_id
+	JOIN orders o
+    	ON o.id = oi.order_id
+	WHERE
+    	oi.status = 'delivered'
+    	AND o.status IN ('delivered', 'shipped')
+    	AND o.created_at >= $1
+    	AND o.created_at <= $2
+	GROUP BY
+    	b.id,
+    	b.name
+	ORDER BY
+    	total_sold DESC,
+    	total_revenue DESC
+	LIMIT $3;
 `
 
 	log.Println("Limit: ", req.Limit)
@@ -217,4 +218,83 @@ LIMIT $3;
 	}
 
 	return items, nil
+}
+
+func (r *ReportRepository) GetRevenueAnalytics(ctx context.Context, req *domain.RevenueAnalyticsRequest) (*domain.RevenueAnalyticsResponse, error) {
+
+	var intervalUnit string
+	var intervalSQL string
+	var seriesInterval string
+
+	switch req.Interval {
+	case "weekly":
+		intervalUnit = "week"
+		intervalSQL = "date_trunc('week', created_at)"
+		seriesInterval = "1 week"
+
+	case "monthly":
+		intervalUnit = "month"
+		intervalSQL = "date_trunc('month', created_at)"
+		seriesInterval = "1 month"
+
+	default:
+		intervalUnit = "day"
+		intervalSQL = "date_trunc('day', created_at)"
+		seriesInterval = "1 day"
+	}
+
+	query := fmt.Sprintf(`
+WITH series AS (
+	SELECT generate_series(
+		date_trunc('%s', $1::timestamptz),
+		date_trunc('%s', $2::timestamptz),
+		'%s'
+	) AS period
+),
+revenue AS (
+	SELECT
+		%s AS period,
+		SUM(total_amount) AS revenue
+	FROM orders
+	WHERE created_at BETWEEN $1 AND $2
+	AND status = 'delivered'
+	GROUP BY period
+)
+SELECT
+	s.period,
+	COALESCE(r.revenue, 0) AS revenue
+FROM series s
+LEFT JOIN revenue r ON r.period = s.period
+ORDER BY s.period;
+`,
+		intervalUnit,
+		intervalUnit,
+		seriesInterval,
+		intervalSQL,
+	)
+
+	rows, err := r.db.Query(ctx, query, req.From, req.To)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var data []domain.RevenueData
+
+	for rows.Next() {
+		var d domain.RevenueData
+		if err := rows.Scan(&d.Date, &d.Revenue); err != nil {
+			return nil, err
+		}
+		data = append(data, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &domain.RevenueAnalyticsResponse{
+		RevenueAnalyticsRequest: *req,
+		RevenueData:             data,
+	}, nil
 }

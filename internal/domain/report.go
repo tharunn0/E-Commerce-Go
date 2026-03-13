@@ -12,6 +12,8 @@ type ReportRepository interface {
 	GetTopSellingProducts(ctx context.Context, req *TopSellingRequest) ([]TopStatItem, error)
 	GetTopSellingCategories(ctx context.Context, req *TopSellingRequest) ([]TopStatItem, error)
 	GetTopSellingBrands(ctx context.Context, req *TopSellingRequest) ([]TopStatItem, error)
+
+	GetRevenueAnalytics(ctx context.Context, req *RevenueAnalyticsRequest) (*RevenueAnalyticsResponse, error)
 }
 
 type SalesReportRequest struct {
@@ -54,6 +56,22 @@ type TopStatItem struct {
 	Name         string  `json:"name"`
 	TotalSold    int64   `json:"total_sold"`
 	TotalRevenue float64 `json:"total_revenue"`
+}
+
+type RevenueAnalyticsRequest struct {
+	From     time.Time `form:"from" time_format:"2006-01-02"`
+	To       time.Time `form:"to" time_format:"2006-01-02"`
+	Interval string    `form:"interval"`
+}
+
+type RevenueAnalyticsResponse struct {
+	RevenueAnalyticsRequest
+	RevenueData []RevenueData `json:"revenue_data"`
+}
+
+type RevenueData struct {
+	Date    time.Time `json:"date"`
+	Revenue float64   `json:"revenue"`
 }
 
 func (r *TopSellingRequest) Validate(now time.Time) error {
@@ -104,6 +122,36 @@ func (r *SalesReportRequest) Validate(now time.Time) error {
 	}
 	if r.To.IsZero() {
 		r.To = now
+	}
+
+	// Date validation
+	if r.From.After(now) {
+		return errors.New("from date cannot be in the future")
+	}
+	if r.From.After(r.To) {
+		return errors.New("from date cannot be after to date")
+	}
+	if r.To.After(now) {
+		return errors.New("to date cannot be in the future")
+	}
+	return nil
+}
+
+// if all values are zero, then default default to daily interval of last 30 days
+func (r *RevenueAnalyticsRequest) Validate(now time.Time) error {
+	// Default dates
+	if r.From.IsZero() {
+		r.From = now.AddDate(0, 0, -30)
+	}
+	if r.To.IsZero() {
+		r.To = now
+	}
+
+	if r.Interval == "" {
+		r.Interval = "daily"
+	}
+	if r.Interval != "daily" && r.Interval != "weekly" && r.Interval != "monthly" && r.Interval != "yearly" {
+		return errors.New("invalid interval")
 	}
 
 	// Date validation

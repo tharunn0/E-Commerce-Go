@@ -100,4 +100,9 @@ var (
 	ErrCouponCodeAlreadyExists = errors.New("Coupon code already exists")
 	ErrCouponNotFound          = errors.New("Coupon not found")
 	ErrCouponAlreadyUsed       = errors.New("Coupon already used")
+
+	// Review related errors
+	ErrReviewAlreadyExists  = errors.New("Review already exists")
+	ErrFailedToCreateReview = errors.New("Failed to create review")
+	ErrProductNotOrdered    = errors.New("Product not ordered")
 )

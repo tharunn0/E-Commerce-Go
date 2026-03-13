@@ -104,6 +104,21 @@ func IssueJWT(uid int64, email, role string, isverified bool, log *zap.Logger) (
 
 }
 
+func LogCtxContent(ctx context.Context, log *zap.Logger) {
+
+	userID, _ := ctx.Value(domain.KeyUserID).(float64)
+	role, _ := ctx.Value(domain.KeyRole).(string)
+	verified, _ := ctx.Value(domain.KeyVerified).(bool)
+	email, _ := ctx.Value(domain.KeyEmail).(string)
+
+	log.Info("Context values",
+		zap.Int("user_id", int(userID)),
+		zap.String("role", role),
+		zap.Bool("verified", verified),
+		zap.String("email", email),
+	)
+}
+
 func GetEmailFromContext(ctx context.Context) string {
 	if email, ok := ctx.Value(domain.KeyEmail).(string); ok {
 		return email

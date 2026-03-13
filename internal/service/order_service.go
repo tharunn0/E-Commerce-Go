@@ -745,6 +745,7 @@ func (s *OrderService) UpdateOrderStatusOnPayment(ctx context.Context, status do
 
 // get user orders
 func (s *OrderService) GetUserOrders(ctx context.Context) ([]domain.OrderBaseResponse, *apperror.APIError) {
+	utils.LogCtxContent(ctx, s.log)
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		s.log.Error("Failed to get user ID", zap.Error(err))
@@ -763,6 +764,8 @@ func (s *OrderService) GetUserOrders(ctx context.Context) ([]domain.OrderBaseRes
 			Message: "Failed to get orders.",
 		}
 	}
+
+	fmt.Printf("Orders Amount: %f\n", orders[0].TotalAmount)
 
 	return orders, nil
 }

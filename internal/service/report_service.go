@@ -99,3 +99,23 @@ func (s *ReportService) GetTopSelling(ctx context.Context, req domain.TopSelling
 	s.log.Info("top items fetched successfully")
 	return &resp, nil
 }
+
+func (s *ReportService) GetRevenueAnalytics(ctx context.Context, req domain.RevenueAnalyticsRequest) (*domain.RevenueAnalyticsResponse, *apperror.APIError) {
+
+	err := req.Validate(time.Now())
+	if err != nil {
+		s.log.Error("[service.GetRevenueAnalytics] error validating revenue analytics request", zap.Error(err))
+		return nil, apperror.New(http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	repoResp, err := s.repo.GetRevenueAnalytics(ctx, &req)
+	if err != nil {
+		s.log.Error("[service.GetRevenueAnalytics] error fetching revenue analytics", zap.Error(err))
+		return nil, apperror.New(http.StatusInternalServerError, "INTERNAL_ERROR", "internal error")
+	}
+
+	repoResp.RevenueAnalyticsRequest = req
+
+	return repoResp, nil
+
+}

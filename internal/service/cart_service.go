@@ -96,6 +96,9 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 }
 
 func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIError) {
+
+	utils.LogCtxContent(ctx, s.log)
+
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{

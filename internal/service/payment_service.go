@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -54,6 +55,15 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 		}
 	}
 
+	// check if order has correct payment method
+	if order.PaymentMethod != "RAZORPAY" {
+		return nil, &apperror.APIError{
+			Status:  http.StatusBadRequest,
+			Code:    "BAD_REQUEST",
+			Message: "Order has incorrect payment method",
+		}
+	}
+
 	// check if order is already confirmed and paid
 	if order.Status == "confirmed" && order.PaymentStatus == "paid" {
 		return nil, &apperror.APIError{
@@ -75,9 +85,13 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 		}
 	}
 
+	fmt.Printf("Order Total Amount: %f\n", order.TotalAmount)
+
+	amountInPaise := int(order.TotalAmount * 100)
+
 	// create payment link
 	data := map[string]any{
-		"amount":   order.TotalAmount * 100,
+		"amount":   amountInPaise,
 		"currency": "INR",
 		"customer": map[string]any{
 			"name":    user.FirstName + " " + user.LastName,

@@ -418,16 +418,7 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, ok := ctx.Value(domain.KeyUserID).(float64)
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "INVALID_REQUEST",
-			"message": "User ID not found",
-		})
-		return
-	}
-
-	userProfile, apiErr := h.service.GetUserProfile(ctx, int64(userID))
+	userProfile, apiErr := h.service.GetUserProfile(ctx)
 	if apiErr != nil {
 		c.JSON(apiErr.Status, gin.H{
 			"error":   apiErr.Code,
