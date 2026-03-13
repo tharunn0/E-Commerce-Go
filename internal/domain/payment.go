@@ -16,11 +16,13 @@ type PaymentStatus string
 const (
 	PaymentMethodRazorpay PaymentMethod = "RAZORPAY"
 	PaymentMethodCOD      PaymentMethod = "COD"
+	PaymentMethodWallet   PaymentMethod = "WALLET"
 )
 
 var AvailablePaymentMethods = []PaymentMethod{
 	PaymentMethodRazorpay,
 	PaymentMethodCOD,
+	PaymentMethodWallet,
 }
 
 const (

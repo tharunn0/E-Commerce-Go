@@ -322,25 +322,12 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.P
 	return resp, nil
 }
 
-// ORDER SERVICES
-// ////////////////
 // create order
 func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.CreateOrderRequest) (*domain.CreateOrderResponse, []domain.NotEnoughStockError, *apperror.APIError) {
 
 	// 1. validate req
-	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusBadRequest,
-			Code:    "BAD_REQUEST",
-			Message: "Invalid delivery type.",
-		}
-	}
-	if req.AddressID == 0 {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusBadRequest,
-			Code:    "BAD_REQUEST",
-			Message: "Invalid address.",
-		}
+	if err := req.Validate(); err != nil {
+		return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", err.Error())
 	}
 
 	// 2. extract user id
@@ -357,80 +344,44 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
 	if err != nil {
 		if err == apperror.ErrAddressNotFoundForUser {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrAddressNotFoundForUser.Error(),
-			}
+			return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", apperror.ErrAddressNotFoundForUser.Error())
 		}
 		s.log.Error("Failed to get address", zap.Error(err))
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get address.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to get address.")
 	}
 
 	// 4. validate address belongs to user
 	err = utils.ValidateUserAddress(userAddr, userID)
 	if err != nil {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusUnauthorized,
-			Code:    "UNAUTHORIZED",
-			Message: "You do not have access to this address.",
-		}
+		return nil, nil, apperror.New(http.StatusUnauthorized, "UNAUTHORIZED", "You do not have access to this address.")
 	}
 
 	// 5. fetch cart with userId
 	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrCartNotFound.Error(),
-			}
+			return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", apperror.ErrCartNotFound.Error())
 		}
 		s.log.Error("Failed to fetch cart", zap.Error(err))
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to fetch cart.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to fetch cart.")
 	}
 
 	if cart.Items == nil {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
-			Message: "Cart is empty.",
-		}
+		return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", "Cart is empty.")
 	}
 
-	if cart.CartTotalPrice > 10_00_000 {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusUnauthorized,
-			Code:    "UNAUTHORIZED",
-			Message: "Order amount exceeded. Should be less than 1000000.",
-		}
+	if cart.CartTotalPrice > float64(s.cfg.MaxOrderAmount) {
+		return nil, nil, apperror.New(http.StatusUnauthorized, "UNAUTHORIZED", fmt.Sprintf("Order amount exceeded. Should be less than %d.", s.cfg.MaxOrderAmount))
 	}
 
 	// 6. fetch variant info
 	cartVariantInfo, err := s.cartRepo.GetCartVariantInfo(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrCartNotFound.Error(),
-			}
+			return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", apperror.ErrCartNotFound.Error())
 		}
 		s.log.Error("Failed to fetch variant info", zap.Error(err))
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to fetch variant info.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to fetch variant info.")
 	}
 
 	// 7. validate stock
@@ -461,11 +412,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	offers, err := s.offerRepo.GetAllActiveOffers(ctx, productIds, categoryIds)
 	if err != nil {
 		s.log.Error("Failed to get offers", zap.Error(err))
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get offers.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to get offers.")
 	}
 
 	if len(offers) > 0 {
@@ -479,35 +426,19 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		if err != nil {
 			s.log.Error("Failed to get coupon", zap.Error(err))
 			if err == apperror.ErrCouponNotFound {
-				return nil, nil, &apperror.APIError{
-					Status:  http.StatusNotFound,
-					Code:    "NOT_FOUND",
-					Message: apperror.ErrCouponNotFound.Error(),
-				}
+				return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", apperror.ErrCouponNotFound.Error())
 			}
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusInternalServerError,
-				Code:    "DB_ERROR",
-				Message: "Failed to get coupon.",
-			}
+			return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to get coupon.")
 		}
 
 		err = domain.ValidateCoupon(coupon, time.Now())
 		if err != nil {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusBadRequest,
-				Code:    "BAD_REQUEST",
-				Message: err.Error(),
-			}
+			return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		}
 
 		err = domain.ApplyCouponToCart(cart, coupon)
 		if err != nil {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusBadRequest,
-				Code:    "BAD_REQUEST",
-				Message: err.Error(),
-			}
+			return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		}
 	}
 
@@ -529,11 +460,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	totalAmount := cart.CartTotalPrice + shippingAmount
 
 	if totalAmount > float64(s.cfg.MaxCodOrderAmount) && req.PaymentMethod == domain.PaymentMethodCOD {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusBadRequest,
-			Code:    "BAD_REQUEST",
-			Message: fmt.Sprintf("Order amount exceeded. Should be less than %d for COD.", s.cfg.MaxCodOrderAmount),
-		}
+		return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", fmt.Sprintf("Order amount exceeded. Should be less than %d for COD.", s.cfg.MaxCodOrderAmount))
 	}
 
 	orderData := &domain.CreateOrderData{
@@ -550,41 +477,22 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	// 12. create order items
-	var items []domain.OrderItem
-
-	for _, cartItem := range cart.Items {
-		var item domain.OrderItem
-		item.ProductVariantID = cartItem.ProductVariantID
-		item.ProductName = cartVariantInfo[cartItem.ProductVariantID].ProductName
-		item.SKU = cartVariantInfo[cartItem.ProductVariantID].SKU
-		item.Quantity = cartItem.Quantity
-		item.TotalPrice = cartItem.TotalPrice
-		if cartItem.SalePrice != nil {
-			item.UnitPrice = *cartItem.SalePrice
-		} else {
-			item.UnitPrice = cartItem.OriginalPrice
-		}
-
-		item.OfferData = cartItem.AppliedOffer
-
-		items = append(items, item)
-	}
-	orderData.Items = items
+	orderData.Items = utils.CreateOrderItems(cart, cartVariantInfo)
 
 	// 13. validate payment gateway
-
 	gateway := payments.GetPaymentGateway(req.PaymentMethod, s.razorpay)
 	if gateway == nil {
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusBadRequest,
-			Code:    "BAD_REQUEST",
-			Message: "Invalid payment method.",
-		}
+		return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", "Invalid payment method.")
 	}
 
-	if req.PaymentMethod == domain.PaymentMethodCOD {
+	switch req.PaymentMethod {
+	case domain.PaymentMethodCOD:
 		orderData.Status = domain.OrderStatusConfirmed
-	} else {
+	case domain.PaymentMethodRazorpay:
+		orderData.Status = domain.OrderStatusPending
+	case domain.PaymentMethodWallet:
+		orderData.Status = domain.OrderStatusPending
+	default:
 		orderData.Status = domain.OrderStatusPending
 	}
 
@@ -592,17 +500,9 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	if err := s.orderRepo.CreateOrder(ctx, orderData); err != nil {
 		s.log.Error("Failed to create order", zap.Error(err))
 		if err == apperror.ErrNotEnoughStock {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusConflict,
-				Code:    "NOT_ENOUGH_STOCK",
-				Message: "Not enough stock.",
-			}
+			return nil, nil, apperror.New(http.StatusConflict, "NOT_ENOUGH_STOCK", "Not enough stock.")
 		}
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to create order.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to create order.")
 	}
 
 	var _ domain.PaymentResponse
@@ -615,11 +515,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	})
 	if err != nil {
 		s.log.Error("Failed to initialize payment", zap.Error(err))
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to initialize payment.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to initialize payment.")
 	}
 
 	if paymentResp.GatewayRef != nil {
@@ -641,28 +537,16 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 
 	if err := s.paymentRepo.CreatePayment(ctx, payment); err != nil {
 		s.log.Error("Failed to create payment", zap.Error(err))
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to create payment.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to create payment.")
 	}
 
 	neworder, err := s.orderRepo.GetUserOrderByID(ctx, orderID, 0)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
-			return nil, nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrOrderNotFound.Error(),
-			}
+			return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", apperror.ErrOrderNotFound.Error())
 		}
-		return nil, nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get order.",
-		}
+		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to get order.")
 	}
 
 	// return response

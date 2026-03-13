@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -233,4 +234,19 @@ type OrderReturnRequest struct {
 type OrderReturnInfo struct {
 	OrderID string `json:"order_id"`
 	Reason  string `json:"reason"`
+}
+
+func (req *CreateOrderRequest) Validate() error {
+	if req.DeliveryType != DeliveryTypeNormal && req.DeliveryType != DeliveryTypeExpress {
+		return errors.New("invalid delivery type")
+	}
+	if req.AddressID == 0 {
+		return errors.New("invalid address")
+	}
+	if req.PaymentMethod != PaymentMethodRazorpay &&
+		req.PaymentMethod != PaymentMethodCOD &&
+		req.PaymentMethod != PaymentMethodWallet {
+		return errors.New("invalid payment method")
+	}
+	return nil
 }
