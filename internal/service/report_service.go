@@ -37,8 +37,6 @@ func (s *ReportService) GetSalesReport(ctx context.Context, req domain.SalesRepo
 		}
 	}
 
-	log.Println("From: ", req.From)
-	log.Println("To: ", req.To)
 	reportResp, err := s.repo.GetSalesReport(ctx, &req)
 	if err != nil {
 		return nil, &apperror.APIError{

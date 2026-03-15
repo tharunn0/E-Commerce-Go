@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 )
 
@@ -17,8 +18,9 @@ type ReportRepository interface {
 }
 
 type SalesReportRequest struct {
-	From time.Time `form:"from" time_format:"2006-01-02"`
-	To   time.Time `form:"to" time_format:"2006-01-02"`
+	FromDate time.Time `form:"from_date" time_format:"2006-01-01"`
+	From     time.Time `form:"from" time_format:"2006-01-02"`
+	To       time.Time `form:"to" time_format:"2006-01-02"`
 	// Total         float64   `json:"total"`
 	// TotalPaid     float64   `json:"total_paid"`
 	// TotalRefunded float64   `json:"total_refunded"`
@@ -124,6 +126,8 @@ func (r *SalesReportRequest) Validate(now time.Time) error {
 		r.To = now
 	}
 
+	log.Println("from date :", r.From)
+	log.Println("to date :", r.To)
 	// Date validation
 	if r.From.After(now) {
 		return errors.New("from date cannot be in the future")

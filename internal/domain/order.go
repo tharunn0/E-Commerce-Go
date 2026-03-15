@@ -248,5 +248,6 @@ func (req *CreateOrderRequest) Validate() error {
 		req.PaymentMethod != PaymentMethodWallet {
 		return errors.New("invalid payment method")
 	}
+
 	return nil
 }

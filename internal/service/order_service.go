@@ -340,6 +340,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		}
 	}
 
+	fmt.Println("Checking user ID: ", userID)
+
 	// 3. get address
 	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
 	if err != nil {
@@ -491,7 +493,15 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	case domain.PaymentMethodRazorpay:
 		orderData.Status = domain.OrderStatusPending
 	case domain.PaymentMethodWallet:
-		orderData.Status = domain.OrderStatusPending
+		// fetch wallet and check if amount is enough
+		wallet, err := s.userRepo.GetWallet(ctx, userID)
+		if err != nil {
+			return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to get wallet.")
+		}
+		if wallet.Balance < totalAmount {
+			return nil, nil, apperror.New(http.StatusUnauthorized, "UNAUTHORIZED", "Insufficient wallet balance.")
+		}
+		orderData.Status = domain.OrderStatusConfirmed
 	default:
 		orderData.Status = domain.OrderStatusPending
 	}

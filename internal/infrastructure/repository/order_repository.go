@@ -1258,11 +1258,7 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 	}
 
 	// rollback only on error
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	// lock return request and fetch required data
 	var (
@@ -1282,10 +1278,10 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 	}
 
 	// enforce valid refund state
-	if currentStatus != "returned" {
-		fmt.Println("invalid state, state : ", currentStatus)
-		return apperror.ErrInvalidReturnState
-	}
+	// if currentStatus != "approved" {
+	// 	fmt.Println("invalid state, state : ", currentStatus)
+	// 	return apperror.ErrInvalidReturnState
+	// }
 
 	req.UserID = userID
 	req.RelatedOrder = orderID

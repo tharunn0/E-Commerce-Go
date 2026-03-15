@@ -11,6 +11,8 @@ func GetPaymentGateway(method domain.PaymentMethod, client *razorpay.Client) dom
 		return &RazorpayPayment{Client: client}
 	case domain.PaymentMethodCOD:
 		return &CODPayment{}
+	case domain.PaymentMethodWallet:
+		return &WalletPayment{}
 	default:
 		return nil
 	}
