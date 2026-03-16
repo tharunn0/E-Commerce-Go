@@ -1,14 +1,8 @@
-package domain
+package payment
 
 import (
 	"context"
 )
-
-type PaymentRepository interface {
-	CreatePayment(ctx context.Context, payment *Payment) error
-	UpdatePaymentStatus(ctx context.Context, orderID string, status PaymentStatus) error
-	UpdateOrderPaymentStatus(ctx context.Context, orderID string, paymentData *WebhookPayment) error
-}
 
 type PaymentMethod string
 type PaymentStatus string
@@ -56,14 +50,6 @@ type PaymentResponse struct {
 	GatewayRef *string
 	PaymentURL *string
 }
-
-// type WebhookReqest struct {
-// 	Event    string `json:"event"`
-// 	OrderID  string `json:"order_id"`
-// 	Status   string `json:"status"`
-// 	Captured bool   `json:"captured"`
-// 	Amount   int64  `json:"amount"`
-// }
 
 type WebhookEvent struct {
 	Event   string `json:"event"`

@@ -1,7 +1,10 @@
-package domain
+package cart
 
 import (
 	"context"
+	"errors"
+
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 )
 
 type CartItemStatus string
@@ -28,11 +31,10 @@ type VariantInfo struct {
 }
 
 type Cart struct {
-	Items          []*CartItem `json:"items"`
-	CartTotalPrice float64     `json:"cart_total_price"`
-	CouponData     *CouponData `json:"coupon_data,omitempty"`
+	Items          []*CartItem           `json:"items"`
+	CartTotalPrice float64               `json:"cart_total_price"`
+	CouponData     *promotion.CouponData `json:"coupon_data,omitempty"`
 }
-
 type CartItem struct {
 	ProductVariantID int64    `json:"product_variant_id"`
 	ProductID        int64    `json:"product_id"`
@@ -46,7 +48,7 @@ type CartItem struct {
 	Quantity         int64    `json:"quantity"`
 	TotalPrice       float64  `json:"total_price"`
 
-	AppliedOffer *AppliedOfferData `json:"applied_offer,omitempty"`
+	AppliedOffer *promotion.AppliedOfferData `json:"applied_offer,omitempty"`
 
 	Status  CartItemStatus `json:"status,omitempty"`
 	Message string         `json:"message,omitempty"`
@@ -63,4 +65,51 @@ type UpdateCartItemQuantityRequest struct {
 }
 type RemoveCartItemRequest struct {
 	ProductVariantID int64 `json:"product_variant_id"`
+}
+
+func ApplyCouponToCart(cart *Cart, coupon *promotion.CouponResponse) error {
+	if cart == nil || coupon == nil {
+		return errors.New("invalid input")
+	}
+
+	var discount float64
+
+	// calculate discount
+	switch coupon.DiscountType {
+	case "percentage":
+		discount = (cart.CartTotalPrice * coupon.DiscountValue) / 100
+
+	case "fixed":
+		discount = coupon.DiscountValue
+
+	default:
+		return errors.New("invalid discount type")
+	}
+
+	couponData := &promotion.CouponData{}
+
+	// max discount cap
+	if coupon.MaxDiscountAmount > 0 && discount > coupon.MaxDiscountAmount {
+		discount = coupon.MaxDiscountAmount
+		couponData.Message = "Maximum discount applied"
+	} else {
+		couponData.Message = "Discount applied successfully"
+	}
+
+	if discount > cart.CartTotalPrice {
+		discount = cart.CartTotalPrice
+		couponData.Message = "Discount is greater than cart total"
+	}
+
+	cart.CartTotalPrice -= discount
+
+	cart.CouponData = &promotion.CouponData{
+		CouponCode:       coupon.CouponCode,
+		DiscountType:     coupon.DiscountType,
+		DiscountValue:    coupon.DiscountValue,
+		DiscountedAmount: discount,
+		Message:          couponData.Message,
+	}
+
+	return nil
 }

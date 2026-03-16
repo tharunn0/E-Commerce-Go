@@ -1,6 +1,10 @@
-package domain
+package wishlist
 
-import "context"
+import (
+	"context"
+
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
+)
 
 type WishlistRepository interface {
 	AddToWishlist(ctx context.Context, userID int64, productVariantID int64) (int64, error)
@@ -10,7 +14,7 @@ type WishlistRepository interface {
 }
 
 type Wishlist struct {
-	Products []*ProductResponse `json:"products"`
+	Products []*product.ProductResponse `json:"products"`
 }
 
 type AddToWishlistRequest struct {

@@ -1,9 +1,11 @@
-package domain
+package product
 
 import (
 	"context"
 	"strings"
 	"time"
+
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/review"
 )
 
 type ProductRepository interface {
@@ -131,7 +133,7 @@ type ProductResponse struct {
 	IsActive    *bool                    `json:"is_active,omitempty"`
 	ImageURL    string                   `json:"image_url"`
 	Rating      *float64                 `json:"rating,omitempty"`
-	Reviews     []*Review                `json:"review,omitempty"`
+	Reviews     []*review.Review         `json:"review,omitempty"`
 	CreatedAt   *time.Time               `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time               `json:"updated_at,omitempty"`
 }

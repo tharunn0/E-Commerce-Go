@@ -1,8 +1,14 @@
-package domain
+package discount
 
-import "fmt"
+import (
+	"fmt"
 
-func ApplyDiscounts(cart *Cart, offers []*Offer) {
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
+)
+
+func ApplyDiscounts(cart *cart.Cart, offers []*promotion.Offer) {
 	var cartTotal float64
 
 	for _, item := range cart.Items {
@@ -48,7 +54,7 @@ func ApplyDiscounts(cart *Cart, offers []*Offer) {
 			}
 
 			if discount > 0 {
-				item.AppliedOffer = &AppliedOfferData{
+				item.AppliedOffer = &promotion.AppliedOfferData{
 					OfferID:        offer.ID,
 					OfferName:      offer.Name,
 					DiscountType:   offer.DiscountType,
@@ -83,7 +89,7 @@ func ApplyDiscounts(cart *Cart, offers []*Offer) {
 	cart.CartTotalPrice = cartTotal
 }
 
-func ApplyDiscountsToVariants(variants []*ProductVariantResponse, offers []*Offer) {
+func ApplyDiscountsToVariants(variants []*product.ProductVariantResponse, offers []*promotion.Offer) {
 
 	fmt.Println("apply discounts to variants called")
 
@@ -97,7 +103,7 @@ func ApplyDiscountsToVariants(variants []*ProductVariantResponse, offers []*Offe
 		baseTotal := unitPrice // quantity = 1
 
 		var bestDiscount float64
-		var bestOffer *AppliedOfferData
+		var bestOffer *promotion.AppliedOfferData
 
 		// evaluate offers
 		for _, offer := range offers {
@@ -132,7 +138,7 @@ func ApplyDiscountsToVariants(variants []*ProductVariantResponse, offers []*Offe
 			// keep best offer
 			if discount > bestDiscount {
 				bestDiscount = discount
-				bestOffer = &AppliedOfferData{
+				bestOffer = &promotion.AppliedOfferData{
 					OfferID:        offer.ID,
 					OfferName:      offer.Name,
 					DiscountType:   offer.DiscountType,
@@ -151,7 +157,7 @@ func ApplyDiscountsToVariants(variants []*ProductVariantResponse, offers []*Offe
 		if bestDiscount > 0 {
 			discountedPrice := baseTotal - bestDiscount
 			variant.SalePrice = &discountedPrice
-			variant.AppliedOffer = &AppliedOfferData{
+			variant.AppliedOffer = &product.AppliedOfferData{
 				OfferID:        bestOffer.OfferID,
 				OfferName:      bestOffer.OfferName,
 				DiscountType:   bestOffer.DiscountType,

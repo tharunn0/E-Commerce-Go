@@ -1,4 +1,4 @@
-package domain
+package shipping
 
 import (
 	"fmt"

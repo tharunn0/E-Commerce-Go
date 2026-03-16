@@ -1,6 +1,8 @@
-package domain
+package product
 
-import "time"
+import (
+	"time"
+)
 
 type ProductVariant struct { // update product variant
 	ID            int64     `json:"id"`
@@ -136,4 +138,12 @@ type DeleteAttributeRequest struct {
 }
 type DeleteAttributeValuesRequest struct {
 	ValueIDs []int64 `json:"value_ids"`
+}
+
+type AppliedOfferData struct {
+	OfferID        int64
+	OfferName      string
+	DiscountType   string
+	DiscountValue  float64
+	DiscountAmount float64
 }

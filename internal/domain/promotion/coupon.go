@@ -1,4 +1,4 @@
-package domain
+package promotion
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
 )
 
 type CouponRepository interface {
@@ -55,9 +57,9 @@ type ListCouponsFilter struct {
 }
 
 type ApplyCouponRequest struct {
-	CouponCode   string       `json:"coupon_code"`
-	AddressID    int64        `json:"address_id"`
-	DeliveryType DeliveryType `json:"delivery_type"`
+	CouponCode   string                `json:"coupon_code"`
+	AddressID    int64                 `json:"address_id"`
+	DeliveryType shipping.DeliveryType `json:"delivery_type"`
 }
 
 type CouponData struct {
@@ -150,52 +152,5 @@ func ValidateCoupon(coupon *CouponResponse, now time.Time) error {
 	if now.After(coupon.ValidTo) {
 		return errors.New("coupon is expired")
 	}
-	return nil
-}
-
-func ApplyCouponToCart(cart *Cart, coupon *CouponResponse) error {
-	if cart == nil || coupon == nil {
-		return errors.New("invalid input")
-	}
-
-	var discount float64
-
-	// calculate discount
-	switch coupon.DiscountType {
-	case "percentage":
-		discount = (cart.CartTotalPrice * coupon.DiscountValue) / 100
-
-	case "fixed":
-		discount = coupon.DiscountValue
-
-	default:
-		return errors.New("invalid discount type")
-	}
-
-	couponData := &CouponData{}
-
-	// max discount cap
-	if coupon.MaxDiscountAmount > 0 && discount > coupon.MaxDiscountAmount {
-		discount = coupon.MaxDiscountAmount
-		couponData.Message = "Maximum discount applied"
-	} else {
-		couponData.Message = "Discount applied successfully"
-	}
-
-	if discount > cart.CartTotalPrice {
-		discount = cart.CartTotalPrice
-		couponData.Message = "Discount is greater than cart total"
-	}
-
-	cart.CartTotalPrice -= discount
-
-	cart.CouponData = &CouponData{
-		CouponCode:       coupon.CouponCode,
-		DiscountType:     coupon.DiscountType,
-		DiscountValue:    coupon.DiscountValue,
-		DiscountedAmount: discount,
-		Message:          couponData.Message,
-	}
-
 	return nil
 }

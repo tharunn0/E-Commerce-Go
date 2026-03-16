@@ -1,9 +1,15 @@
-package domain
+package order
 
 import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 )
 
 type OrderRepository interface {
@@ -20,16 +26,16 @@ type OrderRepository interface {
 	ReturnOrderRequest(ctx context.Context, orderID string, userID int64, reason string) error
 
 	// updations
-	UpdateOrderStatusOnPayment(ctx context.Context, orderID string, status PaymentStatus) error
-	UpdateShipmentStatus(ctx context.Context, orderID string, status ShipmentStatus, cod bool) error
+	UpdateOrderStatusOnPayment(ctx context.Context, orderID string, status payment.PaymentStatus) error
+	UpdateShipmentStatus(ctx context.Context, orderID string, status shipping.ShipmentStatus, cod bool) error
 
 	// Admin ops
 	UpdateReturnRequestStatus(ctx context.Context, req *UpdateReturnRefundRequest) error
 	ProcessReturnRefund(ctx context.Context, req *UpdateReturnRefundRequest) error
 	// shipment
-	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error) //admin
-	ShipOrder(ctx context.Context, orderID string, shipmentData *ShipmentData) error     //admin
-	DeliverOrder(ctx context.Context, orderID string) error                              //admin
+	ListAllOrders(ctx context.Context, filter *OrderFilter) ([]OrderBaseResponse, error)      //admin
+	ShipOrder(ctx context.Context, orderID string, shipmentData *shipping.ShipmentData) error //admin
+	DeliverOrder(ctx context.Context, orderID string) error                                   //admin
 
 	ListAllReturns(ctx context.Context, filter *ReturnFilter) ([]BaseReturnResponse, error) //admin
 	GetReturnRequest(ctx context.Context, returnID int64) (*FullReturnResponse, error)      //admin
@@ -41,10 +47,10 @@ type CreateOrderRequest struct {
 		ProductVariantID int64 `json:"product_variant_id"`
 		Quantity         int64 `json:"quantity"`
 	} `json:"product_variant"`
-	AddressID     int64         `json:"address_id"`
-	DeliveryType  DeliveryType  `json:"delivery_type"`
-	PaymentMethod PaymentMethod `json:"payment_method"`
-	CouponCode    string        `json:"coupon_code"`
+	AddressID     int64                 `json:"address_id"`
+	DeliveryType  shipping.DeliveryType `json:"delivery_type"`
+	PaymentMethod payment.PaymentMethod `json:"payment_method"`
+	CouponCode    string                `json:"coupon_code"`
 }
 
 type OrderStatus string
@@ -79,39 +85,39 @@ type CreateOrderData struct {
 	EstimatedDeliveryDate time.Time   `db:"estimated_delivery_date"`
 
 	OrderSource string
-	CouponData  *CouponData
+	CouponData  *promotion.CouponData
 }
 
 type OrderItem struct {
-	ItemID           int64             `json:"item_id"`
-	ProductVariantID int64             `json:"product_variant_id"`
-	SKU              string            `json:"sku_at_purchase"`
-	ProductName      string            `json:"product_name_at_purchase"`
-	Quantity         int64             `json:"quantity"`
-	UnitPrice        float64           `json:"unit_price"`
-	TotalPrice       float64           `json:"total_price"`
-	OfferData        *AppliedOfferData `json:"offer_data,omitempty"`
-	Status           string            `json:"item_status"`
-	ImageURL         string            `json:"image_url"`
+	ItemID           int64                     `json:"item_id"`
+	ProductVariantID int64                     `json:"product_variant_id"`
+	SKU              string                    `json:"sku_at_purchase"`
+	ProductName      string                    `json:"product_name_at_purchase"`
+	Quantity         int64                     `json:"quantity"`
+	UnitPrice        float64                   `json:"unit_price"`
+	TotalPrice       float64                   `json:"total_price"`
+	OfferData        *product.AppliedOfferData `json:"offer_data,omitempty"`
+	Status           string                    `json:"item_status"`
+	ImageURL         string                    `json:"image_url"`
 }
 
 type CreateOrderResponse struct {
-	OrderID      string      `json:"public_order_id"`
-	Items        []OrderItem `json:"items"`
-	CouponData   *CouponData `json:"coupon_data,omitempty"`
-	Subtotal     float64     `json:"subtotal"`
-	TaxAmount    float64     `json:"tax_amount"`
-	ShippingCost float64     `json:"shipping_cost"`
-	TotalAmount  float64     `json:"total_amount"`
-	Currency     string      `json:"currency"`
+	OrderID      string                `json:"public_order_id"`
+	Items        []OrderItem           `json:"items"`
+	CouponData   *promotion.CouponData `json:"coupon_data,omitempty"`
+	Subtotal     float64               `json:"subtotal"`
+	TaxAmount    float64               `json:"tax_amount"`
+	ShippingCost float64               `json:"shipping_cost"`
+	TotalAmount  float64               `json:"total_amount"`
+	Currency     string                `json:"currency"`
 
-	ShippingAddressID int64        `json:"shipping_address_id"`
-	ShippingAddress   *UserAddress `json:"shipping_address,omitempty"`
-	BillingAddressID  int64        `json:"billing_address_id"`
+	ShippingAddressID int64             `json:"shipping_address_id"`
+	ShippingAddress   *user.UserAddress `json:"shipping_address,omitempty"`
+	BillingAddressID  int64             `json:"billing_address_id"`
 
-	DeliveryType          DeliveryType `json:"delivery_type"`
-	EstimatedDeliveryTime string       `json:"estimated_delivery_time"`
-	EstimatedDeliveryDate string       `json:"estimated_delivery_date"`
+	DeliveryType          shipping.DeliveryType `json:"delivery_type"`
+	EstimatedDeliveryTime string                `json:"estimated_delivery_time"`
+	EstimatedDeliveryDate string                `json:"estimated_delivery_date"`
 
 	Status       OrderStatus `json:"order_status"`  // order status
 	ReturnStatus *string     `json:"return_status"` // return status
@@ -122,7 +128,7 @@ type CreateOrderResponse struct {
 	PaymentMethod string `json:"payment_method"`
 	PaymentStatus string `json:"payment_status"`
 
-	Payment *Payment `json:"payment,omitempty"`
+	Payment *payment.Payment `json:"payment,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -134,11 +140,11 @@ type OrderBaseResponse struct {
 	TotalAmount float64 `json:"total_amount"`
 	Currency    string  `json:"currency"`
 
-	ShippingAddressID int64        `json:"shipping_address_id"`
-	ShippingAddress   *UserAddress `json:"shipping_address,omitempty"`
+	ShippingAddressID int64             `json:"shipping_address_id"`
+	ShippingAddress   *user.UserAddress `json:"shipping_address,omitempty"`
 
-	DeliveryType          DeliveryType `json:"delivery_type"`
-	EstimatedDeliveryDate time.Time    `json:"estimated_delivery_date"`
+	DeliveryType          shipping.DeliveryType `json:"delivery_type"`
+	EstimatedDeliveryDate time.Time             `json:"estimated_delivery_date"`
 
 	Status       OrderStatus `json:"order_status"`
 	ReturnStatus *string     `json:"return_status"` // return status
@@ -162,8 +168,8 @@ type OrderResponse struct {
 	ShippingAddressID int64 `json:"shipping_address_id"`
 	BillingAddressID  int64 `json:"billing_address_id"`
 
-	DeliveryType          DeliveryType `json:"delivery_type"`
-	EstimatedDeliveryDate time.Time    `json:"estimated_delivery_date"`
+	DeliveryType          shipping.DeliveryType `json:"delivery_type"`
+	EstimatedDeliveryDate time.Time             `json:"estimated_delivery_date"`
 
 	Status       OrderStatus `json:"status"`        // order status
 	ReturnStatus *string     `json:"return_status"` // return status
@@ -237,15 +243,15 @@ type OrderReturnInfo struct {
 }
 
 func (req *CreateOrderRequest) Validate() error {
-	if req.DeliveryType != DeliveryTypeNormal && req.DeliveryType != DeliveryTypeExpress {
+	if req.DeliveryType != shipping.DeliveryTypeNormal && req.DeliveryType != shipping.DeliveryTypeExpress {
 		return errors.New("invalid delivery type")
 	}
 	if req.AddressID == 0 {
 		return errors.New("invalid address")
 	}
-	if req.PaymentMethod != PaymentMethodRazorpay &&
-		req.PaymentMethod != PaymentMethodCOD &&
-		req.PaymentMethod != PaymentMethodWallet {
+	if req.PaymentMethod != payment.PaymentMethodRazorpay &&
+		req.PaymentMethod != payment.PaymentMethodCOD &&
+		req.PaymentMethod != payment.PaymentMethodWallet {
 		return errors.New("invalid payment method")
 	}
 
