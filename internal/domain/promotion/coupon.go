@@ -1,7 +1,6 @@
 package promotion
 
 import (
-	"context"
 	"errors"
 	"regexp"
 	"strings"
@@ -9,16 +8,6 @@ import (
 
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
 )
-
-type CouponRepository interface {
-	CreateCoupon(ctx context.Context, req *CreateCouponRequest) (*CouponResponse, error)
-
-	ListAllCoupons(ctx context.Context, filter *ListCouponsFilter) ([]CouponResponse, error)
-
-	ListReferralRewards(ctx context.Context, userID int64) ([]CouponResponse, error)
-
-	FetchCoupon(ctx context.Context, couponCode string, userID int64) (*CouponResponse, error)
-}
 
 type CreateCouponRequest struct {
 	CouponCode        string    `json:"coupon_code"`

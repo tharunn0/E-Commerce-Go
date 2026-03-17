@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -313,7 +314,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	orderID := c.Param("order_id")
 	req.OrderID = orderID
 
-	_, apierr := h.serv.UpdateOrderStatus(ctx, req.OrderID, order.ShipmentStatus(req.Status))
+	_, apierr := h.serv.UpdateOrderStatus(ctx, req.OrderID, shipping.ShipmentStatus(req.Status))
 	if apierr != nil {
 		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,

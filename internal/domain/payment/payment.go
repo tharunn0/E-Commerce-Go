@@ -37,14 +37,14 @@ type Payment struct {
 	PaymentURL *string       `json:"payment_url,omitempty"`
 }
 
-type PaymentRequest struct {
+type Request struct {
 	OrderID  string
 	UserID   int64
 	Amount   int64
 	Currency string
 }
 
-type PaymentResponse struct {
+type Response struct {
 	Status     PaymentStatus
 	Provider   PaymentMethod
 	GatewayRef *string
@@ -81,5 +81,5 @@ type WebhookPayment struct {
 }
 
 type PaymentGateway interface {
-	CreatePayment(ctx context.Context, req PaymentRequest) (*PaymentResponse, error)
+	CreatePayment(ctx context.Context, req Request) (*Response, error)
 }

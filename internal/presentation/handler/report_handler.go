@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,13 +34,6 @@ func (h *ReportHandler) GetSalesReport(c *gin.Context) {
 		})
 		return
 	}
-
-	log.Println("url :", c.Request.URL)
-
-	log.Println("handler - from_date :", req.FromDate)
-
-	log.Println("handler - from  :", req.From)
-	log.Println("handler - to date :", req.To)
 
 	reportData, apierr := h.serv.GetSalesReport(ctx, req)
 	if apierr != nil {

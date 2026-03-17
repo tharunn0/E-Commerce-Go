@@ -2,16 +2,16 @@ package payments
 
 import (
 	"github.com/razorpay/razorpay-go"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
 )
 
-func GetPaymentGateway(method domain.PaymentMethod, client *razorpay.Client) domain.PaymentGateway {
+func GetPaymentGateway(method payment.PaymentMethod, client *razorpay.Client) payment.PaymentGateway {
 	switch method {
-	case domain.PaymentMethodRazorpay:
-		return &RazorpayPayment{Client: client}
-	case domain.PaymentMethodCOD:
+	case payment.PaymentMethodRazorpay:
+		return &RazorpayPayment{}
+	case payment.PaymentMethodCOD:
 		return &CODPayment{}
-	case domain.PaymentMethodWallet:
+	case payment.PaymentMethodWallet:
 		return &WalletPayment{}
 	default:
 		return nil

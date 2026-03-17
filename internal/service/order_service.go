@@ -522,9 +522,8 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *order.Creat
 		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to create order.")
 	}
 
-	var _ payment.PaymentResponse
 	// 15. create payment and payment response
-	paymentResp, err := gateway.CreatePayment(ctx, payment.PaymentRequest{
+	paymentResp, err := gateway.CreatePayment(ctx, payment.Request{
 		OrderID:  orderID,
 		UserID:   userID,
 		Amount:   int64(totalAmount) / 100,

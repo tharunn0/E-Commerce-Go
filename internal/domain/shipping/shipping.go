@@ -7,10 +7,9 @@ import (
 	"time"
 )
 
-type DeliveryType string
+
 
 type ShipmentStatus string
-
 const (
 	ShipmentStatusPending   ShipmentStatus = "PENDING"
 	ShipmentStatusShipped   ShipmentStatus = "SHIPPED"
@@ -18,6 +17,14 @@ const (
 	ShipmentStatusReturned  ShipmentStatus = "RETURNED"
 )
 
+type Carrier string
+const (
+	CarrierBlueDart Carrier = "BlueDart"
+	CarrierFedEx    Carrier = "FedEx"
+	CarrierDHL      Carrier = "DHL"
+)
+
+type DeliveryType string
 const (
 	DeliveryTypeNormal  DeliveryType = "normal"
 	DeliveryTypeExpress DeliveryType = "express"
@@ -34,6 +41,15 @@ var ShipmentStatusFlow = map[ShipmentStatus][]ShipmentStatus{
 	ShipmentStatusDelivered: {},
 	ShipmentStatusReturned:  {},
 }
+
+type ShipmentData struct {
+	Carrier    Carrier   `json:"carrier"`
+	TrackingID string    `json:"tracking_id"`
+	ShippedAt  time.Time `json:"shipped_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 
 var DistrictGroups = map[string][]string{
 	"closest": {
@@ -55,6 +71,11 @@ var DeliveryDays = map[string]int{
 	"closest":  2,
 	"mid":      3,
 	"farthest": 5,
+}
+
+func SelectRandomCarrier() Carrier {
+	carriers := []Carrier{CarrierBlueDart, CarrierFedEx, CarrierDHL}
+	return carriers[rand.Intn(len(carriers))]
 }
 
 func ValidateDistrict(district string) error {
@@ -110,18 +131,6 @@ func CalculateDeliveryDate(district string) (time.Time, error) {
 	return time.Now().AddDate(0, 0, days), nil
 }
 
-type Carrier string
-
-const (
-	CarrierBlueDart Carrier = "BlueDart"
-	CarrierFedEx    Carrier = "FedEx"
-	CarrierDHL      Carrier = "DHL"
-)
-
-func SelectRandomCarrier() Carrier {
-	carriers := []Carrier{CarrierBlueDart, CarrierFedEx, CarrierDHL}
-	return carriers[rand.Intn(len(carriers))]
-}
 
 func GenerateTrackingID(carrier Carrier) string {
 	var prefix string
@@ -138,10 +147,3 @@ func GenerateTrackingID(carrier Carrier) string {
 	return fmt.Sprintf("%s-%d", prefix, rand.Intn(1000000))
 }
 
-type ShipmentData struct {
-	Carrier    Carrier   `json:"carrier"`
-	TrackingID string    `json:"tracking_id"`
-	ShippedAt  time.Time `json:"shipped_at"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-}

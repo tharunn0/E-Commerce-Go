@@ -1,23 +1,8 @@
 package promotion
 
 import (
-	"context"
 	"time"
 )
-
-type OfferRepository interface {
-	CreateOffer(ctx context.Context, req *CreateOfferRequest) error
-
-	// GetAllCategoryOffers(ctx context.Context) ([]*Offer, error)
-	// GetAllProductOffers(ctx context.Context) ([]*Offer, error)
-	// GetCategoryOffers(ctx context.Context, ids []int64) ([]*Offer, error)
-	// GetProductOffers(ctx context.Context, ids []int64) ([]*Offer, error)
-
-	GetAllActiveOffers(ctx context.Context, productIDs []int64, categoryIDs []int64) ([]*Offer, error)
-
-	// GetOfferByID(ctx context.Context, id int64) (*Offer, error)
-	// GetAllOffers(ctx context.Context) ([]Offer, error)
-}
 
 type Offer struct {
 	ID            int64

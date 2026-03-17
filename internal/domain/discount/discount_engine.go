@@ -157,7 +157,7 @@ func ApplyDiscountsToVariants(variants []*product.ProductVariantResponse, offers
 		if bestDiscount > 0 {
 			discountedPrice := baseTotal - bestDiscount
 			variant.SalePrice = &discountedPrice
-			variant.AppliedOffer = &product.AppliedOfferData{
+			variant.AppliedOffer = &promotion.AppliedOfferData{
 				OfferID:        bestOffer.OfferID,
 				OfferName:      bestOffer.OfferName,
 				DiscountType:   bestOffer.DiscountType,

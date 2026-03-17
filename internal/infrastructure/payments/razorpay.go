@@ -7,14 +7,14 @@ import (
 	"encoding/hex"
 
 	"github.com/razorpay/razorpay-go"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
 )
 
 type RazorpayPayment struct {
 	Client *razorpay.Client
 }
 
-func (r *RazorpayPayment) CreatePayment(ctx context.Context, req domain.PaymentRequest) (*domain.PaymentResponse, error) {
+func (r *RazorpayPayment) CreatePayment(ctx context.Context, req payment.Request) (*payment.Response, error) {
 
 	// create payment
 	data := map[string]interface{}{
@@ -31,9 +31,9 @@ func (r *RazorpayPayment) CreatePayment(ctx context.Context, req domain.PaymentR
 	gref := rpOrder["id"].(string)
 	url := "RAZORPAY_CHECKOUT_FRONTEND"
 
-	return &domain.PaymentResponse{
-		Status:     domain.PaymentStatusPending,
-		Provider:   domain.PaymentMethodRazorpay,
+	return &payment.Response{
+		Status:     payment.PaymentStatusPending,
+		Provider:   payment.PaymentMethodRazorpay,
 		GatewayRef: &gref,
 		PaymentURL: &url,
 	}, nil
@@ -55,14 +55,3 @@ func VerifyRazorpaySignature(body []byte, signature string, webhookSecret string
 
 	return hmac.Equal([]byte(signature), []byte(expectedSig))
 }
-
-// mac := hmac.New(sha256.New, []byte(h.razorpayCfg.WebhookSecret))
-// 	mac.Write(body)
-
-// 	expectedSignature := hex.EncodeToString(mac.Sum(nil))
-
-// 	if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
-// 		h.logger.Error("invalid signature")
-// 		c.JSON(400, gin.H{"error": "invalid signature"})
-// 		return
-// 	}

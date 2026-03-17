@@ -7,6 +7,7 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 )
 
@@ -42,7 +43,7 @@ func CalculateOrderTotalAmount(ord *order.OrderResponse) *order.OrderResponse {
 		}
 	}
 
-	ord.ShippingCost = order.DeliveryTypeCharges[ord.DeliveryType]
+	ord.ShippingCost = shipping.DeliveryTypeCharges[ord.DeliveryType]
 	ord.TotalAmount = ord.Subtotal + ord.TaxAmount + ord.ShippingCost
 	ord.PayableAmount = ord.Subtotal + ord.TaxAmount + ord.ShippingCost - deductableAmount
 

@@ -2,6 +2,8 @@ package product
 
 import (
 	"time"
+
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 )
 
 type ProductVariant struct { // update product variant
@@ -19,17 +21,17 @@ type ProductVariant struct { // update product variant
 }
 
 type ProductVariantResponse struct { // get variant by id, create variant resposne
-	ID            int64                    `json:"id"`
-	BaseProduct   *BaseProduct             `json:"base_product,omitempty"`
-	SKU           string                   `json:"sku"`
-	OriginalPrice float64                  `json:"original_price"`
-	SalePrice     *float64                 `json:"sale_price"`
-	AppliedOffer  *AppliedOfferData        `json:"applied_offer,omitempty"`
-	Stock         int                      `json:"stock"`
-	IsActive      bool                     `json:"is_active"`
-	VariantImages []string                 `json:"variant_images"`
-	Attributes    []AttributeValueResponse `json:"attributes"`
-	CreatedAt     time.Time                `json:"created_at"`
+	ID            int64                       `json:"id"`
+	BaseProduct   *BaseProduct                `json:"base_product,omitempty"`
+	SKU           string                      `json:"sku"`
+	OriginalPrice float64                     `json:"original_price"`
+	SalePrice     *float64                    `json:"sale_price"`
+	AppliedOffer  *promotion.AppliedOfferData `json:"applied_offer,omitempty"`
+	Stock         int                         `json:"stock"`
+	IsActive      bool                        `json:"is_active"`
+	VariantImages []string                    `json:"variant_images"`
+	Attributes    []AttributeValueResponse    `json:"attributes"`
+	CreatedAt     time.Time                   `json:"created_at"`
 }
 
 type ProductVariantImage struct {
@@ -138,12 +140,4 @@ type DeleteAttributeRequest struct {
 }
 type DeleteAttributeValuesRequest struct {
 	ValueIDs []int64 `json:"value_ids"`
-}
-
-type AppliedOfferData struct {
-	OfferID        int64
-	OfferName      string
-	DiscountType   string
-	DiscountValue  float64
-	DiscountAmount float64
 }

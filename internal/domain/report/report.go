@@ -1,29 +1,14 @@
 package report
 
 import (
-	"context"
 	"errors"
 	"log"
 	"time"
 )
 
-type ReportRepository interface {
-	GetSalesReport(ctx context.Context, req *SalesReportRequest) (SalesReportResponse, error)
-
-	GetTopSellingProducts(ctx context.Context, req *TopSellingRequest) ([]TopStatItem, error)
-	GetTopSellingCategories(ctx context.Context, req *TopSellingRequest) ([]TopStatItem, error)
-	GetTopSellingBrands(ctx context.Context, req *TopSellingRequest) ([]TopStatItem, error)
-
-	GetRevenueAnalytics(ctx context.Context, req *RevenueAnalyticsRequest) (*RevenueAnalyticsResponse, error)
-}
-
 type SalesReportRequest struct {
-	FromDate time.Time `form:"from_date" time_format:"2006-01-01"`
-	From     time.Time `form:"from" time_format:"2006-01-02"`
-	To       time.Time `form:"to" time_format:"2006-01-02"`
-	// Total         float64   `json:"total"`
-	// TotalPaid     float64   `json:"total_paid"`
-	// TotalRefunded float64   `json:"total_refunded"`
+	From time.Time `form:"from" time_format:"2006-01-02"`
+	To   time.Time `form:"to" time_format:"2006-01-02"`
 }
 
 type SalesReportResponse struct {
