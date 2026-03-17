@@ -7,23 +7,23 @@ import (
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/report"
 	"go.uber.org/zap"
 )
 
 type ReportService struct {
-	repo domain.ReportRepository
+	repo report.ReportRepository
 	log  *zap.Logger
 }
 
-func NewReportService(repo domain.ReportRepository, log *zap.Logger) *ReportService {
+func NewReportService(repo report.ReportRepository, log *zap.Logger) *ReportService {
 	return &ReportService{
 		repo: repo,
 		log:  log,
 	}
 }
 
-func (s *ReportService) GetSalesReport(ctx context.Context, req domain.SalesReportRequest) (*domain.SalesReportResponse, *apperror.APIError) {
+func (s *ReportService) GetSalesReport(ctx context.Context, req report.SalesReportRequest) (*report.SalesReportResponse, *apperror.APIError) {
 
 	log.Println("From: ", req.From)
 	log.Println("To: ", req.To)
@@ -51,7 +51,7 @@ func (s *ReportService) GetSalesReport(ctx context.Context, req domain.SalesRepo
 	return &reportResp, nil
 }
 
-func (s *ReportService) GetTopSelling(ctx context.Context, req domain.TopSellingRequest) (*domain.TopSellingResponse, *apperror.APIError) {
+func (s *ReportService) GetTopSelling(ctx context.Context, req report.TopSellingRequest) (*report.TopSellingResponse, *apperror.APIError) {
 
 	//validate the request
 	now := time.Now()
@@ -65,8 +65,8 @@ func (s *ReportService) GetTopSelling(ctx context.Context, req domain.TopSelling
 	}
 
 	// fetch top items
-	var resp domain.TopSellingResponse
-	var items []domain.TopStatItem
+	var resp report.TopSellingResponse
+	var items []report.TopStatItem
 	var err error
 
 	switch req.Type {
@@ -87,7 +87,7 @@ func (s *ReportService) GetTopSelling(ctx context.Context, req domain.TopSelling
 		}
 	}
 
-	resp = domain.TopSellingResponse{
+	resp = report.TopSellingResponse{
 		Type:  req.Type,
 		From:  req.From,
 		To:    req.To,
@@ -98,7 +98,7 @@ func (s *ReportService) GetTopSelling(ctx context.Context, req domain.TopSelling
 	return &resp, nil
 }
 
-func (s *ReportService) GetRevenueAnalytics(ctx context.Context, req domain.RevenueAnalyticsRequest) (*domain.RevenueAnalyticsResponse, *apperror.APIError) {
+func (s *ReportService) GetRevenueAnalytics(ctx context.Context, req report.RevenueAnalyticsRequest) (*report.RevenueAnalyticsResponse, *apperror.APIError) {
 
 	err := req.Validate(time.Now())
 	if err != nil {

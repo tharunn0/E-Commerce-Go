@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -21,7 +21,7 @@ func NewCartHandler(service *service.CartService, log *zap.Logger) *CartHandler 
 
 func (h *CartHandler) AddToCart(c *gin.Context) {
 	ctx := c.Request.Context()
-	var req domain.AddToCartRequest
+	var req cart.AddToCartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.log.Error("invalid add to cart request payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -73,7 +73,7 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 
 func (h *CartHandler) UpdateCartItemQuantity(c *gin.Context) {
 	ctx := c.Request.Context()
-	var req domain.UpdateCartItemQuantityRequest
+	var req cart.UpdateCartItemQuantityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "INVALID_REQUEST",
@@ -106,7 +106,7 @@ func (h *CartHandler) RemoveCartItem(c *gin.Context) {
 		})
 		return
 	}
-	updatedCart, apierr := h.service.RemoveCartItem(ctx, &domain.RemoveCartItemRequest{
+	updatedCart, apierr := h.service.RemoveCartItem(ctx, &cart.RemoveCartItemRequest{
 		ProductVariantID: productVariantID,
 	})
 	if apierr != nil {

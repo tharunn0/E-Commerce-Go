@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
 )
 
 type PaymentRepository struct {
@@ -18,7 +18,7 @@ func NewPaymentRepository(db *pgxpool.Pool) *PaymentRepository {
 	return &PaymentRepository{DB: db}
 }
 
-func (repo *PaymentRepository) CreatePayment(ctx context.Context, payment *domain.Payment) error {
+func (repo *PaymentRepository) CreatePayment(ctx context.Context, payment *payment.Payment) error {
 
 	totalAmt := float64(payment.Amount) / 100
 	status := strings.ToLower(string(payment.Status))
@@ -34,11 +34,11 @@ func (repo *PaymentRepository) CreatePayment(ctx context.Context, payment *domai
 
 }
 
-func (repo *PaymentRepository) UpdatePaymentStatus(ctx context.Context, orderID string, status domain.PaymentStatus) error {
+func (repo *PaymentRepository) UpdatePaymentStatus(ctx context.Context, orderID string, status payment.PaymentStatus) error {
 
 	var updatedPaymentStatus string
 
-	if status == domain.PaymentStatusCompleted {
+	if status == payment.PaymentStatusCompleted {
 		updatedPaymentStatus = "paid"
 	} else {
 		updatedPaymentStatus = "failed"
@@ -57,7 +57,7 @@ func (repo *PaymentRepository) UpdatePaymentStatus(ctx context.Context, orderID 
 	return nil
 }
 
-func (repo *PaymentRepository) UpdateOrderPaymentStatus(ctx context.Context, publicOrderID string, paymentData *domain.WebhookPayment) error {
+func (repo *PaymentRepository) UpdateOrderPaymentStatus(ctx context.Context, publicOrderID string, paymentData *payment.WebhookPayment) error {
 
 	tx, err := repo.DB.Begin(ctx)
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/report"
 )
 
 type ReportRepository struct {
@@ -19,7 +19,7 @@ func NewReportRepository(db *pgxpool.Pool) *ReportRepository {
 	}
 }
 
-func (r *ReportRepository) GetSalesReport(ctx context.Context, req *domain.SalesReportRequest) (domain.SalesReportResponse, error) {
+func (r *ReportRepository) GetSalesReport(ctx context.Context, req *report.SalesReportRequest) (report.SalesReportResponse, error) {
 
 	query := `SELECT
     COUNT(DISTINCT o.id) AS total_orders,
@@ -54,10 +54,10 @@ WHERE
 
 	row := r.db.QueryRow(ctx, query, req.From, req.To)
 
-	var sales domain.SalesReportResponse
+	var sales report.SalesReportResponse
 	err := row.Scan(&sales.TotalOrders, &sales.GrossRevenue, &sales.ReturnedAmount, &sales.CouponDiscount)
 	if err != nil {
-		return domain.SalesReportResponse{}, err
+		return report.SalesReportResponse{}, err
 	}
 
 	log.Println("Gross Revenue: ", sales.GrossRevenue)
@@ -70,7 +70,7 @@ WHERE
 	return sales, nil
 }
 
-func (r *ReportRepository) GetTopSellingProducts(ctx context.Context, req *domain.TopSellingRequest) ([]domain.TopStatItem, error) {
+func (r *ReportRepository) GetTopSellingProducts(ctx context.Context, req *report.TopSellingRequest) ([]report.TopStatItem, error) {
 
 	query := `SELECT
     p.id,
@@ -105,9 +105,9 @@ LIMIT $3;
 	}
 	defer rows.Close()
 
-	var items []domain.TopStatItem
+	var items []report.TopStatItem
 	for rows.Next() {
-		var item domain.TopStatItem
+		var item report.TopStatItem
 		err := rows.Scan(&item.ID, &item.Name, &item.TotalSold, &item.TotalRevenue)
 		if err != nil {
 			return nil, err
@@ -118,7 +118,7 @@ LIMIT $3;
 	return items, nil
 }
 
-func (r *ReportRepository) GetTopSellingCategories(ctx context.Context, req *domain.TopSellingRequest) ([]domain.TopStatItem, error) {
+func (r *ReportRepository) GetTopSellingCategories(ctx context.Context, req *report.TopSellingRequest) ([]report.TopStatItem, error) {
 
 	query := `SELECT
     	c.id,
@@ -156,9 +156,9 @@ func (r *ReportRepository) GetTopSellingCategories(ctx context.Context, req *dom
 	}
 	defer rows.Close()
 
-	var items []domain.TopStatItem
+	var items []report.TopStatItem
 	for rows.Next() {
-		var item domain.TopStatItem
+		var item report.TopStatItem
 		err := rows.Scan(&item.ID, &item.Name, &item.TotalSold, &item.TotalRevenue)
 		if err != nil {
 			return nil, err
@@ -169,7 +169,7 @@ func (r *ReportRepository) GetTopSellingCategories(ctx context.Context, req *dom
 	return items, nil
 }
 
-func (r *ReportRepository) GetTopSellingBrands(ctx context.Context, req *domain.TopSellingRequest) ([]domain.TopStatItem, error) {
+func (r *ReportRepository) GetTopSellingBrands(ctx context.Context, req *report.TopSellingRequest) ([]report.TopStatItem, error) {
 
 	query := `SELECT
     	b.id,
@@ -207,9 +207,9 @@ func (r *ReportRepository) GetTopSellingBrands(ctx context.Context, req *domain.
 	}
 	defer rows.Close()
 
-	var items []domain.TopStatItem
+	var items []report.TopStatItem
 	for rows.Next() {
-		var item domain.TopStatItem
+		var item report.TopStatItem
 		err := rows.Scan(&item.ID, &item.Name, &item.TotalSold, &item.TotalRevenue)
 		if err != nil {
 			return nil, err
@@ -220,7 +220,7 @@ func (r *ReportRepository) GetTopSellingBrands(ctx context.Context, req *domain.
 	return items, nil
 }
 
-func (r *ReportRepository) GetRevenueAnalytics(ctx context.Context, req *domain.RevenueAnalyticsRequest) (*domain.RevenueAnalyticsResponse, error) {
+func (r *ReportRepository) GetRevenueAnalytics(ctx context.Context, req *report.RevenueAnalyticsRequest) (*report.RevenueAnalyticsResponse, error) {
 
 	var intervalUnit string
 	var intervalSQL string
@@ -279,10 +279,10 @@ ORDER BY s.period;
 	}
 	defer rows.Close()
 
-	var data []domain.RevenueData
+	var data []report.RevenueData
 
 	for rows.Next() {
-		var d domain.RevenueData
+		var d report.RevenueData
 		if err := rows.Scan(&d.Date, &d.Revenue); err != nil {
 			return nil, err
 		}
@@ -293,7 +293,7 @@ ORDER BY s.period;
 		return nil, err
 	}
 
-	return &domain.RevenueAnalyticsResponse{
+	return &report.RevenueAnalyticsResponse{
 		RevenueAnalyticsRequest: *req,
 		RevenueData:             data,
 	}, nil

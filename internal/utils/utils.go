@@ -18,6 +18,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/auth"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -133,7 +135,7 @@ func GetUserIDFromContext(ctx context.Context) (int64, error) {
 	return 0, fmt.Errorf("user ID not found in context")
 }
 
-func ValidateRefreshToken(token *domain.RefreshToken) error {
+func ValidateRefreshToken(token *auth.RefreshToken) error {
 
 	fmt.Println("token", token)
 	if time.Now().After(token.ExpiryAt) {
@@ -221,7 +223,7 @@ func ExtractAuthToken(rawtoken string) (string, error) {
 	return parts[1], nil
 }
 
-func ValidateUserAddressValues(address *domain.UserAddress) error {
+func ValidateUserAddressValues(address *user.UserAddress) error {
 	if address.Label == "" {
 		return fmt.Errorf("Address label is required")
 	}

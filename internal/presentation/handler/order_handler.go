@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -28,7 +28,7 @@ func (h *OrderHandler) CheckoutCart(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var cartReq domain.CartCheckoutRequest
+	var cartReq order.CartCheckoutRequest
 	if err := c.ShouldBindJSON(&cartReq); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -68,7 +68,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.CreateOrderRequest
+	var req order.CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -83,7 +83,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	order, stockerr, err := h.serv.CreateOrderFromCart(ctx, &req)
+	orderRes, stockerr, err := h.serv.CreateOrderFromCart(ctx, &req)
 	if err != nil {
 		c.JSON(err.Status, gin.H{
 			"error":   err.Code,
@@ -100,7 +100,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order created successfully",
-		"order":   order,
+		"order":   orderRes,
 	})
 
 }
@@ -140,7 +140,7 @@ func (h *OrderHandler) GetOrderByID(c *gin.Context) {
 
 	orderID := c.Param("order_id")
 
-	order, err := h.serv.GetOrderByID(ctx, orderID)
+	orderRes, err := h.serv.GetOrderByID(ctx, orderID)
 	if err != nil {
 		c.JSON(err.Status, gin.H{
 			"error":   err.Code,
@@ -150,7 +150,7 @@ func (h *OrderHandler) GetOrderByID(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order fetched successfully",
-		"order":   order,
+		"order":   orderRes,
 	})
 }
 
@@ -161,7 +161,7 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 
 	orderID := c.Param("order_id")
 
-	var req domain.CancelOrderRequest
+	var req order.CancelOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -172,7 +172,7 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 
 	req.OrderID = orderID
 
-	order, apierr := h.serv.CancelOrder(ctx, &req)
+	orderRes, apierr := h.serv.CancelOrder(ctx, &req)
 	if apierr != nil {
 		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,
@@ -182,7 +182,7 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order cancelled successfully",
-		"order":   order,
+		"order":   orderRes,
 	})
 }
 
@@ -192,7 +192,7 @@ func (h *OrderHandler) ReturnOrderItemRequest(c *gin.Context) {
 
 	fmt.Println("return item endpoint called")
 
-	var req domain.ReturnOrderItemRequest
+	var req order.ReturnOrderItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -233,7 +233,7 @@ func (h *OrderHandler) ReturnOrderRequest(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.ReturnOrderRequest
+	var req order.ReturnOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -273,7 +273,7 @@ func (h *OrderHandler) ListAllOrders(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var filter domain.OrderFilter
+	var filter order.OrderFilter
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -301,7 +301,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.OrderStatusUpdateRequest
+	var req order.OrderStatusUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",
@@ -310,10 +310,10 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 		return
 	}
 
-	order := c.Param("order_id")
-	req.OrderID = order
+	orderID := c.Param("order_id")
+	req.OrderID = orderID
 
-	_, apierr := h.serv.UpdateOrderStatus(ctx, req.OrderID, domain.ShipmentStatus(req.Status))
+	_, apierr := h.serv.UpdateOrderStatus(ctx, req.OrderID, order.ShipmentStatus(req.Status))
 	if apierr != nil {
 		c.JSON(apierr.Status, gin.H{
 			"error":   apierr.Code,
@@ -323,7 +323,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order status updated successfully",
-		"order":   order,
+		"order":   orderID,
 	})
 }
 
@@ -332,7 +332,7 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 func (h *OrderHandler) ListAllReturns(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var filter domain.ReturnFilter
+	var filter order.ReturnFilter
 
 	st := c.Query("status")
 	fmt.Println("status", st)
@@ -394,7 +394,7 @@ func (h *OrderHandler) UpdateReturnRequestStatus(c *gin.Context) {
 
 	returnID := c.Param("return_id")
 
-	var req domain.UpdateReturnRefundRequest
+	var req order.UpdateReturnRefundRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "BAD_REQUEST",

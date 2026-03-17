@@ -8,21 +8,24 @@ import (
 
 	"github.com/razorpay/razorpay-go"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type PaymentService struct {
-	orderRepo      domain.OrderRepository
-	paymentRepo    domain.PaymentRepository
-	cartRepo       domain.CartRepository
-	userRepo       domain.UserRepository
+	orderRepo      order.OrderRepository
+	paymentRepo    payment.PaymentRepository
+	cartRepo       cart.CartRepository
+	userRepo       user.UserRepository
 	razorpayClient *razorpay.Client
 	log            *zap.Logger
 }
 
-func NewPaymentService(orderRepo domain.OrderRepository, paymentRepo domain.PaymentRepository, userRepo domain.UserRepository, cartRepo domain.CartRepository, razorpayClient *razorpay.Client, log *zap.Logger) *PaymentService {
+func NewPaymentService(orderRepo order.OrderRepository, paymentRepo payment.PaymentRepository, userRepo user.UserRepository, cartRepo cart.CartRepository, razorpayClient *razorpay.Client, log *zap.Logger) *PaymentService {
 	return &PaymentService{
 		orderRepo:      orderRepo,
 		paymentRepo:    paymentRepo,
@@ -46,7 +49,7 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 	}
 
 	// verify order exist and fetch order details
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
+	orderObj, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
 	if err != nil {
 		return nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
@@ -56,7 +59,7 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 	}
 
 	// check if order has correct payment method
-	if order.PaymentMethod != "RAZORPAY" {
+	if orderObj.PaymentMethod != "RAZORPAY" {
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
@@ -65,7 +68,7 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 	}
 
 	// check if order is already confirmed and paid
-	if order.Status == "confirmed" && order.PaymentStatus == "paid" {
+	if orderObj.Status == "confirmed" && orderObj.PaymentStatus == "paid" {
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "CONFLICT",
@@ -73,10 +76,10 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 		}
 	}
 
-	order = utils.CalculateOrderTotalAmount(order)
+	orderObj = utils.CalculateOrderTotalAmount(orderObj)
 
 	// get user details
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	userObj, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
@@ -85,18 +88,18 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 		}
 	}
 
-	fmt.Printf("Order Total Amount: %f\n", order.TotalAmount)
+	fmt.Printf("Order Total Amount: %f\n", orderObj.TotalAmount)
 
-	amountInPaise := int(order.TotalAmount * 100)
+	amountInPaise := int(orderObj.TotalAmount * 100)
 
 	// create payment link
 	data := map[string]any{
 		"amount":   amountInPaise,
 		"currency": "INR",
 		"customer": map[string]any{
-			"name":    user.FirstName + " " + user.LastName,
-			"contact": user.Phone,
-			"email":   user.Email,
+			"name":    userObj.FirstName + " " + userObj.LastName,
+			"contact": userObj.Phone,
+			"email":   userObj.Email,
 		},
 		"notes": map[string]any{
 			"internal_order_id": orderID,
@@ -124,7 +127,7 @@ func (s *PaymentService) CreatePaymentLink(ctx context.Context, orderID string) 
 	return res, nil
 }
 
-func (s *PaymentService) VerifyPayment(ctx context.Context, event *domain.WebhookEvent) *apperror.APIError {
+func (s *PaymentService) VerifyPayment(ctx context.Context, event *payment.WebhookEvent) *apperror.APIError {
 
 	// verify payment link
 
@@ -138,7 +141,7 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, event *domain.Webhoo
 		}
 	}
 
-	fetchedPayment := domain.WebhookPayment{}
+	fetchedPayment := payment.WebhookPayment{}
 
 	err = utils.MapToStruct(fetchedPaymentData, &fetchedPayment)
 	if err != nil {

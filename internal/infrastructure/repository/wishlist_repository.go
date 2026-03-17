@@ -9,7 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/wishlist"
 )
 
 type WishlistRepository struct {
@@ -60,9 +61,9 @@ func (repo *WishlistRepository) AddToWishlist(ctx context.Context, userID int64,
 	return wishlistId, err
 }
 
-func (repo *WishlistRepository) GetWishlistByUserID(ctx context.Context, userID int64) (*domain.Wishlist, error) {
+func (repo *WishlistRepository) GetWishlistByUserID(ctx context.Context, userID int64) (*wishlist.Wishlist, error) {
 
-	wishlist := domain.Wishlist{}
+	wishlist := wishlist.Wishlist{}
 	query := `SELECT p.id, p.name, p.min_price, p.max_price, p.description, p.image_url FROM products p 
 	JOIN wishlist_items wi ON p.id = wi.product_id WHERE wi.wishlist_id = (SELECT id FROM wishlists WHERE user_id = $1)`
 	rows, err := repo.DB.Query(ctx, query, userID)
@@ -74,7 +75,7 @@ func (repo *WishlistRepository) GetWishlistByUserID(ctx context.Context, userID 
 	}
 
 	for rows.Next() {
-		var product domain.ProductResponse
+		var product product.ProductResponse
 		if err := rows.Scan(&product.ID, &product.Name, &product.MinPrice, &product.MaxPrice, &product.Description, &product.ImageURL); err != nil {
 			return nil, err
 		}
@@ -84,9 +85,9 @@ func (repo *WishlistRepository) GetWishlistByUserID(ctx context.Context, userID 
 	return &wishlist, nil
 }
 
-func (repo *WishlistRepository) GetWishlistByID(ctx context.Context, wishlistID int64) (*domain.Wishlist, error) {
+func (repo *WishlistRepository) GetWishlistByID(ctx context.Context, wishlistID int64) (*wishlist.Wishlist, error) {
 
-	wishlist := domain.Wishlist{}
+	wishlist := wishlist.Wishlist{}
 	query := `SELECT p.id, p.name, p.min_price, p.max_price, p.description, p.image_url FROM products p 
 	JOIN wishlist_items wi ON p.id = wi.product_id WHERE wi.wishlist_id = $1`
 	rows, err := repo.DB.Query(ctx, query, wishlistID)
@@ -98,7 +99,7 @@ func (repo *WishlistRepository) GetWishlistByID(ctx context.Context, wishlistID 
 	}
 
 	for rows.Next() {
-		var product domain.ProductResponse
+		var product product.ProductResponse
 		if err := rows.Scan(&product.ID, &product.Name, &product.MinPrice, &product.MaxPrice, &product.Description, &product.ImageURL); err != nil {
 			return nil, err
 		}

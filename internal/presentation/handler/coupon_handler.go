@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -26,7 +26,7 @@ func (h *CouponHandler) CreateCoupon(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.CreateCouponRequest
+	var req promotion.CreateCouponRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -47,7 +47,7 @@ func (h *CouponHandler) ListAllCoupons(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var filter domain.ListCouponsFilter
+	var filter promotion.ListCouponsFilter
 	_ = c.ShouldBindQuery(&filter)
 
 	log.Println("filter :", filter)
@@ -69,7 +69,7 @@ func (h *CouponHandler) ApplyCoupon(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.ApplyCouponRequest
+	var req promotion.ApplyCouponRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

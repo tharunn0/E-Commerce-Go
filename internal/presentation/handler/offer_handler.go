@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -22,7 +22,7 @@ func (h *OfferHandler) CreateOffer(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.CreateOfferRequest
+	var req promotion.CreateOfferRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.log.Error("Failed to bind JSON", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})

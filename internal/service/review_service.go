@@ -6,21 +6,21 @@ import (
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/review"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type ReviewService struct {
-	repo domain.ReviewRepository
+	repo review.ReviewRepository
 	log  *zap.Logger
 }
 
-func NewReviewService(repo domain.ReviewRepository, log *zap.Logger) *ReviewService {
+func NewReviewService(repo review.ReviewRepository, log *zap.Logger) *ReviewService {
 	return &ReviewService{repo: repo, log: log}
 }
 
-func (s *ReviewService) CreateReview(ctx context.Context, req *domain.CreateReviewRequest) *apperror.APIError {
+func (s *ReviewService) CreateReview(ctx context.Context, req *review.CreateReviewRequest) *apperror.APIError {
 	// extract user id from context
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -55,7 +55,7 @@ func (s *ReviewService) DeleteReview(ctx context.Context, id int64) error {
 	return s.repo.DeleteReview(ctx, id)
 }
 
-func (s *ReviewService) GetProductReviews(ctx context.Context, productID int64, filter *domain.ReviewFilter) (*domain.ProductReviews, *apperror.APIError) {
+func (s *ReviewService) GetProductReviews(ctx context.Context, productID int64, filter *review.ReviewFilter) (*review.ProductReviews, *apperror.APIError) {
 
 	if err := filter.Validate(); err != nil {
 		s.log.Error("[service:review_service:GetProductReviews]", zap.String("msg", "Invalid filter"), zap.Error(err))

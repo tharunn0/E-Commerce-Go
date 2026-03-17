@@ -9,7 +9,14 @@ import (
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/discount"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/payments"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 
@@ -18,26 +25,26 @@ import (
 )
 
 type OrderService struct {
-	userRepo    domain.UserRepository
-	productRepo domain.ProductRepository
-	cartRepo    domain.CartRepository
-	orderRepo   domain.OrderRepository
-	paymentRepo domain.PaymentRepository
-	offerRepo   domain.OfferRepository
-	couponRepo  domain.CouponRepository
+	userRepo    user.UserRepository
+	productRepo product.ProductRepository
+	cartRepo    cart.CartRepository
+	orderRepo   order.OrderRepository
+	paymentRepo payment.PaymentRepository
+	offerRepo   promotion.OfferRepository
+	couponRepo  promotion.CouponRepository
 	razorpay    *Razorpay.Client
 	cfg         config.OrderSettings
 	log         *zap.Logger
 }
 
 func NewOrderService(
-	userRepo domain.UserRepository,
-	productRepo domain.ProductRepository,
-	cartRepo domain.CartRepository,
-	orderRepo domain.OrderRepository,
-	paymentRepo domain.PaymentRepository,
-	offerRepo domain.OfferRepository,
-	couponRepo domain.CouponRepository,
+	userRepo user.UserRepository,
+	productRepo product.ProductRepository,
+	cartRepo cart.CartRepository,
+	orderRepo order.OrderRepository,
+	paymentRepo payment.PaymentRepository,
+	offerRepo promotion.OfferRepository,
+	couponRepo promotion.CouponRepository,
 	razorpay *Razorpay.Client,
 	cfg config.OrderSettings,
 	log *zap.Logger,
@@ -59,10 +66,10 @@ func NewOrderService(
 // CHECKOUT SERVICES
 // ///////////////////////
 // checkout cart
-func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckoutRequest) (*domain.CartCheckoutResponse, []domain.NotEnoughStockError, *apperror.APIError) {
+func (s *OrderService) CheckoutCart(ctx context.Context, req order.CartCheckoutRequest) (*order.CartCheckoutResponse, []order.NotEnoughStockError, *apperror.APIError) {
 
 	// validate delivery type
-	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
+	if req.DeliveryType != shipping.DeliveryTypeNormal && req.DeliveryType != shipping.DeliveryTypeExpress {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
@@ -111,7 +118,7 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 	}
 
 	// get cart by user id
-	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
+	cartObj, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
 			s.log.Error("Failed to get cart", zap.Error(err))
@@ -129,7 +136,7 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		}
 	}
 
-	if cart.Items == nil {
+	if cartObj.Items == nil {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
 			Code:    "NOT_FOUND",
@@ -158,14 +165,14 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 	}
 
 	// validate not enough stock
-	notEnoughStockError := utils.ValidateOrderItemsStock(cartVariantInfo, cart)
+	notEnoughStockError := utils.ValidateOrderItemsStock(cartVariantInfo, cartObj)
 	if len(notEnoughStockError) > 0 {
 		return nil, notEnoughStockError, nil
 	}
 
 	var productIDs []int64
 	var categoryIDs []int64
-	for _, item := range cart.Items {
+	for _, item := range cartObj.Items {
 		productIDs = append(productIDs, item.ProductID)
 		categoryIDs = append(categoryIDs, item.CategoryID)
 	}
@@ -179,27 +186,27 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		}
 	}
 
-	domain.ApplyDiscounts(cart, offers)
+	discount.ApplyDiscounts(cartObj, offers)
 
 	// shipping charge
-	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
+	shippingAmount := shipping.DeliveryTypeCharges[req.DeliveryType]
 
 	// delivery time and date
-	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
+	estimatedDeliveryTime, err := shipping.GetDeliveryDays(userAddr.District)
 	if err != nil {
 		estimatedDeliveryTime = 7
 		shippingAmount = 150
 	}
-	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
+	estimatedDeliveryDate, err := shipping.CalculateDeliveryDate(userAddr.District)
 	if err != nil {
 		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
 	}
 
 	// final cart items price
-	totalAmount := cart.CartTotalPrice + shippingAmount
+	totalAmount := cartObj.CartTotalPrice + shippingAmount
 
-	resp := &domain.CartCheckoutResponse{
-		Cart:                  cart,
+	resp := &order.CartCheckoutResponse{
+		Cart:                  cartObj,
 		ShippingCost:          shippingAmount,
 		TotalAmount:           totalAmount,
 		DeliveryType:          req.DeliveryType,
@@ -208,16 +215,16 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req domain.CartCheckout
 		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
 	}
 
-	s.log.Info("Cart checkout successful", zap.Any("cart", cart), zap.Any("address", userAddr))
+	s.log.Info("Cart checkout successful", zap.Any("cart", cartObj), zap.Any("address", userAddr))
 
 	return resp, nil, nil
 }
 
 // checkout product variant
-func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.ProductVariantCheckoutRequest) (*domain.ProductVariantCheckoutResponse, *apperror.APIError) {
+func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *order.ProductVariantCheckoutRequest) (*order.ProductVariantCheckoutResponse, *apperror.APIError) {
 	activeonly := !utils.IsAdmin(ctx)
 	// validate delivery type
-	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
+	if req.DeliveryType != shipping.DeliveryTypeNormal && req.DeliveryType != shipping.DeliveryTypeExpress {
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
@@ -288,16 +295,16 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.P
 	}
 
 	// final shipping charge
-	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
+	shippingAmount := shipping.DeliveryTypeCharges[req.DeliveryType]
 
 	// final delivery time and date
 	var totalAmount float64
-	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
+	estimatedDeliveryTime, err := shipping.GetDeliveryDays(userAddr.District)
 	if err != nil {
 		estimatedDeliveryTime = 7
 		shippingAmount = 150
 	}
-	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
+	estimatedDeliveryDate, err := shipping.CalculateDeliveryDate(userAddr.District)
 	if err != nil {
 		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
 	}
@@ -309,7 +316,7 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.P
 		totalAmount = *productVariant.SalePrice + shippingAmount
 	}
 
-	resp := &domain.ProductVariantCheckoutResponse{
+	resp := &order.ProductVariantCheckoutResponse{
 		ProductVariant:        productVariant,
 		ShippingCost:          shippingAmount,
 		TotalAmount:           totalAmount,
@@ -323,7 +330,7 @@ func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *domain.P
 }
 
 // create order
-func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.CreateOrderRequest) (*domain.CreateOrderResponse, []domain.NotEnoughStockError, *apperror.APIError) {
+func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *order.CreateOrderRequest) (*order.CreateOrderResponse, []order.NotEnoughStockError, *apperror.APIError) {
 
 	// 1. validate req
 	if err := req.Validate(); err != nil {
@@ -359,7 +366,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	// 5. fetch cart with userId
-	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
+	cartObj, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
 			return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", apperror.ErrCartNotFound.Error())
@@ -368,11 +375,11 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to fetch cart.")
 	}
 
-	if cart.Items == nil {
+	if cartObj.Items == nil {
 		return nil, nil, apperror.New(http.StatusNotFound, "NOT_FOUND", "Cart is empty.")
 	}
 
-	if cart.CartTotalPrice > float64(s.cfg.MaxOrderAmount) {
+	if cartObj.CartTotalPrice > float64(s.cfg.MaxOrderAmount) {
 		return nil, nil, apperror.New(http.StatusUnauthorized, "UNAUTHORIZED", fmt.Sprintf("Order amount exceeded. Should be less than %d.", s.cfg.MaxOrderAmount))
 	}
 
@@ -387,7 +394,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	// 7. validate stock
-	notEnoughStockErrors := utils.ValidateOrderItemsStock(cartVariantInfo, cart)
+	notEnoughStockErrors := utils.ValidateOrderItemsStock(cartVariantInfo, cartObj)
 	if len(notEnoughStockErrors) > 0 {
 		return nil, notEnoughStockErrors, nil
 	}
@@ -404,7 +411,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 
 	var productIds, categoryIds []int64
 
-	for _, item := range cart.Items {
+	for _, item := range cartObj.Items {
 		productIds = append(productIds, item.ProductID)
 		categoryIds = append(categoryIds, item.CategoryID)
 	}
@@ -418,7 +425,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	if len(offers) > 0 {
-		domain.ApplyDiscounts(cart, offers)
+		discount.ApplyDiscounts(cartObj, offers)
 	}
 
 	// apply coupons
@@ -433,39 +440,39 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 			return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to get coupon.")
 		}
 
-		err = domain.ValidateCoupon(coupon, time.Now())
+		err = promotion.ValidateCoupon(coupon, time.Now())
 		if err != nil {
 			return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		}
 
-		err = domain.ApplyCouponToCart(cart, coupon)
+		err = cart.ApplyCouponToCart(cartObj, coupon)
 		if err != nil {
 			return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		}
 	}
 
 	// 9. calculate shipping charge
-	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
+	shippingAmount := shipping.DeliveryTypeCharges[req.DeliveryType]
 
 	// 10. calculate delivery time and date
-	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
+	estimatedDeliveryTime, err := shipping.GetDeliveryDays(userAddr.District)
 	if err != nil {
 		estimatedDeliveryTime = 7
 		shippingAmount = 150
 	}
-	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
+	estimatedDeliveryDate, err := shipping.CalculateDeliveryDate(userAddr.District)
 	if err != nil {
 		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
 	}
 
 	// 11. calculate total amount
-	totalAmount := cart.CartTotalPrice + shippingAmount
+	totalAmount := cartObj.CartTotalPrice + shippingAmount
 
-	if totalAmount > float64(s.cfg.MaxCodOrderAmount) && req.PaymentMethod == domain.PaymentMethodCOD {
+	if totalAmount > float64(s.cfg.MaxCodOrderAmount) && req.PaymentMethod == payment.PaymentMethodCOD {
 		return nil, nil, apperror.New(http.StatusBadRequest, "BAD_REQUEST", fmt.Sprintf("Order amount exceeded. Should be less than %d for COD.", s.cfg.MaxCodOrderAmount))
 	}
 
-	orderData := &domain.CreateOrderData{
+	orderData := &order.CreateOrderData{
 		UserID:                userID,
 		OrderID:               orderID,
 		TotalAmount:           totalAmount,
@@ -475,11 +482,11 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		DeliveryType:          strings.ToLower(string(req.DeliveryType)),
 		EstimatedDeliveryDate: estimatedDeliveryDate,
 		OrderSource:           "cart",
-		CouponData:            cart.CouponData,
+		CouponData:            cartObj.CouponData,
 	}
 
 	// 12. create order items
-	orderData.Items = utils.CreateOrderItems(cart, cartVariantInfo)
+	orderData.Items = utils.CreateOrderItems(cartObj, cartVariantInfo)
 
 	// 13. validate payment gateway
 	gateway := payments.GetPaymentGateway(req.PaymentMethod, s.razorpay)
@@ -488,11 +495,11 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	switch req.PaymentMethod {
-	case domain.PaymentMethodCOD:
-		orderData.Status = domain.OrderStatusConfirmed
-	case domain.PaymentMethodRazorpay:
-		orderData.Status = domain.OrderStatusPending
-	case domain.PaymentMethodWallet:
+	case payment.PaymentMethodCOD:
+		orderData.Status = order.OrderStatusConfirmed
+	case payment.PaymentMethodRazorpay:
+		orderData.Status = order.OrderStatusPending
+	case payment.PaymentMethodWallet:
 		// fetch wallet and check if amount is enough
 		wallet, err := s.userRepo.GetWallet(ctx, userID)
 		if err != nil {
@@ -501,9 +508,9 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		if wallet.Balance < totalAmount {
 			return nil, nil, apperror.New(http.StatusUnauthorized, "UNAUTHORIZED", "Insufficient wallet balance.")
 		}
-		orderData.Status = domain.OrderStatusConfirmed
+		orderData.Status = order.OrderStatusConfirmed
 	default:
-		orderData.Status = domain.OrderStatusPending
+		orderData.Status = order.OrderStatusPending
 	}
 
 	// 14. create order && update stock
@@ -515,9 +522,9 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to create order.")
 	}
 
-	var _ domain.PaymentResponse
+	var _ payment.PaymentResponse
 	// 15. create payment and payment response
-	paymentResp, err := gateway.CreatePayment(ctx, domain.PaymentRequest{
+	paymentResp, err := gateway.CreatePayment(ctx, payment.PaymentRequest{
 		OrderID:  orderID,
 		UserID:   userID,
 		Amount:   int64(totalAmount) / 100,
@@ -536,7 +543,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		fmt.Println("Payment URL : ", *paymentResp.PaymentURL)
 	}
 
-	payment := &domain.Payment{
+	paymentObj := &payment.Payment{
 		OrderID:  orderID,
 		UserID:   userID,
 		Amount:   int64(totalAmount) * 100,
@@ -545,7 +552,7 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		Status:   paymentResp.Status,
 	}
 
-	if err := s.paymentRepo.CreatePayment(ctx, payment); err != nil {
+	if err := s.paymentRepo.CreatePayment(ctx, paymentObj); err != nil {
 		s.log.Error("Failed to create payment", zap.Error(err))
 		return nil, nil, apperror.New(http.StatusInternalServerError, "DB_ERROR", "Failed to create payment.")
 	}
@@ -560,10 +567,10 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 	}
 
 	// return response
-	resp := &domain.CreateOrderResponse{
+	resp := &order.CreateOrderResponse{
 		OrderID:               orderID,
 		Items:                 neworder.Items,
-		Subtotal:              cart.CartTotalPrice,
+		Subtotal:              cartObj.CartTotalPrice,
 		TaxAmount:             0,
 		ShippingCost:          shippingAmount,
 		TotalAmount:           totalAmount,
@@ -575,32 +582,32 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *domain.Crea
 		EstimatedDeliveryTime: fmt.Sprintf("%d days", estimatedDeliveryTime),
 		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
 		Status:                orderData.Status,
-		ShipmentStatus:        string(domain.ShipmentStatusPending),
+		ShipmentStatus:        string(shipping.ShipmentStatusPending),
 		PaymentMethod:         string(req.PaymentMethod),
 		PaymentStatus:         string(paymentResp.Status),
-		Payment:               payment,
+		Payment:               paymentObj,
 		CreatedAt:             time.Now(),
 	}
 
-	resp.CouponData = cart.CouponData
+	resp.CouponData = cartObj.CouponData
 
-	if req.PaymentMethod == domain.PaymentMethodCOD {
+	if req.PaymentMethod == payment.PaymentMethodCOD {
 		resp.Payment = nil
 	}
 	s.log.Info("Order created successfully", zap.Any("order", resp))
 
 	// clear cart if order creation is successful
-	if req.PaymentMethod == domain.PaymentMethodCOD {
+	if req.PaymentMethod == payment.PaymentMethodCOD {
 		s.cartRepo.EmptyCart(ctx, userID)
 	}
 
 	return resp, nil, nil
 }
 
-func (s *OrderService) UpdateOrderStatusOnPayment(ctx context.Context, status domain.PaymentStatus, orderID string) *apperror.APIError {
+func (s *OrderService) UpdateOrderStatusOnPayment(ctx context.Context, status payment.PaymentStatus, orderID string) *apperror.APIError {
 
 	// 1. validate payment status
-	if status != domain.PaymentStatusCompleted && status != domain.PaymentStatusFailed {
+	if status != payment.PaymentStatusCompleted && status != payment.PaymentStatusFailed {
 		s.log.Warn("Invalid payment status", zap.String("status", string(status)))
 		return &apperror.APIError{
 			Status:  http.StatusBadRequest,
@@ -638,7 +645,7 @@ func (s *OrderService) UpdateOrderStatusOnPayment(ctx context.Context, status do
 }
 
 // get user orders
-func (s *OrderService) GetUserOrders(ctx context.Context) ([]domain.OrderBaseResponse, *apperror.APIError) {
+func (s *OrderService) GetUserOrders(ctx context.Context) ([]order.OrderBaseResponse, *apperror.APIError) {
 	utils.LogCtxContent(ctx, s.log)
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -664,7 +671,7 @@ func (s *OrderService) GetUserOrders(ctx context.Context) ([]domain.OrderBaseRes
 	return orders, nil
 }
 
-func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domain.OrderResponse, *apperror.APIError) {
+func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*order.OrderResponse, *apperror.APIError) {
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -676,7 +683,7 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domai
 		}
 	}
 
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
+	orderObj, err := s.orderRepo.GetUserOrderByID(ctx, orderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -704,13 +711,13 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*domai
 	// order.TotalAmount = order.Subtotal + order.TaxAmount + order.ShippingCost
 	// order.PayableAmount = order.Subtotal + order.TaxAmount + order.ShippingCost - deductableAmount
 
-	order = utils.CalculateOrderTotalAmount(order)
+	orderObj = utils.CalculateOrderTotalAmount(orderObj)
 
-	return order, nil
+	return orderObj, nil
 }
 
 // cancel order
-func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderRequest) (*domain.OrderResponse, *apperror.APIError) {
+func (s *OrderService) CancelOrder(ctx context.Context, req *order.CancelOrderRequest) (*order.OrderResponse, *apperror.APIError) {
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -737,8 +744,8 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		}
 	}
 
-	var _ domain.OrderResponse
-	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
+	var _ order.OrderResponse
+	orderObj, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -755,22 +762,22 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		}
 	}
 
-	statusStr := strings.ToUpper(string(order.Status))
+	statusStr := strings.ToUpper(string(orderObj.Status))
 
 	switch statusStr {
-	case string(domain.OrderStatusCancelled):
+	case string(order.OrderStatusCancelled):
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "NOT_VALID",
 			Message: "Order is already cancelled.",
 		}
-	case string(domain.OrderStatusDelivered):
+	case string(order.OrderStatusDelivered):
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "NOT_VALID",
 			Message: "Order is already delivered.Choose to return the order.",
 		}
-	case string(domain.OrderStatusPending):
+	case string(order.OrderStatusPending):
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "NOT_VALID",
@@ -790,7 +797,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 
 	s.log.Info("Order cancelled successfully", zap.String("order_id", req.OrderID))
 
-	if order.PaymentMethod == string(domain.PaymentMethodRazorpay) {
+	if orderObj.PaymentMethod == string(payment.PaymentMethodRazorpay) {
 		// err := s.paymentRepo.CancelOrderPayment(ctx, req.OrderID)
 		// if err != nil {
 		// 	s.log.Error("Failed to cancel order payment", zap.Error(err))
@@ -819,7 +826,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 		}
 	}
 
-	updateOrder.ShippingCost = domain.DeliveryTypeCharges[updateOrder.DeliveryType]
+	updateOrder.ShippingCost = shipping.DeliveryTypeCharges[updateOrder.DeliveryType]
 	updateOrder.TotalAmount = updateOrder.Subtotal + updateOrder.TaxAmount + updateOrder.ShippingCost
 	updateOrder.PayableAmount = updateOrder.Subtotal + updateOrder.TaxAmount + updateOrder.ShippingCost - deductableAmount
 
@@ -829,7 +836,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *domain.CancelOrderR
 // ORDER ADMIN SERVICES
 // ///////////////////////
 // list all orders
-func (s *OrderService) ListAllOrders(ctx context.Context, filter *domain.OrderFilter) ([]domain.OrderBaseResponse, *apperror.APIError) {
+func (s *OrderService) ListAllOrders(ctx context.Context, filter *order.OrderFilter) ([]order.OrderBaseResponse, *apperror.APIError) {
 
 	if filter.Page <= 0 {
 		filter.Page = 1
@@ -858,7 +865,7 @@ func (s *OrderService) ListAllOrders(ctx context.Context, filter *domain.OrderFi
 	return orders, nil
 }
 
-func (s *OrderService) ListReturnRequests(ctx context.Context, filter *domain.ReturnFilter) ([]domain.BaseReturnResponse, *apperror.APIError) {
+func (s *OrderService) ListReturnRequests(ctx context.Context, filter *order.ReturnFilter) ([]order.BaseReturnResponse, *apperror.APIError) {
 
 	if filter.Page <= 0 {
 		filter.Page = 1
@@ -894,7 +901,7 @@ func (s *OrderService) ListReturnRequests(ctx context.Context, filter *domain.Re
 		*filter.OrderBy = "ors.refunded_amount"
 	}
 
-	if filter.Status != nil && !utils.IsValueValid(*filter.Status, domain.ValidReturnStatus) {
+	if filter.Status != nil && !utils.IsValueValid(*filter.Status, order.ValidReturnStatus) {
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "INVALID_STATUS",
@@ -915,7 +922,7 @@ func (s *OrderService) ListReturnRequests(ctx context.Context, filter *domain.Re
 }
 
 // update order status
-func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, status domain.ShipmentStatus) (*domain.OrderResponse, *apperror.APIError) {
+func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, status shipping.ShipmentStatus) (*order.OrderResponse, *apperror.APIError) {
 
 	// check if order exists
 	if status != "shipped" && status != "delivered" {
@@ -926,7 +933,7 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 		}
 	}
 
-	order, err := s.orderRepo.GetUserOrderByID(ctx, orderID, 0)
+	orderObj, err := s.orderRepo.GetUserOrderByID(ctx, orderID, 0)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -943,30 +950,30 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 		}
 	}
 
-	strOrdStatus := strings.ToUpper(string(order.Status)) //
-	strShipmentStatus := order.ShipmentStatus
+	strOrdStatus := strings.ToUpper(string(orderObj.Status)) //
+	strShipmentStatus := orderObj.ShipmentStatus
 
 	// check if status is valid for the order
 	switch strOrdStatus {
-	case string(domain.OrderStatusCancelled):
+	case string(order.OrderStatusCancelled):
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "INVALID_STATUS",
 			Message: "Order is already cancelled.",
 		}
-	case string(domain.OrderStatusDelivered):
+	case string(order.OrderStatusDelivered):
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "INVALID_STATUS",
 			Message: "Order is already delivered.",
 		}
-	case string(domain.OrderStatusPending):
+	case string(order.OrderStatusPending):
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "INVALID_STATUS",
 			Message: "Order has not been confirmed.",
 		}
-	case string(domain.OrderStatusFailed):
+	case string(order.OrderStatusFailed):
 		return nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "INVALID_STATUS",
@@ -976,16 +983,16 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 
 	fmt.Println("comparing statuse", strOrdStatus)
 	switch strOrdStatus {
-	case string(domain.ShipmentStatusShipped):
-		if order.ShipmentStatus == strings.ToLower(string(domain.ShipmentStatusShipped)) && status == "shipped" {
+	case string(shipping.ShipmentStatusShipped):
+		if orderObj.ShipmentStatus == strings.ToLower(string(shipping.ShipmentStatusShipped)) && status == "shipped" {
 			return nil, &apperror.APIError{
 				Status:  http.StatusNotFound,
 				Code:    "INVALID_STATUS",
 				Message: "Order is already shipped.",
 			}
 		}
-	case string(domain.ShipmentStatusDelivered):
-		if order.ShipmentStatus == strings.ToLower(string(domain.ShipmentStatusDelivered)) {
+	case string(shipping.ShipmentStatusDelivered):
+		if orderObj.ShipmentStatus == strings.ToLower(string(shipping.ShipmentStatusDelivered)) {
 			return nil, &apperror.APIError{
 				Status:  http.StatusNotFound,
 				Code:    "INVALID_STATUS",
@@ -1003,7 +1010,7 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 	}
 
 	isCOD := false
-	if order.PaymentMethod == "COD" {
+	if orderObj.PaymentMethod == "COD" {
 		isCOD = true
 	}
 
@@ -1024,7 +1031,7 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, orderID string, st
 
 // returns
 
-func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.ReturnOrderItemRequest) *apperror.APIError {
+func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *order.ReturnOrderItemRequest) *apperror.APIError {
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -1051,7 +1058,7 @@ func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.R
 		}
 	}
 
-	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
+	orderObj, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -1068,9 +1075,9 @@ func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.R
 		}
 	}
 
-	strStatus := strings.ToUpper(string(order.Status))
+	strStatus := strings.ToUpper(string(orderObj.Status))
 
-	if strStatus != string(domain.OrderStatusDelivered) {
+	if strStatus != string(order.OrderStatusDelivered) {
 		return &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
@@ -1078,7 +1085,7 @@ func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.R
 		}
 	}
 
-	for _, item := range order.Items {
+	for _, item := range orderObj.Items {
 		if item.ItemID == req.ItemID {
 			if item.Status != "delivered" {
 				return &apperror.APIError{
@@ -1109,7 +1116,7 @@ func (s *OrderService) ReturnOrderItemRequest(ctx context.Context, req *domain.R
 	return nil
 }
 
-func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.ReturnOrderRequest) *apperror.APIError {
+func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *order.ReturnOrderRequest) *apperror.APIError {
 
 	// Getting userID from context
 	userID, err := utils.GetUserIDFromContext(ctx)
@@ -1140,7 +1147,7 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 	}
 
 	// Fetching order with user
-	order, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
+	orderObj, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
 		if err == apperror.ErrOrderNotFound {
@@ -1158,9 +1165,9 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 	}
 
 	// Converting status to string
-	strStatus := strings.ToUpper(string(order.Status))
+	strStatus := strings.ToUpper(string(orderObj.Status))
 
-	if strStatus != string(domain.OrderStatusDelivered) {
+	if strStatus != string(order.OrderStatusDelivered) {
 		return &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "INVALID_STATUS",
@@ -1180,7 +1187,7 @@ func (s *OrderService) ReturnOrderRequest(ctx context.Context, req *domain.Retur
 	return nil
 }
 
-func (s *OrderService) GetReturnRequest(ctx context.Context, returnID int64) (*domain.FullReturnResponse, *apperror.APIError) {
+func (s *OrderService) GetReturnRequest(ctx context.Context, returnID int64) (*order.FullReturnResponse, *apperror.APIError) {
 
 	res, err := s.orderRepo.GetReturnRequest(ctx, returnID)
 	if err != nil {
@@ -1202,7 +1209,7 @@ func (s *OrderService) GetReturnRequest(ctx context.Context, returnID int64) (*d
 	return res, nil
 }
 
-func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRefundRequest) (*domain.FullReturnResponse, *apperror.APIError) {
+func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *order.UpdateReturnRefundRequest) (*order.FullReturnResponse, *apperror.APIError) {
 
 	if req.Status != "approved" && req.Status != "rejected" {
 		return nil, &apperror.APIError{
@@ -1273,7 +1280,7 @@ func (s *OrderService) UpdateReturnRequestStatus(ctx context.Context, req *domai
 	return returnRequest, nil
 }
 
-func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *domain.UpdateReturnRefundRequest) (*domain.FullReturnResponse, *apperror.APIError) {
+func (s *OrderService) ProcessReturnRefundRequest(ctx context.Context, req *order.UpdateReturnRefundRequest) (*order.FullReturnResponse, *apperror.APIError) {
 
 	// Fetching the return request
 	returnRequest, err := s.orderRepo.GetReturnRequest(ctx, req.ReturnID)

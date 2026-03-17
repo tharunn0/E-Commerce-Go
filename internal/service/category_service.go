@@ -4,23 +4,23 @@ import (
 	"context"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/catalog"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type CategoryService struct {
-	repo domain.CategoryRepository
+	repo catalog.CategoryRepository
 	log  *zap.Logger
 }
 
-func NewCategoryService(repo domain.CategoryRepository, log *zap.Logger) *CategoryService {
+func NewCategoryService(repo catalog.CategoryRepository, log *zap.Logger) *CategoryService {
 	return &CategoryService{repo: repo, log: log}
 }
 
-func (s *CategoryService) CreateCategory(ctx context.Context, category *domain.Category) (*domain.Category, *apperror.APIError) {
+func (s *CategoryService) CreateCategory(ctx context.Context, category *catalog.Category) (*catalog.Category, *apperror.APIError) {
 
-	category, err := s.repo.CreateCategory(ctx, category)
+	categoryObj, err := s.repo.CreateCategory(ctx, category)
 	if err != nil {
 		s.log.Debug("failed to create category", zap.Error(err))
 		return nil, &apperror.APIError{
@@ -28,11 +28,11 @@ func (s *CategoryService) CreateCategory(ctx context.Context, category *domain.C
 			Message: "Failed to create category",
 		}
 	}
-	return category, nil
+	return categoryObj, nil
 
 }
 
-func (s *CategoryService) UpdateCategory(ctx context.Context, categoryreq *domain.UpdateCategoryRequest) (*domain.Category, *apperror.APIError) {
+func (s *CategoryService) UpdateCategory(ctx context.Context, categoryreq *catalog.UpdateCategoryRequest) (*catalog.Category, *apperror.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
 	category, err := s.repo.GetCategoryByID(ctx, categoryreq.ID, activeOnly)
@@ -68,7 +68,7 @@ func (s *CategoryService) UpdateCategory(ctx context.Context, categoryreq *domai
 	return updatedCategory, nil
 }
 
-func (s *CategoryService) ChangeCategoryStatus(ctx context.Context, id int64, statusreq *domain.CategoryStatusRequest) (*domain.Category, *apperror.APIError) {
+func (s *CategoryService) ChangeCategoryStatus(ctx context.Context, id int64, statusreq *catalog.CategoryStatusRequest) (*catalog.Category, *apperror.APIError) {
 	updatedCategory, err := s.repo.ChangeCategoryStatus(ctx, id, statusreq.IsActive)
 	if err != nil {
 		s.log.Debug("failed to change category status", zap.Error(err))
@@ -92,7 +92,7 @@ func (s *CategoryService) DeleteCategory(ctx context.Context, id int64) *apperro
 	return nil
 }
 
-func (s *CategoryService) GetCategoryByID(ctx context.Context, id int64) (*domain.Category, *apperror.APIError) {
+func (s *CategoryService) GetCategoryByID(ctx context.Context, id int64) (*catalog.Category, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	category, err := s.repo.GetCategoryByID(ctx, id, activeOnly)
 	if err != nil {
@@ -105,7 +105,7 @@ func (s *CategoryService) GetCategoryByID(ctx context.Context, id int64) (*domai
 	return category, nil
 }
 
-func (s *CategoryService) GetAllCategories(ctx context.Context) ([]*domain.Category, *apperror.APIError) {
+func (s *CategoryService) GetAllCategories(ctx context.Context) ([]*catalog.Category, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 
 	if activeOnly {

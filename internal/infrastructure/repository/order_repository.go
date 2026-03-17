@@ -13,7 +13,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 )
 
 type OrderRepository struct {
@@ -24,7 +27,7 @@ func NewOrderRepository(db *pgxpool.Pool) *OrderRepository {
 	return &OrderRepository{DB: db}
 }
 
-func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrderData) error {
+func (r OrderRepository) CreateOrder(ctx context.Context, data *order.CreateOrderData) error {
 
 	var query string
 
@@ -182,7 +185,7 @@ func (r OrderRepository) CreateOrder(ctx context.Context, data *domain.CreateOrd
 	return tx.Commit(ctx)
 }
 
-func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]domain.OrderBaseResponse, error) {
+func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]order.OrderBaseResponse, error) {
 
 	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.return_status,o.estimated_delivery_date,p.currency,o.shipping_address_id,
 		s.type as delivery_type,s.status as shipment_status,p.status as payment_status,
@@ -198,10 +201,10 @@ func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]dom
 	}
 	defer rows.Close()
 
-	var orders []domain.OrderBaseResponse
+	var orders []order.OrderBaseResponse
 	for rows.Next() {
-		var order domain.OrderBaseResponse
-		var address domain.UserAddress
+		var order order.OrderBaseResponse
+		var address user.UserAddress
 		err = rows.Scan(&order.OrderID, &order.TotalAmount, &order.TaxAmount, &order.Status, &order.ReturnStatus, &order.EstimatedDeliveryDate, &order.Currency, &order.ShippingAddressID,
 			&order.DeliveryType, &order.ShipmentStatus, &order.PaymentStatus, &address.ID, &address.Label, &address.AddressLine, &address.AddressLine2, &address.City,
 			&address.District, &address.State, &address.Pincode, &address.Country)
@@ -216,7 +219,7 @@ func (r OrderRepository) GetUserOrders(ctx context.Context, userID int64) ([]dom
 	return orders, nil
 }
 
-func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, userID int64) (*domain.OrderResponse, error) {
+func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, userID int64) (*order.OrderResponse, error) {
 	query := `SELECT o.public_order_id, o.total_amount, o.tax_amount, o.status,o.return_status,o.estimated_delivery_date,p.currency,o.shipping_address_id,o.billing_address_id,
 		s.type as delivery_type,s.status as shipment_status,p.status as payment_status,p.provider,o.created_at,o.updated_at
 		FROM orders o 
@@ -228,12 +231,12 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, u
 		query += fmt.Sprintf(" AND o.user_id = %d", userID)
 	}
 
-	var order domain.OrderResponse
+	var orderResp order.OrderResponse
 	row := r.DB.QueryRow(ctx, query, orderID)
-	err := row.Scan(&order.OrderID, &order.Subtotal, &order.TaxAmount, &order.Status, &order.ReturnStatus, &order.EstimatedDeliveryDate, &order.Currency,
-		&order.ShippingAddressID, &order.BillingAddressID,
-		&order.DeliveryType, &order.ShipmentStatus, &order.PaymentStatus, &order.PaymentMethod,
-		&order.CreatedAt, &order.UpdatedAt)
+	err := row.Scan(&orderResp.OrderID, &orderResp.Subtotal, &orderResp.TaxAmount, &orderResp.Status, &orderResp.ReturnStatus, &orderResp.EstimatedDeliveryDate, &orderResp.Currency,
+		&orderResp.ShippingAddressID, &orderResp.BillingAddressID,
+		&orderResp.DeliveryType, &orderResp.ShipmentStatus, &orderResp.PaymentStatus, &orderResp.PaymentMethod,
+		&orderResp.CreatedAt, &orderResp.UpdatedAt)
 	if err != nil {
 		fmt.Println("query failed", query, orderID)
 		if err == pgx.ErrNoRows {
@@ -242,7 +245,7 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, u
 		return nil, err
 	}
 
-	items := []domain.OrderItem{}
+	items := []order.OrderItem{}
 	query = `SELECT oi.id, pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.status,oi.total_price,pvi.url
 		FROM order_items oi
 		LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
@@ -257,28 +260,28 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, u
 	defer rows.Close()
 
 	for rows.Next() {
-		var item domain.OrderItem
+		var item order.OrderItem
 		err = rows.Scan(&item.ItemID, &item.ProductVariantID, &item.ProductName, &item.SKU, &item.Quantity, &item.UnitPrice, &item.Status, &item.TotalPrice, &item.ImageURL)
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, item)
 	}
-	order.Items = items
+	orderResp.Items = items
 
 	// change payment_status to refunded if order status is returned
-	if order.ReturnStatus != nil && *order.ReturnStatus == "returned" {
-		order.PaymentStatus = "refunded"
+	if orderResp.ReturnStatus != nil && *orderResp.ReturnStatus == "returned" {
+		orderResp.PaymentStatus = "refunded"
 	}
 
 	// order.Subtotal = order.TotalAmount - order.TaxAmount
-	return &order, nil
+	return &orderResp, nil
 }
 
-func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID string, reqStatus domain.PaymentStatus) error {
+func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID string, reqStatus payment.PaymentStatus) error {
 
 	var status string
-	if reqStatus == domain.PaymentStatusCompleted {
+	if reqStatus == payment.PaymentStatusCompleted {
 		status = "confirmed"
 	} else {
 		status = "failed"
@@ -326,7 +329,7 @@ func (r OrderRepository) UpdateOrderStatusOnPayment(ctx context.Context, orderID
 	return nil
 }
 
-func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID string, status domain.ShipmentStatus, cod bool) error {
+func (r OrderRepository) UpdateShipmentStatus(ctx context.Context, orderID string, status shipping.ShipmentStatus, cod bool) error {
 
 	statusString := string(status) // will be shipped or delivered
 
@@ -936,7 +939,7 @@ func (r OrderRepository) ReturnOrderItemRequest(ctx context.Context, orderID str
 	return nil
 }
 
-func (r OrderRepository) ListAllReturns(ctx context.Context, filter *domain.ReturnFilter) ([]domain.BaseReturnResponse, error) {
+func (r OrderRepository) ListAllReturns(ctx context.Context, filter *order.ReturnFilter) ([]order.BaseReturnResponse, error) {
 
 	base := `
 	SELECT
@@ -1010,9 +1013,9 @@ func (r OrderRepository) ListAllReturns(ctx context.Context, filter *domain.Retu
 	}
 	defer rows.Close()
 
-	results := []domain.BaseReturnResponse{}
+	results := []order.BaseReturnResponse{}
 	for rows.Next() {
-		var r domain.BaseReturnResponse
+		var r order.BaseReturnResponse
 		err := rows.Scan(
 			&r.ID,
 			&r.OrderID,
@@ -1031,7 +1034,7 @@ func (r OrderRepository) ListAllReturns(ctx context.Context, filter *domain.Retu
 	return results, nil
 }
 
-func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (*domain.FullReturnResponse, error) {
+func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (*order.FullReturnResponse, error) {
 
 	mainQuery := `
         SELECT 
@@ -1052,7 +1055,7 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (
         WHERE r.id = $1
         GROUP BY r.id, r.order_id, r.user_id, u.first_name, u.email, r.status, r.refunded_amount, r.created_at`
 
-	var result domain.FullReturnResponse
+	var result order.FullReturnResponse
 
 	err := r.DB.QueryRow(ctx, mainQuery, returnID).Scan(
 		&result.ID,
@@ -1101,7 +1104,7 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (
 	defer rows.Close()
 
 	for rows.Next() {
-		var item domain.ReturnItem
+		var item order.ReturnItem
 		if err := rows.Scan(
 			&item.ItemOrderID,
 			&item.ProductName,
@@ -1126,7 +1129,7 @@ func (r OrderRepository) GetReturnRequest(ctx context.Context, returnID int64) (
 	return &result, nil
 }
 
-func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *domain.UpdateReturnRefundRequest) (err error) {
+func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *order.UpdateReturnRefundRequest) (err error) {
 
 	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -1250,7 +1253,7 @@ func (r OrderRepository) UpdateReturnRequestStatus(ctx context.Context, req *dom
 	return tx.Commit(ctx)
 }
 
-func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.UpdateReturnRefundRequest) (err error) {
+func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *order.UpdateReturnRefundRequest) (err error) {
 
 	tx, err := r.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -1276,12 +1279,6 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 	if err = tx.QueryRow(ctx, query, req.ReturnID).Scan(&userID, &orderID, &currentStatus); err != nil {
 		return err
 	}
-
-	// enforce valid refund state
-	// if currentStatus != "approved" {
-	// 	fmt.Println("invalid state, state : ", currentStatus)
-	// 	return apperror.ErrInvalidReturnState
-	// }
 
 	req.UserID = userID
 	req.RelatedOrder = orderID
@@ -1426,7 +1423,7 @@ func (r OrderRepository) ProcessReturnRefund(ctx context.Context, req *domain.Up
 }
 
 // shipment
-func (r OrderRepository) ShipOrder(ctx context.Context, orderID string, shipmentData *domain.ShipmentData) error {
+func (r OrderRepository) ShipOrder(ctx context.Context, orderID string, shipmentData *shipping.ShipmentData) error {
 
 	query := `UPDATE shipments SET carrier = $1, tracking_number = $2, status = $3,shipped_at = $4,updated_at = now()
 	 WHERE order_id = (SELECT id FROM orders WHERE public_order_id = $5) RETURNING created_at,updated_at`
@@ -1478,7 +1475,7 @@ func (r OrderRepository) DeliverOrder(ctx context.Context, orderID string) error
 	return nil
 }
 
-func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.OrderFilter) ([]domain.OrderBaseResponse, error) {
+func (r OrderRepository) ListAllOrders(ctx context.Context, filter *order.OrderFilter) ([]order.OrderBaseResponse, error) {
 
 	query := `
 	SELECT 
@@ -1594,11 +1591,11 @@ func (r OrderRepository) ListAllOrders(ctx context.Context, filter *domain.Order
 	defer rows.Close()
 
 	// scan results
-	var orders []domain.OrderBaseResponse
+	var orders []order.OrderBaseResponse
 
 	for rows.Next() {
-		var order domain.OrderBaseResponse
-		var address domain.UserAddress
+		var order order.OrderBaseResponse
+		var address user.UserAddress
 
 		err = rows.Scan(
 			&order.OrderID,

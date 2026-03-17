@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/catalog"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -21,7 +21,7 @@ func NewCategoryHandler(categoryService *service.CategoryService, log *zap.Logge
 
 func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 	ctx := c.Request.Context()
-	var category domain.Category
+	var category catalog.Category
 	if err := c.ShouldBindJSON(&category); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -80,7 +80,7 @@ func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
 func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var updateCategoryRequest domain.UpdateCategoryRequest
+	var updateCategoryRequest catalog.UpdateCategoryRequest
 	if err := c.ShouldBindJSON(&updateCategoryRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -102,7 +102,7 @@ func (h *CategoryHandler) ToggleCategoryStatus(c *gin.Context) {
 		return
 	}
 
-	var statusRequest domain.CategoryStatusRequest
+	var statusRequest catalog.CategoryStatusRequest
 	if err := c.ShouldBindJSON(&statusRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

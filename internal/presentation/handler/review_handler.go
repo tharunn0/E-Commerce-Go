@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/review"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -23,7 +23,7 @@ func (h *ReviewHandler) CreateReview(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.CreateReviewRequest
+	var req review.CreateReviewRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": err.Error()})
@@ -60,7 +60,7 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var filter domain.ReviewFilter
+	var filter review.ReviewFilter
 
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": err.Error()})

@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
 )
 
 type ProductRepository struct {
@@ -22,13 +22,13 @@ func NewProductRepository(db *pgxpool.Pool) *ProductRepository {
 
 // Brand operations
 // //////////////////////////////////////////////////////////
-func (repo *ProductRepository) CreateBrand(ctx context.Context, createBrandRequest *domain.CreateBrandRequest) (*domain.Brand, error) {
+func (repo *ProductRepository) CreateBrand(ctx context.Context, createBrandRequest *product.CreateBrandRequest) (*product.Brand, error) {
 	query := `
 		INSERT INTO brands (name, description, logo_url)
 		VALUES ($1, $2, $3)
 		RETURNING id, name, description, logo_url, is_active, created_at, updated_at
 	`
-	var created domain.Brand
+	var created product.Brand
 	err := repo.DB.QueryRow(ctx, query, createBrandRequest.Name, createBrandRequest.Description, createBrandRequest.LogoURL).Scan(
 		&created.ID, &created.Name, &created.Description, &created.LogoURL, &created.IsActive, &created.CreatedAt, &created.UpdatedAt)
 	if err != nil {
@@ -37,7 +37,7 @@ func (repo *ProductRepository) CreateBrand(ctx context.Context, createBrandReque
 	return &created, nil
 }
 
-func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool) ([]*domain.Brand, error) {
+func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool) ([]*product.Brand, error) {
 
 	query := `
 		SELECT id, name, description, logo_url, is_active, created_at, updated_at
@@ -52,9 +52,9 @@ func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool
 	}
 	defer rows.Close()
 
-	brands := []*domain.Brand{}
+	brands := []*product.Brand{}
 	for rows.Next() {
-		var b domain.Brand
+		var b product.Brand
 		err := rows.Scan(&b.ID, &b.Name, &b.Description, &b.LogoURL, &b.IsActive, &b.CreatedAt, &b.UpdatedAt)
 		if err != nil {
 			return nil, err
@@ -65,7 +65,7 @@ func (repo *ProductRepository) GetAllBrands(ctx context.Context, activeOnly bool
 	return brands, nil
 }
 
-func (repo *ProductRepository) GetBrandByID(ctx context.Context, id int64, activeOnly bool) (*domain.Brand, error) {
+func (repo *ProductRepository) GetBrandByID(ctx context.Context, id int64, activeOnly bool) (*product.Brand, error) {
 	query := `
 		SELECT id, name, description, logo_url, is_active, created_at, updated_at
 		FROM brands
@@ -74,7 +74,7 @@ func (repo *ProductRepository) GetBrandByID(ctx context.Context, id int64, activ
 	if activeOnly {
 		query += " AND is_active = true"
 	}
-	var brand domain.Brand
+	var brand product.Brand
 	err := repo.DB.QueryRow(ctx, query, id).Scan(&brand.ID, &brand.Name, &brand.Description, &brand.LogoURL, &brand.IsActive, &brand.CreatedAt, &brand.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -82,12 +82,12 @@ func (repo *ProductRepository) GetBrandByID(ctx context.Context, id int64, activ
 	return &brand, nil
 }
 
-func (repo *ProductRepository) UpdateBrand(ctx context.Context, brand *domain.Brand) (*domain.Brand, error) {
+func (repo *ProductRepository) UpdateBrand(ctx context.Context, brand *product.Brand) (*product.Brand, error) {
 	query := `
 		UPDATE brands SET name = $1, description = $2, logo_url = $3, is_active = $4, updated_at = now() WHERE id = $5
 		RETURNING id, name, description, logo_url, is_active, created_at, updated_at
 	`
-	var updated domain.Brand
+	var updated product.Brand
 	err := repo.DB.QueryRow(ctx, query, brand.Name, brand.Description, brand.LogoURL, brand.IsActive, brand.ID).Scan(&updated.ID, &updated.Name, &updated.Description, &updated.LogoURL, &updated.IsActive, &updated.CreatedAt, &updated.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -108,13 +108,13 @@ func (repo *ProductRepository) DeleteBrand(ctx context.Context, id int64) error 
 
 // Product operations
 // //////////////////////////////////////////////////////////
-func (repo *ProductRepository) CreateProduct(ctx context.Context, product *domain.CreateProductRequest) (*domain.Product, error) {
+func (repo *ProductRepository) CreateProduct(ctx context.Context, productReq *product.CreateProductRequest) (*product.Product, error) {
 
-	if product.MinPrice == nil {
-		*product.MinPrice = 0
+	if productReq.MinPrice == nil {
+		*productReq.MinPrice = 0
 	}
-	if product.MaxPrice == nil {
-		*product.MaxPrice = 0
+	if productReq.MaxPrice == nil {
+		*productReq.MaxPrice = 0
 	}
 
 	query := `
@@ -122,9 +122,9 @@ func (repo *ProductRepository) CreateProduct(ctx context.Context, product *domai
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, name, brand_id, description, category_id, min_price, max_price, is_digital, is_active, image_url, created_at, updated_at
 	`
-	var created domain.Product
-	err := repo.DB.QueryRow(ctx, query, product.Name, product.BrandID, product.Description, product.CategoryId,
-		product.MinPrice, product.MaxPrice, product.IsDigital, product.IsActive, product.ImageURL).Scan(&created.ID, &created.Name, &created.BrandID, &created.Description,
+	var created product.Product
+	err := repo.DB.QueryRow(ctx, query, productReq.Name, productReq.BrandID, productReq.Description, productReq.CategoryId,
+		productReq.MinPrice, productReq.MaxPrice, productReq.IsDigital, productReq.IsActive, productReq.ImageURL).Scan(&created.ID, &created.Name, &created.BrandID, &created.Description,
 		&created.CategoryId, &created.MinPrice, &created.MaxPrice, &created.IsDigital, &created.IsActive, &created.ImageURL, &created.CreatedAt, &created.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (repo *ProductRepository) CreateProduct(ctx context.Context, product *domai
 	return &created, nil
 }
 
-func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.ProductFilter, activeOnly bool) ([]*domain.ProductResponse, int64, error) {
+func (repo *ProductRepository) GetProducts(ctx context.Context, filter *product.ProductFilter, activeOnly bool) ([]*product.ProductResponse, int64, error) {
 
 	var total int64
 	query := `
@@ -208,11 +208,11 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 		return nil, 0, err
 	}
 	defer rows.Close()
-	products := []*domain.ProductResponse{}
+	products := []*product.ProductResponse{}
 	for rows.Next() {
-		var p domain.ProductResponse
-		var b domain.ProductBrandResponse
-		var c domain.ProductCategoryResponse
+		var p product.ProductResponse
+		var b product.ProductBrandResponse
+		var c product.ProductCategoryResponse
 		if err := rows.Scan(&p.ID, &p.Name, &b.ID, &b.Name, &p.Description, &c.ID, &c.Name,
 			&p.Rating, &p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, err
@@ -227,7 +227,7 @@ func (repo *ProductRepository) GetProducts(ctx context.Context, filter *domain.P
 	return products, total, nil
 }
 
-func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, activeOnly bool) (*domain.ProductResponse, error) {
+func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, activeOnly bool) (*product.ProductResponse, error) {
 	query := `
 		SELECT p.id, p.name, p.brand_id,b.name as brand_name, COALESCE(p.description, ''), p.category_id,c.name as category_name,
 	 	p.min_price, p.max_price, p.is_digital, p.is_active, p.image_url, p.created_at, p.updated_at FROM products p
@@ -238,9 +238,9 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 	if activeOnly {
 		query += " AND p.is_active = true"
 	}
-	var p domain.ProductResponse
-	var b domain.ProductBrandResponse
-	var c domain.ProductCategoryResponse
+	var p product.ProductResponse
+	var b product.ProductBrandResponse
+	var c product.ProductCategoryResponse
 	err := repo.DB.QueryRow(ctx, query, id).Scan(&p.ID, &p.Name, &b.ID, &b.Name, &p.Description, &c.ID, &c.Name,
 		&p.MinPrice, &p.MaxPrice, &p.IsDigital, &p.IsActive, &p.ImageURL, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
@@ -256,7 +256,7 @@ func (repo *ProductRepository) GetProductByID(ctx context.Context, id int64, act
 	return &p, nil
 }
 
-func (repo *ProductRepository) UpdateProduct(ctx context.Context, product *domain.UpdateProductRequest) error {
+func (repo *ProductRepository) UpdateProduct(ctx context.Context, product *product.UpdateProductRequest) error {
 	query := `UPDATE products
 	SET name = COALESCE($1,name), brand_id = COALESCE($2,brand_id), description = COALESCE($3,description),
 	 category_id = COALESCE($4,category_id), image_url = COALESCE($5,image_url), min_price = COALESCE($6,min_price), max_price = COALESCE($7,max_price),
@@ -274,7 +274,7 @@ func (repo *ProductRepository) UpdateProduct(ctx context.Context, product *domai
 	return nil
 }
 
-func (repo *ProductRepository) ToggleProductStatus(ctx context.Context, req *domain.ProductStatusRequest) error {
+func (repo *ProductRepository) ToggleProductStatus(ctx context.Context, req *product.ProductStatusRequest) error {
 
 	query := `UPDATE products SET is_active = $1 WHERE id = $2`
 
@@ -302,9 +302,9 @@ func (repo *ProductRepository) DeleteProduct(ctx context.Context, id int64) erro
 
 // Variant operations
 // ////////////////////////////////////////////////////////
-func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *domain.CreateProductVariantRequest) (*domain.ProductVariantResponse, error) {
+func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *product.CreateProductVariantRequest) (*product.ProductVariantResponse, error) {
 
-	var created domain.ProductVariantResponse
+	var created product.ProductVariantResponse
 	// start transaction
 	tx, err := repo.DB.Begin(ctx)
 	if err != nil {
@@ -344,7 +344,7 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 		VALUES ($1, $2, $3) RETURNING id
 	`
 	for i := range req.VariantAttributes {
-		var attrVal domain.AttributeValueResponse
+		var attrVal product.AttributeValueResponse
 
 		err = tx.QueryRow(ctx,
 			query, created.ID,
@@ -395,10 +395,10 @@ func (repo *ProductRepository) CreateProductVariant(ctx context.Context, req *do
 	return &created, nil
 }
 
-func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int64, activeOnly bool) (*domain.ProductVariantResponse, error) {
+func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int64, activeOnly bool) (*product.ProductVariantResponse, error) {
 
-	variant := domain.ProductVariantResponse{}
-	baseProduct := &domain.BaseProduct{}
+	variant := product.ProductVariantResponse{}
+	baseProduct := &product.BaseProduct{}
 	variant.BaseProduct = baseProduct
 	// get variant
 	query := `
@@ -444,7 +444,7 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 	if err != nil {
 		return nil, err
 	}
-	var attrVal domain.AttributeValueResponse
+	var attrVal product.AttributeValueResponse
 	for rows.Next() {
 		err = rows.Scan(&attrVal.ID, &attrVal.Attribute, &attrVal.Value)
 		if err != nil {
@@ -468,8 +468,8 @@ func (repo *ProductRepository) GetProductVariantByID(ctx context.Context, id int
 	return &variant, nil
 }
 
-func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, productID int64, activeOnly bool) (*domain.ProductVariantBaseResponse, error) {
-	productvariants := domain.ProductVariantBaseResponse{}
+func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, productID int64, activeOnly bool) (*product.ProductVariantBaseResponse, error) {
+	productvariants := product.ProductVariantBaseResponse{}
 
 	query := `
 		SELECT p.id, p.name as product_name, b.name as brand_name,p.min_price, p.max_price, p.is_digital,p.image_url, p.created_at FROM products p
@@ -488,7 +488,7 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 		return nil, err
 	}
 
-	var baseProduct domain.BaseProduct
+	var baseProduct product.BaseProduct
 
 	query = `SELECT p.name, br.id, br.name,c.id FROM products p
 			LEFT JOIN brands br ON br.id = p.brand_id
@@ -510,7 +510,7 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var variant domain.ProductVariantResponse
+		var variant product.ProductVariantResponse
 		err := rows.Scan(&variant.ID, &variant.SKU, &variant.OriginalPrice, &variant.SalePrice, &variant.Stock, &variant.IsActive, &variant.CreatedAt)
 		if err != nil {
 			return nil, err
@@ -559,7 +559,7 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var attrVal domain.AttributeValueResponse
+			var attrVal product.AttributeValueResponse
 			err := rows.Scan(&attrVal.ID, &attrVal.Attribute, &attrVal.Value)
 			if err != nil {
 				return nil, err
@@ -570,12 +570,12 @@ func (repo *ProductRepository) GetVariantsByProductID(ctx context.Context, produ
 	return &productvariants, nil
 }
 
-func (repo *ProductRepository) UpdateProductVariant(ctx context.Context, productVariant *domain.UpdateProductVariantRequest) (*domain.ProductVariant, error) {
+func (repo *ProductRepository) UpdateProductVariant(ctx context.Context, productVariant *product.UpdateProductVariantRequest) (*product.ProductVariant, error) {
 	query := `UPDATE product_variants SET sku = COALESCE($1,sku), original_price = COALESCE($2,original_price), sale_price = COALESCE($3,sale_price),
 	 stock = COALESCE($4,stock), is_active = COALESCE($5,is_active), updated_at = now() WHERE id = $6
 	RETURNING id, product_id, sku, original_price, sale_price, stock, is_active, created_at
 	`
-	var updated domain.ProductVariant
+	var updated product.ProductVariant
 	err := repo.DB.QueryRow(ctx, query,
 		productVariant.SKU,
 		productVariant.OriginalPrice,
@@ -590,7 +590,7 @@ func (repo *ProductRepository) UpdateProductVariant(ctx context.Context, product
 	return &updated, nil
 }
 
-func (repo *ProductRepository) ToggleVariantStatus(ctx context.Context, req *domain.VariantStatusRequest) error {
+func (repo *ProductRepository) ToggleVariantStatus(ctx context.Context, req *product.VariantStatusRequest) error {
 	query := `UPDATE product_variants SET is_active = $1 WHERE id = $2`
 	cmdTag, err := repo.DB.Exec(ctx, query, req.Status, req.ID)
 	if err != nil {
@@ -628,14 +628,14 @@ func (repo *ProductRepository) UpdateProductMinMaxPrice(ctx context.Context, pro
 	return nil
 }
 
-func (repo *ProductRepository) GetProductVariantOrderInfo(ctx context.Context, productVariantID int64) (*domain.VariantOrderInfo, error) {
+func (repo *ProductRepository) GetProductVariantOrderInfo(ctx context.Context, productVariantID int64) (*product.VariantOrderInfo, error) {
 	query := `
 		SELECT p.name, pv.id as product_variant_id, pv.sku
 		FROM products p
 		JOIN product_variants pv ON p.id = pv.product_id
 		WHERE pv.id = $1
 	`
-	var info domain.VariantOrderInfo
+	var info product.VariantOrderInfo
 	err := repo.DB.QueryRow(ctx, query, productVariantID).Scan(&info.ProductName, &info.ProductVariantID, &info.SKU)
 	if err != nil {
 		return nil, err
@@ -645,9 +645,9 @@ func (repo *ProductRepository) GetProductVariantOrderInfo(ctx context.Context, p
 
 // Attribute operations
 // //////////////////////////////////////////////////////////
-func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *domain.CreateAttributeRequest) (*domain.Attribute, error) {
+func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *product.CreateAttributeRequest) (*product.Attribute, error) {
 
-	var created domain.Attribute
+	var created product.Attribute
 	tx, err := repo.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -665,7 +665,7 @@ func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *d
 	}
 
 	for _, value := range attribute.Values {
-		var val domain.AttributeValue
+		var val product.AttributeValue
 
 		query = `
 			INSERT INTO attribute_values (attribute_id, value)
@@ -687,7 +687,7 @@ func (repo *ProductRepository) CreateAttribute(ctx context.Context, attribute *d
 	return &created, nil
 }
 
-func (repo *ProductRepository) AddAttributeValues(ctx context.Context, attributeValues *domain.AddAttributeValuesRequest) error {
+func (repo *ProductRepository) AddAttributeValues(ctx context.Context, attributeValues *product.AddAttributeValuesRequest) error {
 
 	query := `
 		INSERT INTO attribute_values (attribute_id, value)
@@ -707,7 +707,7 @@ func (repo *ProductRepository) AddAttributeValues(ctx context.Context, attribute
 	return nil
 }
 
-func (repo *ProductRepository) GetAttributes(ctx context.Context, activeOnly bool) ([]*domain.Attribute, error) {
+func (repo *ProductRepository) GetAttributes(ctx context.Context, activeOnly bool) ([]*product.Attribute, error) {
 	query := `
 	SELECT
 		a.id,
@@ -735,9 +735,9 @@ func (repo *ProductRepository) GetAttributes(ctx context.Context, activeOnly boo
 		return nil, err
 	}
 	defer rows.Close()
-	attributes := []*domain.Attribute{}
+	attributes := []*product.Attribute{}
 	for rows.Next() {
-		var a domain.Attribute
+		var a product.Attribute
 		err := rows.Scan(&a.ID, &a.Name, &a.DataType, &a.Values)
 		if err != nil {
 			return nil, err
@@ -747,7 +747,7 @@ func (repo *ProductRepository) GetAttributes(ctx context.Context, activeOnly boo
 	return attributes, nil
 }
 
-func (repo *ProductRepository) GetAttributeByID(ctx context.Context, id int64, activeOnly bool) (*domain.Attribute, error) {
+func (repo *ProductRepository) GetAttributeByID(ctx context.Context, id int64, activeOnly bool) (*product.Attribute, error) {
 	query := `
 	SELECT
 		a.id,
@@ -769,7 +769,7 @@ func (repo *ProductRepository) GetAttributeByID(ctx context.Context, id int64, a
 		query += ` AND a.is_active = true`
 	}
 	query += " GROUP BY a.id, a.name ORDER BY a.id;"
-	var attribute domain.Attribute
+	var attribute product.Attribute
 	err := repo.DB.QueryRow(ctx, query, id).Scan(&attribute.ID, &attribute.Name, &attribute.DataType, &attribute.Values)
 	if err != nil {
 		return nil, err
@@ -792,7 +792,7 @@ func (repo *ProductRepository) DeleteAttribute(ctx context.Context, id int64) er
 	return nil
 }
 
-func (repo *ProductRepository) DeleteAttributeValues(ctx context.Context, req *domain.DeleteAttributeValuesRequest) error {
+func (repo *ProductRepository) DeleteAttributeValues(ctx context.Context, req *product.DeleteAttributeValuesRequest) error {
 	query := `
 		DELETE FROM attribute_values WHERE id = $1
 	`

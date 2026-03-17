@@ -8,21 +8,21 @@ import (
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/auth"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
 	"go.uber.org/zap"
 )
 
 type AuthService struct {
-	repo   domain.AuthRepository
+	repo   auth.AuthRepository
 	sender *mailer.MailSender
 	log    *zap.Logger
 
 	cfg *config.SecuritySettings
 }
 
-func NewAuthService(Repo domain.AuthRepository, Sender *mailer.MailSender, logger *zap.Logger, cfg *config.SecuritySettings) *AuthService {
+func NewAuthService(Repo auth.AuthRepository, Sender *mailer.MailSender, logger *zap.Logger, cfg *config.SecuritySettings) *AuthService {
 	return &AuthService{
 		repo:   Repo,
 		sender: Sender,
@@ -46,7 +46,7 @@ func (serv *AuthService) SendOTP(ctx context.Context, toAddr string) *apperror.A
 	otpHash := utils.HashOTP(otp)
 	exp := serv.cfg.OTPExpiryMinutes
 	expiresAt := time.Now().Add(time.Duration(exp) * time.Minute)
-	otpdata := &domain.OTP{
+	otpdata := &auth.OTP{
 		Email:     toAddr,
 		OTP:       otpHash,
 		ExpiresAt: expiresAt,
@@ -133,7 +133,7 @@ func (serv *AuthService) VerifyOTP(email, otp string) *apperror.APIError {
 }
 
 // password reset
-func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.PasswordResetRequest) *apperror.APIError {
+func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *auth.PasswordResetRequest) *apperror.APIError {
 
 	if !utils.IsValidEmail(req.Email) {
 		return &apperror.APIError{
@@ -153,7 +153,7 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 	expiryTime := serv.cfg.PasswordResetExpiry
 	expiryAt := time.Now().Add(time.Duration(expiryTime) * time.Minute)
 
-	resetToken := &domain.PasswordResetToken{
+	resetToken := &auth.PasswordResetToken{
 		Token:    token,
 		ExpiryAt: expiryAt,
 	}
@@ -189,7 +189,7 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *domain.
 	return nil
 }
 
-func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.PasswordResetData) *apperror.APIError {
+func (serv *AuthService) ResetPassword(ctx context.Context, data *auth.PasswordResetData) *apperror.APIError {
 
 	if !utils.IsValidPassword(data.NewPassword) {
 		return &apperror.APIError{
@@ -237,7 +237,7 @@ func (serv *AuthService) ResetPassword(ctx context.Context, data *domain.Passwor
 }
 
 // email reset
-func (serv *AuthService) SendEmailChangeLink(ctx context.Context, req *domain.UpdateEmailRequest) *apperror.APIError {
+func (serv *AuthService) SendEmailChangeLink(ctx context.Context, req *auth.UpdateEmailRequest) *apperror.APIError {
 	if !utils.IsValidEmail(req.Email) {
 		return &apperror.APIError{
 			Code:    "INVALID_EMAIL",
@@ -258,7 +258,7 @@ func (serv *AuthService) SendEmailChangeLink(ctx context.Context, req *domain.Up
 	expiryAt := time.Now().Add(time.Duration(expiryTime) * time.Minute)
 
 	// set token in redis
-	tokenData := &domain.EmailVerificationTokenData{
+	tokenData := &auth.EmailVerificationTokenData{
 		Email:    req.Email,
 		Token:    token,
 		ExpiryAt: expiryAt,
@@ -295,7 +295,7 @@ func (serv *AuthService) SendEmailChangeLink(ctx context.Context, req *domain.Up
 	return nil
 }
 
-func (serv *AuthService) VerifyEmailChangeRequest(ctx context.Context, req *domain.VerifyEmailRequest) *apperror.APIError {
+func (serv *AuthService) VerifyEmailChangeRequest(ctx context.Context, req *auth.VerifyEmailRequest) *apperror.APIError {
 	tokenData, err := serv.repo.GetEmailVerificationToken(ctx, req.Token)
 	if err != nil {
 		if err == apperror.ErrTokenInvalid {
@@ -335,7 +335,7 @@ func (serv *AuthService) VerifyEmailChangeRequest(ctx context.Context, req *doma
 }
 
 // refresh token
-func (serv *AuthService) VerifyRefreshToken(ctx context.Context, token string) (*domain.RefreshTokenResponse, *apperror.APIError) {
+func (serv *AuthService) VerifyRefreshToken(ctx context.Context, token string) (*auth.RefreshTokenResponse, *apperror.APIError) {
 
 	refreshToken, userData, err := serv.repo.GetRefreshToken(ctx, token)
 	if err != nil {
@@ -369,7 +369,7 @@ func (serv *AuthService) VerifyRefreshToken(ctx context.Context, token string) (
 			Message: "Failed to generate refresh token.",
 		}
 	}
-	err = serv.repo.SetRefreshToken(ctx, &domain.RefreshToken{
+	err = serv.repo.SetRefreshToken(ctx, &auth.RefreshToken{
 		UserID:   userData.UserID,
 		Token:    newrefreshToken,
 		ExpiryAt: expiryAt,
@@ -382,7 +382,7 @@ func (serv *AuthService) VerifyRefreshToken(ctx context.Context, token string) (
 			Message: "Failed to set refresh token.",
 		}
 	}
-	return &domain.RefreshTokenResponse{
+	return &auth.RefreshTokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: newrefreshToken,
 	}, nil

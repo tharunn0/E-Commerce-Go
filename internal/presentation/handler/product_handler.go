@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 
 	"go.uber.org/zap"
@@ -24,7 +24,7 @@ func NewProductHandler(service *service.ProductService, log *zap.Logger) *Produc
 // Brand operations
 func (h *ProductHandler) CreateBrand(c *gin.Context) {
 	ctx := context.Background()
-	var brand domain.CreateBrandRequest
+	var brand product.CreateBrandRequest
 	if err := c.ShouldBindJSON(&brand); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Provide valid brand details"})
 		return
@@ -67,7 +67,7 @@ func (h *ProductHandler) GetBrandByID(c *gin.Context) {
 func (h *ProductHandler) UpdateBrand(c *gin.Context) {
 	ctx := context.Background()
 
-	var updateBrandRequest domain.UpdateBrandRequest
+	var updateBrandRequest product.UpdateBrandRequest
 	if err := c.ShouldBindJSON(&updateBrandRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -101,7 +101,7 @@ func (h *ProductHandler) DeleteBrand(c *gin.Context) {
 // Product operations
 func (h *ProductHandler) CreateProduct(c *gin.Context) {
 	ctx := context.Background()
-	var createProductRequest domain.CreateProductRequest
+	var createProductRequest product.CreateProductRequest
 	if err := c.ShouldBindJSON(&createProductRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Provide valid product details"})
 		return
@@ -117,7 +117,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 
 func (h *ProductHandler) GetProducts(c *gin.Context) {
 	ctx := c.Request.Context()
-	var filter domain.ProductFilter
+	var filter product.ProductFilter
 
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_QUERY_PARAMETERS", "message": err})
@@ -145,17 +145,17 @@ func (h *ProductHandler) GetProductByID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
 		return
 	}
-	product, apierr := h.service.GetProductByID(ctx, idInt)
+	resProduct, apierr := h.service.GetProductByID(ctx, idInt)
 	if apierr != nil {
 		c.JSON(apierr.Status, gin.H{"error": apierr.Code, "message": apierr.Message})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "success", "product": product})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "product": resProduct})
 }
 
 func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 	ctx := c.Request.Context()
-	var updateProductRequest domain.UpdateProductRequest
+	var updateProductRequest product.UpdateProductRequest
 	if err := c.ShouldBindJSON(&updateProductRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -172,7 +172,7 @@ func (h *ProductHandler) UpdateProductStatus(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 
-	var req domain.ProductStatusRequest
+	var req product.ProductStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invaild product status"})
 		return
@@ -206,7 +206,7 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 // Product variant operations
 func (h *ProductHandler) CreateProductVariant(c *gin.Context) {
 	ctx := c.Request.Context()
-	var createProductVariantRequest domain.CreateProductVariantRequest
+	var createProductVariantRequest product.CreateProductVariantRequest
 	if err := c.ShouldBindJSON(&createProductVariantRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Provide valid product variant details"})
 		return
@@ -257,7 +257,7 @@ func (h *ProductHandler) UpdateProductVariant(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	var updateProductVariantRequest domain.UpdateProductVariantRequest
+	var updateProductVariantRequest product.UpdateProductVariantRequest
 	updateProductVariantRequest.ID = id
 	if err := c.ShouldBindJSON(&updateProductVariantRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -275,7 +275,7 @@ func (h *ProductHandler) UpdateVariantStatus(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 
-	var req domain.VariantStatusRequest
+	var req product.VariantStatusRequest
 	req.ID = id
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -312,7 +312,7 @@ func (h *ProductHandler) DeleteProductVariant(c *gin.Context) {
 // Attribute operations
 func (h *ProductHandler) CreateAttribute(c *gin.Context) {
 	ctx := context.Background()
-	var createProductVariantRequest domain.CreateAttributeRequest
+	var createProductVariantRequest product.CreateAttributeRequest
 	if err := c.ShouldBindJSON(&createProductVariantRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Provide valid product variant details"})
 		return
@@ -357,7 +357,7 @@ func (h *ProductHandler) DeleteAttribute(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 
-	var deletereq domain.DeleteAttributeRequest
+	var deletereq product.DeleteAttributeRequest
 	deletereq.ID = id
 
 	apierr := h.service.DeleteAttribute(ctx, &deletereq)

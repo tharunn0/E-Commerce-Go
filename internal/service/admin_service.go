@@ -8,18 +8,19 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/auth"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type AdminService struct {
-	repo domain.AdminRepository
+	repo user.AdminRepository
 	log  *zap.Logger
-	auth domain.AuthRepository
+	auth auth.AuthRepository
 }
 
-func NewAdminService(adminRepo domain.AdminRepository, logger *zap.Logger, auth domain.AuthRepository) *AdminService {
+func NewAdminService(adminRepo user.AdminRepository, logger *zap.Logger, auth auth.AuthRepository) *AdminService {
 	return &AdminService{
 		repo: adminRepo,
 		log:  logger,
@@ -27,7 +28,7 @@ func NewAdminService(adminRepo domain.AdminRepository, logger *zap.Logger, auth 
 	}
 }
 
-func (serv *AdminService) RegisterAdmin(ctx context.Context, req *domain.AdminRegisterRequest) *apperror.APIError {
+func (serv *AdminService) RegisterAdmin(ctx context.Context, req *user.AdminRegisterRequest) *apperror.APIError {
 
 	if !utils.IsValidEmail(req.Email) {
 		return &apperror.APIError{
@@ -84,7 +85,7 @@ func (serv *AdminService) RegisterAdmin(ctx context.Context, req *domain.AdminRe
 
 }
 
-func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginResponse, *apperror.APIError) {
+func (serv *AdminService) LoginAdmin(req *user.LoginRequest) (*user.LoginResponse, *apperror.APIError) {
 	ctx := context.Background()
 
 	if !utils.IsValidEmail(req.Email) {
@@ -122,7 +123,7 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 			Message: "Invalid email or password.",
 		}
 	}
-	resp := &domain.LoginResponse{}
+	resp := &user.LoginResponse{}
 
 	resp.User.ID = fetchedUser.ID
 	resp.User.Email = fetchedUser.Email
@@ -151,7 +152,7 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 	}
 
 	// Set refresh token
-	err = serv.auth.SetRefreshToken(ctx, &domain.RefreshToken{
+	err = serv.auth.SetRefreshToken(ctx, &auth.RefreshToken{
 		UserID:   fetchedUser.ID,
 		Token:    resp.RefreshToken,
 		ExpiryAt: expiryAt,
@@ -168,7 +169,7 @@ func (serv *AdminService) LoginAdmin(req *domain.LoginRequest) (*domain.LoginRes
 	return resp, nil
 }
 
-func (serv *AdminService) GetAllUsers(ctx context.Context, req *domain.UserFilter) ([]*domain.UserProfile, *apperror.APIError) {
+func (serv *AdminService) GetAllUsers(ctx context.Context, req *user.UserFilter) ([]*user.UserProfile, *apperror.APIError) {
 	users, err := serv.repo.ListUsers(ctx, req)
 	if err != nil {
 		serv.log.Error("failed to retrive users", zap.String("Function", "repo.ListUsers"), zap.Error(err))
@@ -181,7 +182,7 @@ func (serv *AdminService) GetAllUsers(ctx context.Context, req *domain.UserFilte
 	return users, nil
 }
 
-func (serv *AdminService) UpdateUserStatus(ctx context.Context, req *domain.UserStatusUpdateRequest) *apperror.APIError {
+func (serv *AdminService) UpdateUserStatus(ctx context.Context, req *user.UserStatusUpdateRequest) *apperror.APIError {
 	if !utils.IsValidStatus(req.Status) {
 		return &apperror.APIError{
 			Code:    "INVALID_STATUS",
@@ -206,7 +207,7 @@ func (serv *AdminService) UpdateUserStatus(ctx context.Context, req *domain.User
 	return nil
 }
 
-func (serv *AdminService) GetUserByID(ctx context.Context, id int64) (*domain.UserProfile, *apperror.APIError) {
+func (serv *AdminService) GetUserByID(ctx context.Context, id int64) (*user.UserProfile, *apperror.APIError) {
 
 	if id <= 0 {
 		return nil, &apperror.APIError{

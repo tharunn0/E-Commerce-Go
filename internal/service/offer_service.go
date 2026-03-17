@@ -5,20 +5,20 @@ import (
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 	"go.uber.org/zap"
 )
 
 type OfferService struct {
-	repo domain.OfferRepository
+	repo promotion.OfferRepository
 	log  *zap.Logger
 }
 
-func NewOfferService(repo domain.OfferRepository, log *zap.Logger) *OfferService {
+func NewOfferService(repo promotion.OfferRepository, log *zap.Logger) *OfferService {
 	return &OfferService{repo: repo, log: log}
 }
 
-func (s *OfferService) CreateOffer(ctx context.Context, req *domain.CreateOfferRequest) *apperror.APIError {
+func (s *OfferService) CreateOffer(ctx context.Context, req *promotion.CreateOfferRequest) *apperror.APIError {
 
 	// validate scopes
 
@@ -110,7 +110,7 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *domain.CreateOfferR
 	return nil
 }
 
-func (s *OfferService) GetAllProductOffers(ctx context.Context) ([]*domain.Offer, *apperror.APIError) {
+func (s *OfferService) GetAllProductOffers(ctx context.Context) ([]*promotion.Offer, *apperror.APIError) {
 	// offers, err := s.repo.GetAllProductOffers(ctx)
 	// if err != nil {
 	// 	s.log.Error("Failed to get product offers", zap.Error(err))
@@ -120,10 +120,10 @@ func (s *OfferService) GetAllProductOffers(ctx context.Context) ([]*domain.Offer
 	// 		Message: "Failed to get product offers",
 	// 	}
 	// }
-	return []*domain.Offer{}, nil
+	return []*promotion.Offer{}, nil
 }
 
-func (s *OfferService) GetAllCategoryOffers(ctx context.Context) ([]*domain.Offer, *apperror.APIError) {
+func (s *OfferService) GetAllCategoryOffers(ctx context.Context) ([]*promotion.Offer, *apperror.APIError) {
 	// offers, err := s.repo.GetAllCategoryOffers(ctx)
 	// if err != nil {
 	// 	s.log.Error("Failed to get category offers", zap.Error(err))
@@ -133,5 +133,5 @@ func (s *OfferService) GetAllCategoryOffers(ctx context.Context) ([]*domain.Offe
 	// 		Message: "Failed to get category offers",
 	// 	}
 	// }
-	return []*domain.Offer{}, nil
+	return []*promotion.Offer{}, nil
 }

@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
@@ -29,7 +29,7 @@ func NewAdminHandler(srv *service.AdminService, log *zap.Logger, authserv *servi
 func (h *AdminHandler) RegisterAdmin(c *gin.Context) {
 
 	ctx := c.Request.Context()
-	var req domain.AdminRegisterRequest
+	var req user.AdminRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "INVALID_REQUEST",
@@ -49,7 +49,7 @@ func (h *AdminHandler) RegisterAdmin(c *gin.Context) {
 }
 
 func (h *AdminHandler) LoginUser(c *gin.Context) {
-	var req domain.LoginRequest
+	var req user.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "INVALID_REQUEST",
@@ -100,7 +100,7 @@ func (h *AdminHandler) RefreshToken(c *gin.Context) {
 func (h *AdminHandler) GetAllUsers(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var filters domain.UserFilter
+	var filters user.UserFilter
 	filters.Status = c.Query("status")
 	filters.Role = c.Query("role")
 	filters.Search = c.Query("search")
@@ -123,7 +123,7 @@ func (h *AdminHandler) GetAllUsers(c *gin.Context) {
 func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 	ctx := context.Background()
 
-	var req domain.UserStatusUpdateRequest
+	var req user.UserStatusUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_REQUEST", "message": "Invalid request payload."})
 		return

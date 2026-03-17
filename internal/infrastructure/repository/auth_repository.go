@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/auth"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +25,7 @@ func NewAuthRepository(db *pgxpool.Pool, redis *redis.Client) *AuthRepository {
 }
 
 // user verification
-func (r *AuthRepository) InsertOTP(ctx context.Context, otpdata *domain.OTP) error {
+func (r *AuthRepository) InsertOTP(ctx context.Context, otpdata *auth.OTP) error {
 
 	bytes, err := json.Marshal(otpdata)
 	if err != nil {
@@ -42,7 +42,7 @@ func (r *AuthRepository) InsertOTP(ctx context.Context, otpdata *domain.OTP) err
 	return nil
 }
 
-func (r *AuthRepository) GetLatestOTP(email string) (*domain.OTP, error) {
+func (r *AuthRepository) GetLatestOTP(email string) (*auth.OTP, error) {
 
 	key := "auth:otp:" + email
 
@@ -54,7 +54,7 @@ func (r *AuthRepository) GetLatestOTP(email string) (*domain.OTP, error) {
 		return nil, fmt.Errorf("failed to get OTP from Redis: %w", err)
 	}
 
-	var otpdata domain.OTP
+	var otpdata auth.OTP
 	err = json.Unmarshal(bytes, &otpdata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal OTP data: %w", err)
@@ -101,7 +101,7 @@ func (r *AuthRepository) MarkUserVerified(email string) error {
 }
 
 // password reset
-func (repo *AuthRepository) PasswordReset(ctx context.Context, req *domain.PasswordResetData) error {
+func (repo *AuthRepository) PasswordReset(ctx context.Context, req *auth.PasswordResetData) error {
 	query := `UPDATE users SET password = $1 WHERE email = $2`
 	cmdTag, err := repo.DB.Exec(ctx, query, req.NewPassword, req.Email)
 	if err != nil {
@@ -113,7 +113,7 @@ func (repo *AuthRepository) PasswordReset(ctx context.Context, req *domain.Passw
 	return nil
 }
 
-func (repo *AuthRepository) SetPasswordResetToken(ctx context.Context, req *domain.PasswordResetToken) error {
+func (repo *AuthRepository) SetPasswordResetToken(ctx context.Context, req *auth.PasswordResetToken) error {
 	query := `INSERT INTO password_reset_tokens (token,expiry_at) VALUES ($1,$2)`
 	cmdTag, err := repo.DB.Exec(ctx, query, req.Token, req.ExpiryAt)
 	if err != nil {
@@ -125,10 +125,10 @@ func (repo *AuthRepository) SetPasswordResetToken(ctx context.Context, req *doma
 	return nil
 }
 
-func (repo *AuthRepository) GetPasswordResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error) {
+func (repo *AuthRepository) GetPasswordResetToken(ctx context.Context, token string) (*auth.PasswordResetToken, error) {
 	query := `SELECT token,expiry_at FROM password_reset_tokens WHERE token = $1 AND is_used = FALSE`
 	rows := repo.DB.QueryRow(ctx, query, token)
-	var passwordResetToken domain.PasswordResetToken
+	var passwordResetToken auth.PasswordResetToken
 	err := rows.Scan(&passwordResetToken.Token, &passwordResetToken.ExpiryAt)
 
 	if err == pgx.ErrNoRows {
@@ -143,13 +143,13 @@ func (repo *AuthRepository) GetPasswordResetToken(ctx context.Context, token str
 }
 
 // email reset
-func (repo *AuthRepository) SetEmailVerificationToken(ctx context.Context, req *domain.EmailVerificationTokenData) error {
+func (repo *AuthRepository) SetEmailVerificationToken(ctx context.Context, req *auth.EmailVerificationTokenData) error {
 	bytes, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal email update token: %w", err)
 	}
 
-	key := domain.EmailVerificationTokenPrefix + req.Token
+	key := auth.EmailVerificationTokenPrefix + req.Token
 	err = repo.Redis.Set(ctx, key, bytes, time.Until(req.ExpiryAt)).Err()
 	if err != nil {
 		return fmt.Errorf("failed to set email update token: %w", err)
@@ -157,8 +157,8 @@ func (repo *AuthRepository) SetEmailVerificationToken(ctx context.Context, req *
 	return nil
 }
 
-func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token string) (*domain.EmailVerificationTokenData, error) {
-	key := domain.EmailVerificationTokenPrefix + token
+func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token string) (*auth.EmailVerificationTokenData, error) {
+	key := auth.EmailVerificationTokenPrefix + token
 	bytes, err := repo.Redis.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -166,7 +166,7 @@ func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token
 		}
 		return nil, fmt.Errorf("failed to get email verification token: %w", err)
 	}
-	var emailVerificationTokenData domain.EmailVerificationTokenData
+	var emailVerificationTokenData auth.EmailVerificationTokenData
 	err = json.Unmarshal(bytes, &emailVerificationTokenData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal email verification token: %w", err)
@@ -174,7 +174,7 @@ func (repo *AuthRepository) GetEmailVerificationToken(ctx context.Context, token
 	return &emailVerificationTokenData, nil
 }
 
-func (repo *AuthRepository) UpdateEmail(ctx context.Context, currentEmail string, req *domain.EmailVerificationTokenData) error {
+func (repo *AuthRepository) UpdateEmail(ctx context.Context, currentEmail string, req *auth.EmailVerificationTokenData) error {
 
 	query := `UPDATE users SET email = $1 WHERE email = $2`
 	cmdTag, err := repo.DB.Exec(ctx, query, req.Email, currentEmail)
@@ -188,7 +188,7 @@ func (repo *AuthRepository) UpdateEmail(ctx context.Context, currentEmail string
 }
 
 // refresh token
-func (repo *AuthRepository) SetRefreshToken(ctx context.Context, req *domain.RefreshToken) error {
+func (repo *AuthRepository) SetRefreshToken(ctx context.Context, req *auth.RefreshToken) error {
 	query := `INSERT INTO refresh_tokens (user_id, token, revoked,expiry_at) VALUES ($1, $2, $3, $4)
 		ON CONFLICT (user_id) DO UPDATE SET token = $2, revoked = $3, expiry_at = $4
 	`
@@ -202,10 +202,10 @@ func (repo *AuthRepository) SetRefreshToken(ctx context.Context, req *domain.Ref
 	return nil
 }
 
-func (repo *AuthRepository) GetRefreshToken(ctx context.Context, token string) (*domain.RefreshToken, *domain.RefreshTokenUserData, error) {
+func (repo *AuthRepository) GetRefreshToken(ctx context.Context, token string) (*auth.RefreshToken, *auth.RefreshTokenUserData, error) {
 
-	var refreshToken domain.RefreshToken
-	var userData domain.RefreshTokenUserData
+	var refreshToken auth.RefreshToken
+	var userData auth.RefreshTokenUserData
 
 	query := `SELECT u.id as user_id, u.email, u.role, u.is_verified, r.token, r.revoked, r.expiry_at FROM refresh_tokens r
 	 JOIN users u ON r.user_id = u.id WHERE r.token = $1`
@@ -231,3 +231,4 @@ func (repo *AuthRepository) RevokeRefreshToken(ctx context.Context, token string
 	}
 	return nil
 }
+

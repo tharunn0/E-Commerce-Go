@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/review"
 )
 
 type ReviewRepository struct {
@@ -16,7 +16,7 @@ func NewReviewRepository(db *pgxpool.Pool) *ReviewRepository {
 	return &ReviewRepository{DB: db}
 }
 
-func (r *ReviewRepository) CreateReview(ctx context.Context, review *domain.CreateReviewRequest) error {
+func (r *ReviewRepository) CreateReview(ctx context.Context, review *review.CreateReviewRequest) error {
 
 	// check if user has ordered the product
 	query := `SELECT EXISTS (
@@ -66,7 +66,7 @@ func (r *ReviewRepository) DeleteReview(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (r *ReviewRepository) GetProductReviews(ctx context.Context, productID int64, filter *domain.ReviewFilter) (*domain.ProductReviews, error) {
+func (r *ReviewRepository) GetProductReviews(ctx context.Context, productID int64, filter *review.ReviewFilter) (*review.ProductReviews, error) {
 
 	query := `SELECT 
 		r.id,
@@ -88,9 +88,9 @@ func (r *ReviewRepository) GetProductReviews(ctx context.Context, productID int6
 	}
 	defer rows.Close()
 
-	var reviews []domain.Review
+	var reviews []review.Review
 	for rows.Next() {
-		var review domain.Review
+		var review review.Review
 		if err := rows.Scan(&review.ID, &firstname, &lastname, &review.Title, &review.Description, &review.Rating, &review.CreatedAt, &review.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -98,7 +98,7 @@ func (r *ReviewRepository) GetProductReviews(ctx context.Context, productID int6
 		reviews = append(reviews, review)
 	}
 
-	reviewResponse := domain.ProductReviews{
+	reviewResponse := review.ProductReviews{
 		ProductID:     productID,
 		ProductName:   "",
 		AverageRating: 0,

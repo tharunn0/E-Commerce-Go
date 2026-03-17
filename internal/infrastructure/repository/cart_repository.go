@@ -9,8 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
-	// "github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
 )
 
 type CartRepository struct {
@@ -88,12 +87,11 @@ func (repo *CartRepository) AddToCart(ctx context.Context, userID int64, product
 	return &cartID, nil
 }
 
-func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*domain.Cart, error) {
+func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*cart.Cart, error) {
 
 	log.Println("GetCartByID called")
 
-	var cartItems []*domain.CartItem
-	var _ domain.CartItem
+	var cartItems []*cart.CartItem
 
 	query := `
 	SELECT ci.product_variant_id,
@@ -120,7 +118,7 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 
 	var totalPrice float64
 	for rows.Next() {
-		var cartItem domain.CartItem
+		var cartItem cart.CartItem
 		err = rows.Scan(&cartItem.ProductVariantID, &cartItem.ProductID, &cartItem.CategoryID, &cartItem.ProductName, &cartItem.SKU, &cartItem.OriginalPrice,
 			&cartItem.SalePrice, &cartItem.Stock, &cartItem.ImageURL, &cartItem.Quantity)
 		if err != nil {
@@ -133,13 +131,13 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 			cartItem.TotalPrice = cartItem.OriginalPrice * float64(cartItem.Quantity)
 		}
 		if cartItem.Stock == 0 {
-			cartItem.Status = domain.StatusOutOfStock
+			cartItem.Status = cart.StatusOutOfStock
 			cartItem.Message = "Out of stock"
 		} else if cartItem.Stock < int(cartItem.Quantity) && cartItem.Stock > 0 {
-			cartItem.Status = domain.StatusLowStock
+			cartItem.Status = cart.StatusLowStock
 			cartItem.Message = "Low stock"
 		} else {
-			cartItem.Status = domain.StatusInStock
+			cartItem.Status = cart.StatusInStock
 			cartItem.Message = "In stock"
 		}
 		totalPrice += cartItem.TotalPrice
@@ -148,18 +146,17 @@ func (repo *CartRepository) GetCartByID(ctx context.Context, cartID int64) (*dom
 
 	log.Println("cart items, ", cartItems)
 
-	return &domain.Cart{
+	return &cart.Cart{
 		Items:          cartItems,
 		CartTotalPrice: totalPrice,
 	}, nil
 }
 
-func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (*domain.Cart, error) {
+func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (*cart.Cart, error) {
 
 	log.Println("GetCartByUserID called	")
 
-	var cartItems []*domain.CartItem
-	var _ domain.CartItem
+	var cartItems []*cart.CartItem
 	query := `
 	SELECT
 	ci.product_variant_id,
@@ -186,7 +183,7 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 	defer rows.Close()
 	var totalPrice float64
 	for rows.Next() {
-		var cartItem domain.CartItem
+		var cartItem cart.CartItem
 		err = rows.Scan(&cartItem.ProductVariantID, &cartItem.ProductID, &cartItem.CategoryID, &cartItem.ProductName, &cartItem.SKU, &cartItem.OriginalPrice,
 			&cartItem.SalePrice, &cartItem.Stock, &cartItem.ImageURL, &cartItem.Quantity)
 		if err != nil {
@@ -199,13 +196,13 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 			cartItem.TotalPrice = cartItem.OriginalPrice * float64(cartItem.Quantity)
 		}
 		if cartItem.Stock == 0 {
-			cartItem.Status = domain.StatusOutOfStock
+			cartItem.Status = cart.StatusOutOfStock
 			cartItem.Message = "Out of stock"
 		} else if cartItem.Stock < int(cartItem.Quantity) && cartItem.Stock > 0 {
-			cartItem.Status = domain.StatusLowStock
+			cartItem.Status = cart.StatusLowStock
 			cartItem.Message = "Low stock"
 		} else {
-			cartItem.Status = domain.StatusInStock
+			cartItem.Status = cart.StatusInStock
 			cartItem.Message = "In stock"
 		}
 		totalPrice += cartItem.TotalPrice
@@ -214,13 +211,13 @@ func (repo *CartRepository) GetCartByUserID(ctx context.Context, userID int64) (
 
 	log.Println("cart items, ", cartItems)
 
-	return &domain.Cart{
+	return &cart.Cart{
 		Items:          cartItems,
 		CartTotalPrice: totalPrice,
 	}, nil
 }
 
-func (repo *CartRepository) UpdateCartItemQuantity(ctx context.Context, userID int64, req *domain.UpdateCartItemQuantityRequest) (int64, error) {
+func (repo *CartRepository) UpdateCartItemQuantity(ctx context.Context, userID int64, req *cart.UpdateCartItemQuantityRequest) (int64, error) {
 
 	var cartID int64
 	query := `UPDATE cart_items ci
@@ -274,9 +271,9 @@ func (repo *CartRepository) EmptyCart(ctx context.Context, userID int64) error {
 	return nil
 }
 
-func (repo *CartRepository) GetCartVariantInfo(ctx context.Context, userID int64) (map[int64]domain.VariantInfo, error) {
+func (repo *CartRepository) GetCartVariantInfo(ctx context.Context, userID int64) (map[int64]cart.VariantInfo, error) {
 
-	cartVariantStocks := make(map[int64]domain.VariantInfo)
+	cartVariantStocks := make(map[int64]cart.VariantInfo)
 
 	query := `SELECT pv.id, p.name, pv.sku , pv.stock FROM product_variants pv
 	LEFT JOIN cart_items ci ON pv.id = ci.product_variant_id
@@ -291,7 +288,7 @@ func (repo *CartRepository) GetCartVariantInfo(ctx context.Context, userID int64
 	defer rows.Close()
 
 	for rows.Next() {
-		var variant domain.VariantInfo
+		var variant cart.VariantInfo
 		var pvId int64
 		if err := rows.Scan(&pvId, &variant.ProductName, &variant.SKU, &variant.Stock); err != nil {
 			return nil, err
@@ -301,3 +298,4 @@ func (repo *CartRepository) GetCartVariantInfo(ctx context.Context, userID int64
 
 	return cartVariantStocks, nil
 }
+

@@ -5,23 +5,25 @@ import (
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/discount"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type ProductService struct {
-	repo   domain.ProductRepository
-	offers domain.OfferRepository
+	repo   product.ProductRepository
+	offers promotion.OfferRepository
 	log    *zap.Logger
 }
 
-func NewProductService(repo domain.ProductRepository, offers domain.OfferRepository, log *zap.Logger) *ProductService {
+func NewProductService(repo product.ProductRepository, offers promotion.OfferRepository, log *zap.Logger) *ProductService {
 	return &ProductService{repo: repo, offers: offers, log: log}
 }
 
 // Brand operations
-func (serv *ProductService) CreateBrand(ctx context.Context, createBrandRequest *domain.CreateBrandRequest) (*domain.Brand, *apperror.APIError) {
+func (serv *ProductService) CreateBrand(ctx context.Context, createBrandRequest *product.CreateBrandRequest) (*product.Brand, *apperror.APIError) {
 
 	brand, err := serv.repo.CreateBrand(ctx, createBrandRequest)
 	if err != nil {
@@ -34,7 +36,7 @@ func (serv *ProductService) CreateBrand(ctx context.Context, createBrandRequest 
 	return brand, nil
 }
 
-func (serv *ProductService) GetAllBrands(ctx context.Context) ([]*domain.Brand, *apperror.APIError) {
+func (serv *ProductService) GetAllBrands(ctx context.Context) ([]*product.Brand, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	brands, err := serv.repo.GetAllBrands(ctx, activeOnly)
 	if err != nil {
@@ -47,7 +49,7 @@ func (serv *ProductService) GetAllBrands(ctx context.Context) ([]*domain.Brand, 
 	return brands, nil
 }
 
-func (serv *ProductService) GetBrandByID(ctx context.Context, id int64) (*domain.Brand, *apperror.APIError) {
+func (serv *ProductService) GetBrandByID(ctx context.Context, id int64) (*product.Brand, *apperror.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
 
@@ -62,7 +64,7 @@ func (serv *ProductService) GetBrandByID(ctx context.Context, id int64) (*domain
 	return brand, nil
 }
 
-func (serv *ProductService) UpdateBrand(ctx context.Context, updateBrandRequest *domain.UpdateBrandRequest) (*domain.Brand, *apperror.APIError) {
+func (serv *ProductService) UpdateBrand(ctx context.Context, updateBrandRequest *product.UpdateBrandRequest) (*product.Brand, *apperror.APIError) {
 
 	brand, err := serv.repo.GetBrandByID(ctx, updateBrandRequest.ID, false)
 	if err != nil {
@@ -109,7 +111,7 @@ func (serv *ProductService) DeleteBrand(ctx context.Context, id int64) *apperror
 }
 
 // Product operations
-func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequest *domain.CreateProductRequest) (*domain.Product, *apperror.APIError) {
+func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequest *product.CreateProductRequest) (*product.Product, *apperror.APIError) {
 	createdProduct, err := serv.repo.CreateProduct(ctx, createProductRequest)
 	if err != nil {
 		serv.log.Debug("failed to create product", zap.Error(err))
@@ -121,7 +123,7 @@ func (serv *ProductService) CreateProduct(ctx context.Context, createProductRequ
 	return createdProduct, nil
 }
 
-func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.ProductFilter) ([]*domain.ProductResponse, int64, *apperror.APIError) {
+func (serv *ProductService) GetProducts(ctx context.Context, filter *product.ProductFilter) ([]*product.ProductResponse, int64, *apperror.APIError) {
 
 	isAdmin := utils.IsAdmin(ctx)
 	activeOnly := !utils.IsAdmin(ctx)
@@ -153,9 +155,9 @@ func (serv *ProductService) GetProducts(ctx context.Context, filter *domain.Prod
 	return products, total, nil
 }
 
-func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.ProductResponse, *apperror.APIError) {
+func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*product.ProductResponse, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
-	product, err := serv.repo.GetProductByID(ctx, id, activeOnly)
+	productResp, err := serv.repo.GetProductByID(ctx, id, activeOnly)
 	if err != nil {
 		serv.log.Debug("failed to get product", zap.String("function", "GetProductByID"), zap.Error(err))
 		if err == apperror.ErrProductDoesNotExist {
@@ -172,14 +174,14 @@ func (serv *ProductService) GetProductByID(ctx context.Context, id int64) (*doma
 		}
 	}
 	if activeOnly {
-		product.IsActive = nil
-		product.CreatedAt = nil
-		product.UpdatedAt = nil
+		productResp.IsActive = nil
+		productResp.CreatedAt = nil
+		productResp.UpdatedAt = nil
 	}
-	return product, nil
+	return productResp, nil
 }
 
-func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequest *domain.UpdateProductRequest) (*domain.ProductResponse, *apperror.APIError) {
+func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequest *product.UpdateProductRequest) (*product.ProductResponse, *apperror.APIError) {
 
 	err := serv.repo.UpdateProduct(ctx, updateProductRequest)
 	if err != nil {
@@ -202,7 +204,7 @@ func (serv *ProductService) UpdateProduct(ctx context.Context, updateProductRequ
 	return updatedProduct, nil
 }
 
-func (serv *ProductService) UpdateProductStatus(ctx context.Context, req *domain.ProductStatusRequest) *apperror.APIError {
+func (serv *ProductService) UpdateProductStatus(ctx context.Context, req *product.ProductStatusRequest) *apperror.APIError {
 
 	if req.ID <= 0 {
 		return &apperror.APIError{
@@ -234,7 +236,7 @@ func (serv *ProductService) DeleteProduct(ctx context.Context, id int64) *apperr
 }
 
 // Product variant operations
-func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domain.CreateProductVariantRequest) (*domain.ProductVariantResponse, *apperror.APIError) {
+func (serv *ProductService) CreateProductVariant(ctx context.Context, req *product.CreateProductVariantRequest) (*product.ProductVariantResponse, *apperror.APIError) {
 	if len(req.VariantAttributes) == 0 {
 		return nil, &apperror.APIError{
 			Code:    "INVALID_REQUEST",
@@ -294,7 +296,7 @@ func (serv *ProductService) CreateProductVariant(ctx context.Context, req *domai
 	return productVariant, nil
 }
 
-func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64) (*domain.ProductVariantResponse, *apperror.APIError) {
+func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64) (*product.ProductVariantResponse, *apperror.APIError) {
 
 	activeOnly := !utils.IsAdmin(ctx)
 	productVariant, err := serv.repo.GetProductVariantByID(ctx, id, activeOnly)
@@ -313,7 +315,7 @@ func (serv *ProductService) GetProductVariantByID(ctx context.Context, id int64)
 	return productVariant, nil
 }
 
-func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productID int64) (*domain.ProductVariantBaseResponse, *apperror.APIError) {
+func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productID int64) (*product.ProductVariantBaseResponse, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	productvariants, err := serv.repo.GetVariantsByProductID(ctx, productID, activeOnly)
 	if err != nil {
@@ -334,13 +336,13 @@ func (serv *ProductService) GetVariantsByProductID(ctx context.Context, productI
 				Message: "Failed to get offers",
 			}
 		}
-		domain.ApplyDiscountsToVariants(productvariants.Variants, offers)
+		discount.ApplyDiscountsToVariants(productvariants.Variants, offers)
 	}
 
 	return productvariants, nil
 }
 
-func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProductVariantRequest *domain.UpdateProductVariantRequest) (*domain.ProductVariant, *apperror.APIError) {
+func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProductVariantRequest *product.UpdateProductVariantRequest) (*product.ProductVariant, *apperror.APIError) {
 
 	productVariant, err := serv.repo.UpdateProductVariant(ctx, updateProductVariantRequest)
 	if err != nil {
@@ -363,7 +365,7 @@ func (serv *ProductService) UpdateProductVariant(ctx context.Context, updateProd
 	return productVariant, nil
 }
 
-func (serv *ProductService) UpdateProductVariantStatus(ctx context.Context, req *domain.VariantStatusRequest) *apperror.APIError {
+func (serv *ProductService) UpdateProductVariantStatus(ctx context.Context, req *product.VariantStatusRequest) *apperror.APIError {
 
 	if req.ID <= 0 {
 		return &apperror.APIError{
@@ -396,7 +398,7 @@ func (serv *ProductService) DeleteProductVariant(ctx context.Context, id int64) 
 }
 
 // Attribute operations
-func (serv *ProductService) CreateAttribute(ctx context.Context, createAttributeRequest *domain.CreateAttributeRequest) (*domain.Attribute, *apperror.APIError) {
+func (serv *ProductService) CreateAttribute(ctx context.Context, createAttributeRequest *product.CreateAttributeRequest) (*product.Attribute, *apperror.APIError) {
 	if len(createAttributeRequest.Values) == 0 {
 		return nil, &apperror.APIError{
 			Code:    "INVALID_REQUEST",
@@ -422,7 +424,7 @@ func (serv *ProductService) CreateAttribute(ctx context.Context, createAttribute
 	return attribute, nil
 }
 
-func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttributeValuesRequest *domain.AddAttributeValuesRequest) *apperror.APIError {
+func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttributeValuesRequest *product.AddAttributeValuesRequest) *apperror.APIError {
 
 	if len(addAttributeValuesRequest.Values) == 0 {
 		return &apperror.APIError{
@@ -451,7 +453,7 @@ func (serv *ProductService) AddAttributeValues(ctx context.Context, addAttribute
 	return nil
 }
 
-func (serv *ProductService) GetAttributes(ctx context.Context) ([]*domain.Attribute, *apperror.APIError) {
+func (serv *ProductService) GetAttributes(ctx context.Context) ([]*product.Attribute, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	attributes, err := serv.repo.GetAttributes(ctx, activeOnly)
 	if err != nil {
@@ -463,7 +465,7 @@ func (serv *ProductService) GetAttributes(ctx context.Context) ([]*domain.Attrib
 	}
 	return attributes, nil
 }
-func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*domain.Attribute, *apperror.APIError) {
+func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*product.Attribute, *apperror.APIError) {
 	activeOnly := !utils.IsAdmin(ctx)
 	attribute, err := serv.repo.GetAttributeByID(ctx, id, activeOnly)
 	if err != nil {
@@ -476,7 +478,7 @@ func (serv *ProductService) GetAttributeByID(ctx context.Context, id int64) (*do
 	return attribute, nil
 }
 
-func (serv *ProductService) DeleteAttribute(ctx context.Context, req *domain.DeleteAttributeRequest) *apperror.APIError {
+func (serv *ProductService) DeleteAttribute(ctx context.Context, req *product.DeleteAttributeRequest) *apperror.APIError {
 
 	if req.ID <= 0 {
 		return &apperror.APIError{
@@ -495,7 +497,7 @@ func (serv *ProductService) DeleteAttribute(ctx context.Context, req *domain.Del
 	}
 	return nil
 }
-func (serv *ProductService) DeleteAttributeValues(ctx context.Context, deleteAttributeValuesRequest *domain.DeleteAttributeValuesRequest) *apperror.APIError {
+func (serv *ProductService) DeleteAttributeValues(ctx context.Context, deleteAttributeValuesRequest *product.DeleteAttributeValuesRequest) *apperror.APIError {
 	if len(deleteAttributeValuesRequest.ValueIDs) == 0 {
 		return &apperror.APIError{
 			Code:    "INVALID_REQUEST",
@@ -513,3 +515,4 @@ func (serv *ProductService) DeleteAttributeValues(ctx context.Context, deleteAtt
 	}
 	return nil
 }
+

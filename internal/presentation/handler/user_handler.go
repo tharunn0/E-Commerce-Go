@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/auth"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 
@@ -34,7 +36,7 @@ func NewUserHandler(srv *service.UserService, authserv *service.AuthService, log
 func (h *UserHandler) RegisterUser(c *gin.Context) {
 
 	ctx := context.Background()
-	var req domain.RegisterRequest
+	var req user.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid registration payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -63,7 +65,7 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 func (h *UserHandler) LoginUser(c *gin.Context) {
 
 	ctx := c.Request.Context()
-	var req domain.LoginRequest
+	var req user.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid login payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -161,7 +163,7 @@ func (h *UserHandler) SendOTP(c *gin.Context) {
 
 func (h *UserHandler) VerifyOTP(c *gin.Context) {
 
-	var req domain.VerifyOTPReq
+	var req auth.VerifyOTPReq
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -187,7 +189,7 @@ func (h *UserHandler) VerifyOTP(c *gin.Context) {
 
 func (h *UserHandler) SendPasswordResetLink(c *gin.Context) {
 	ctx := context.Background()
-	var req domain.PasswordResetRequest
+	var req auth.PasswordResetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid password reset request payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -223,7 +225,7 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 		})
 		return
 	}
-	var req domain.PasswordResetData
+	var req auth.PasswordResetData
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid password reset request payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -316,7 +318,7 @@ func (h *UserHandler) GoogleCallback(c *gin.Context) {
 	lastName, _ := payload.Claims["family_name"].(string)
 	sub, _ := payload.Claims["sub"].(string)
 
-	req := &domain.GoogleSignInRequest{
+	req := &user.GoogleSignInRequest{
 		Email:     email,
 		Token:     rawIDToken,
 		Verified:  verified,
@@ -340,7 +342,7 @@ func (h *UserHandler) GoogleCallback(c *gin.Context) {
 
 func (h *UserHandler) EmailChangeRequest(c *gin.Context) {
 	ctx := c.Request.Context()
-	var req domain.UpdateEmailRequest
+	var req auth.UpdateEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid update email request payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -366,7 +368,7 @@ func (h *UserHandler) EmailChangeRequest(c *gin.Context) {
 
 func (h *UserHandler) VerifyEmailChangeRequest(c *gin.Context) {
 	ctx := c.Request.Context()
-	var req domain.VerifyEmailRequest
+	var req auth.VerifyEmailRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "INVALID_REQUEST",
@@ -431,7 +433,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 	ctx := c.Request.Context()
-	var req domain.UpdateUserProfileRequest
+	var req user.UpdateUserProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid update user profile request payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -456,7 +458,7 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 
 func (h *UserHandler) CreateUserAddress(c *gin.Context) {
 	ctx := c.Request.Context()
-	var req domain.UserAddress
+	var req user.UserAddress
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid create user address request payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -538,7 +540,7 @@ func (h *UserHandler) UpdateUserAddress(c *gin.Context) {
 		return
 	}
 
-	var req domain.UpdateUserAddressRequest
+	var req user.UpdateUserAddressRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid update user address request payload", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -606,7 +608,7 @@ func (h *UserHandler) GetWallet(c *gin.Context) {
 func (h *UserHandler) GetWalletTransactions(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req domain.TransactionFilter
+	var req payment.TransactionFilter
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "INVALID_REQUEST",

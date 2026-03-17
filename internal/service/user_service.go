@@ -9,7 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/auth"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
 
@@ -17,13 +19,13 @@ import (
 )
 
 type UserService struct {
-	repo   domain.UserRepository
-	auth   domain.AuthRepository
+	repo   user.UserRepository
+	auth   auth.AuthRepository
 	sender *mailer.MailSender
 	log    *zap.Logger
 }
 
-func NewUserService(userRepo domain.UserRepository, authrepo domain.AuthRepository, logger *zap.Logger, sender *mailer.MailSender) *UserService {
+func NewUserService(userRepo user.UserRepository, authrepo auth.AuthRepository, logger *zap.Logger, sender *mailer.MailSender) *UserService {
 	return &UserService{
 		repo:   userRepo,
 		log:    logger,
@@ -33,7 +35,7 @@ func NewUserService(userRepo domain.UserRepository, authrepo domain.AuthReposito
 }
 
 // register a new user
-func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterRequest) *apperror.APIError {
+func (serv *UserService) RegisterUser(ctx context.Context, req *user.RegisterRequest) *apperror.APIError {
 	serv.log.Debug("starting user registration", zap.String("email", req.Email))
 
 	if !utils.IsValidEmail(req.Email) {
@@ -115,7 +117,7 @@ func (serv *UserService) RegisterUser(ctx context.Context, req *domain.RegisterR
 }
 
 // login user
-func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest) (*domain.LoginResponse, *apperror.APIError) {
+func (serv *UserService) LoginUser(ctx context.Context, req *user.LoginRequest) (*user.LoginResponse, *apperror.APIError) {
 
 	if !utils.IsValidEmail(req.Email) {
 		serv.log.Warn("invalid email format", zap.String("email", req.Email))
@@ -165,7 +167,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 			Message: "Invalid email or password.",
 		}
 	}
-	resp := domain.LoginResponse{}
+	resp := user.LoginResponse{}
 	resp.User.ID = fetchedUser.ID
 	resp.User.Email = fetchedUser.Email
 	resp.User.FirstName = fetchedUser.FirstName
@@ -192,7 +194,7 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 		}
 	}
 
-	err = serv.auth.SetRefreshToken(ctx, &domain.RefreshToken{
+	err = serv.auth.SetRefreshToken(ctx, &auth.RefreshToken{
 		UserID:   fetchedUser.ID,
 		Token:    resp.RefreshToken,
 		ExpiryAt: expiryAt,
@@ -210,10 +212,10 @@ func (serv *UserService) LoginUser(ctx context.Context, req *domain.LoginRequest
 }
 
 // oauth sign in
-func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSignInRequest) (*domain.LoginResponse, *apperror.APIError) {
+func (serv *UserService) OAuthSignIn(ctx context.Context, req *user.GoogleSignInRequest) (*user.LoginResponse, *apperror.APIError) {
 
-	user, err := serv.repo.GoogleSignIn(ctx, req)
-	if user == nil {
+	userObj, err := serv.repo.GoogleSignIn(ctx, req)
+	if userObj == nil {
 		return nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
 			Code:    "USER_NOT_FOUND",
@@ -235,8 +237,8 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 		}
 	}
 
-	authTokens := domain.AuthTokens{}
-	authTokens.AccessToken, err = utils.IssueJWT(user.ID, user.Email, user.Role, user.IsVerified, serv.log)
+	authTokens := user.AuthTokens{}
+	authTokens.AccessToken, err = utils.IssueJWT(userObj.ID, userObj.Email, userObj.Role, userObj.IsVerified, serv.log)
 	if err != nil {
 		serv.log.Error("Failed to issue jwt", zap.String("service", "UserService"), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -255,22 +257,22 @@ func (serv *UserService) OAuthSignIn(ctx context.Context, req *domain.GoogleSign
 		}
 	}
 
-	resp := domain.LoginResponse{
+	resp := user.LoginResponse{
 		AccessToken:  authTokens.AccessToken,
 		RefreshToken: authTokens.RefreshToken,
 	}
 
-	resp.User.ID = user.ID
-	resp.User.Email = user.Email
-	resp.User.FirstName = user.FirstName
-	resp.User.LastName = user.LastName
-	resp.User.Role = string(user.Role)
+	resp.User.ID = userObj.ID
+	resp.User.Email = userObj.Email
+	resp.User.FirstName = userObj.FirstName
+	resp.User.LastName = userObj.LastName
+	resp.User.Role = string(userObj.Role)
 
 	return &resp, nil
 }
 
 // get user profile
-func (serv *UserService) GetUserProfile(ctx context.Context) (*domain.UserProfile, *apperror.APIError) {
+func (serv *UserService) GetUserProfile(ctx context.Context) (*user.UserProfile, *apperror.APIError) {
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -283,7 +285,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context) (*domain.UserProfil
 
 	isAdmin := utils.IsAdmin(ctx)
 
-	user, err := serv.repo.GetUserByID(ctx, userID)
+	userObj, err := serv.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		serv.log.Error("failed to fetch user profile from db", zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -303,23 +305,23 @@ func (serv *UserService) GetUserProfile(ctx context.Context) (*domain.UserProfil
 		}
 	}
 
-	var userProfile = domain.UserProfile{
-		ID:               user.ID,
-		Email:            user.Email,
-		FirstName:        user.FirstName,
-		LastName:         user.LastName,
-		Phone:            &user.Phone,
-		Role:             &user.Role,
-		IsVerified:       user.IsVerified,
-		Status:           &user.Status,
-		ProfilePicture:   user.ProfilePicture,
-		CreatedAt:        &user.CreatedAt,
-		DefaultAddressID: user.DefaultAddressID,
-		ReferralCode:     user.ReferralCode,
+	var userProfile = user.UserProfile{
+		ID:               userObj.ID,
+		Email:            userObj.Email,
+		FirstName:        userObj.FirstName,
+		LastName:         userObj.LastName,
+		Phone:            &userObj.Phone,
+		Role:             &userObj.Role,
+		IsVerified:       userObj.IsVerified,
+		Status:           &userObj.Status,
+		ProfilePicture:   userObj.ProfilePicture,
+		CreatedAt:        &userObj.CreatedAt,
+		DefaultAddressID: userObj.DefaultAddressID,
+		ReferralCode:     userObj.ReferralCode,
 		Addresses:        addresses,
 	}
 
-	if user.DefaultAddressID == nil {
+	if userObj.DefaultAddressID == nil {
 		if len(addresses) > 0 {
 			addressID := addresses[0].ID
 			userProfile.DefaultAddressID = &addressID
@@ -340,7 +342,7 @@ func (serv *UserService) GetUserProfile(ctx context.Context) (*domain.UserProfil
 }
 
 // update user profile
-func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, *apperror.APIError) {
+func (serv *UserService) UpdateUserProfile(ctx context.Context, req *user.UpdateUserProfileRequest) (*user.UserProfile, *apperror.APIError) {
 
 	err := req.Validate()
 	if err != nil {
@@ -380,7 +382,7 @@ func (serv *UserService) UpdateUserProfile(ctx context.Context, req *domain.Upda
 }
 
 // add user address
-func (serv *UserService) CreateUserAddress(ctx context.Context, address *domain.UserAddress) *apperror.APIError {
+func (serv *UserService) CreateUserAddress(ctx context.Context, address *user.UserAddress) *apperror.APIError {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return &apperror.APIError{
@@ -403,7 +405,7 @@ func (serv *UserService) CreateUserAddress(ctx context.Context, address *domain.
 }
 
 // get user addresses
-func (serv *UserService) GetUserAddresses(ctx context.Context) ([]*domain.UserAddress, *int64, *apperror.APIError) {
+func (serv *UserService) GetUserAddresses(ctx context.Context) ([]*user.UserAddress, *int64, *apperror.APIError) {
 
 	isAdmin := utils.IsAdmin(ctx)
 
@@ -477,7 +479,7 @@ func (serv *UserService) UpdateDefaultUserAddress(ctx context.Context, addressID
 }
 
 // update user address
-func (serv *UserService) UpdateUserAddress(ctx context.Context, req *domain.UpdateUserAddressRequest) (*domain.UserAddress, *apperror.APIError) {
+func (serv *UserService) UpdateUserAddress(ctx context.Context, req *user.UpdateUserAddressRequest) (*user.UserAddress, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
@@ -536,7 +538,7 @@ func (serv *UserService) DeleteUserAddress(ctx context.Context, addressID int64)
 	return nil
 }
 
-func (serv *UserService) GetWallet(ctx context.Context) (*domain.Wallet, *apperror.APIError) {
+func (serv *UserService) GetWallet(ctx context.Context) (*payment.Wallet, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
@@ -557,7 +559,7 @@ func (serv *UserService) GetWallet(ctx context.Context) (*domain.Wallet, *apperr
 	return wallet, nil
 }
 
-func (serv *UserService) GetWalletTransactions(ctx context.Context, filter *domain.TransactionFilter) ([]*domain.WalletTransaction, *apperror.APIError) {
+func (serv *UserService) GetWalletTransactions(ctx context.Context, filter *payment.TransactionFilter) ([]*payment.WalletTransaction, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{

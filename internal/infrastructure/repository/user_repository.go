@@ -9,7 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 )
 
 type UserRepository struct {
@@ -22,11 +23,7 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	}
 }
 
-func (repo *UserRepository) RegisterUser(
-	ctx context.Context,
-	req *domain.RegisterRequest,
-	refCode string,
-) error {
+func (repo *UserRepository) RegisterUser(ctx context.Context, req *user.RegisterRequest, refCode string) error {
 
 	tx, err := repo.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -118,8 +115,8 @@ func (repo *UserRepository) RegisterUser(
 	return nil
 }
 
-func (repo *UserRepository) GetUser(ctx context.Context, email string) (*domain.User, error) {
-	user := &domain.User{}
+func (repo *UserRepository) GetUser(ctx context.Context, email string) (*user.User, error) {
+	user := &user.User{}
 	query := `SELECT id, email, phone, password, first_name, last_name, role,is_verified , status, profile_img_url FROM users
     WHERE status = 'active' AND email = $1;`
 	err := repo.DB.QueryRow(ctx,
@@ -134,8 +131,8 @@ func (repo *UserRepository) GetUser(ctx context.Context, email string) (*domain.
 	return user, nil
 }
 
-func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *domain.GoogleSignInRequest) (*domain.User, error) {
-	user := &domain.User{}
+func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *user.GoogleSignInRequest) (*user.User, error) {
+	user := &user.User{}
 
 	// check if user exists with google sub
 	query := `SELECT id, email, COALESCE(phone,''), password, first_name, last_name, role,is_verified , status, profile_img_url FROM users
@@ -182,8 +179,8 @@ func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *domain.Google
 	return user, nil
 }
 
-func (repo *UserRepository) GetUserByID(ctx context.Context, userID int64) (*domain.User, error) {
-	user := &domain.User{}
+func (repo *UserRepository) GetUserByID(ctx context.Context, userID int64) (*user.User, error) {
+	user := &user.User{}
 	query := `SELECT id, email, phone, first_name, last_name, role,is_verified , status, referral_code,profile_img_url,created_at, updated_at FROM users
     WHERE status = 'active' AND id = $1;`
 	err := repo.DB.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Email, &user.Phone, &user.FirstName,
@@ -195,7 +192,7 @@ func (repo *UserRepository) GetUserByID(ctx context.Context, userID int64) (*dom
 	return user, nil
 }
 
-func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64, req *domain.UpdateUserProfileRequest) (*domain.UserProfile, error) {
+func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64, req *user.UpdateUserProfileRequest) (*user.UserProfile, error) {
 	query := `
 	UPDATE users SET
         first_name = COALESCE($1, first_name),
@@ -205,7 +202,7 @@ func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64,
     WHERE id = $5
     RETURNING id, email, first_name, last_name, phone, is_verified, created_at, profile_img_url`
 
-	var updatedProfile domain.UserProfile
+	var updatedProfile user.UserProfile
 	err := repo.DB.QueryRow(ctx, query, req.FirstName, req.LastName, req.Phone, req.ProfilePicture, userID).Scan(
 		&updatedProfile.ID, &updatedProfile.Email, &updatedProfile.FirstName, &updatedProfile.LastName,
 		&updatedProfile.Phone, &updatedProfile.IsVerified, &updatedProfile.CreatedAt, &updatedProfile.ProfilePicture)
@@ -225,7 +222,7 @@ func (repo *UserRepository) UpdateUserProfile(ctx context.Context, userID int64,
 }
 
 // user address repository
-func (repo *UserRepository) InsertUserAddress(ctx context.Context, address *domain.UserAddress) error {
+func (repo *UserRepository) InsertUserAddress(ctx context.Context, address *user.UserAddress) error {
 	query := `INSERT INTO user_addresses (user_id, label, address_line,address_line_2, pincode, city, district, state, country)
 	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`
 	cmdTag, err := repo.DB.Exec(ctx, query, address.UserID, address.Label, address.AddressLine, address.AddressLine2, address.Pincode, address.City, address.District, address.State, address.Country)
@@ -238,7 +235,7 @@ func (repo *UserRepository) InsertUserAddress(ctx context.Context, address *doma
 	return nil
 }
 
-func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) ([]*domain.UserAddress, error) {
+func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) ([]*user.UserAddress, error) {
 	query := `SELECT id, user_id, label, address_line,address_line_2, pincode, city, district, state, country , created_at, updated_at FROM user_addresses
 	 WHERE user_id = $1`
 	rows, err := repo.DB.Query(ctx, query, userID)
@@ -246,9 +243,9 @@ func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) 
 		return nil, err
 	}
 	defer rows.Close()
-	userAddresses := []*domain.UserAddress{}
+	userAddresses := []*user.UserAddress{}
 	for rows.Next() {
-		var userAddress domain.UserAddress
+		var userAddress user.UserAddress
 		err := rows.Scan(&userAddress.ID, &userAddress.UserID, &userAddress.Label, &userAddress.AddressLine,
 			&userAddress.AddressLine2, &userAddress.Pincode, &userAddress.City, &userAddress.District,
 			&userAddress.State, &userAddress.Country, &userAddress.CreatedAt, &userAddress.UpdatedAt)
@@ -263,8 +260,8 @@ func (repo *UserRepository) GetUserAddresses(ctx context.Context, userID int64) 
 	return userAddresses, nil
 }
 
-func (repo *UserRepository) GetUserAddressByID(ctx context.Context, addressID int64) (*domain.UserAddress, error) {
-	userAddress := &domain.UserAddress{}
+func (repo *UserRepository) GetUserAddressByID(ctx context.Context, addressID int64) (*user.UserAddress, error) {
+	userAddress := &user.UserAddress{}
 	query := `SELECT id, user_id, label, address_line,address_line_2, pincode, city, district, state, country , created_at, updated_at FROM user_addresses
 	 WHERE id = $1`
 	err := repo.DB.QueryRow(ctx, query, addressID).Scan(&userAddress.ID, &userAddress.UserID, &userAddress.Label, &userAddress.AddressLine,
@@ -279,9 +276,9 @@ func (repo *UserRepository) GetUserAddressByID(ctx context.Context, addressID in
 	return userAddress, nil
 }
 
-func (repo *UserRepository) GetDefaultUserAddress(ctx context.Context, userID int64) (*domain.UserAddress, error) {
+func (repo *UserRepository) GetDefaultUserAddress(ctx context.Context, userID int64) (*user.UserAddress, error) {
 
-	userAddress := &domain.UserAddress{}
+	userAddress := &user.UserAddress{}
 	query := `SELECT ua.id, ua.user_id, ua.label, ua.address_line,ua.address_line_2, ua.pincode, ua.city,
 	 ua.district, ua.state, ua.country , ua.created_at, ua.updated_at FROM user_addresses ua
 	 INNER JOIN users u ON ua.user_id = u.id
@@ -313,7 +310,7 @@ func (repo *UserRepository) UpdateDefaultUserAddress(ctx context.Context, userID
 	return nil
 }
 
-func (repo *UserRepository) UpdateUserAddress(ctx context.Context, userID int64, req *domain.UpdateUserAddressRequest) (*domain.UserAddress, error) {
+func (repo *UserRepository) UpdateUserAddress(ctx context.Context, userID int64, req *user.UpdateUserAddressRequest) (*user.UserAddress, error) {
 
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM user_addresses WHERE user_id = $1 AND id = $2)`
@@ -336,7 +333,7 @@ func (repo *UserRepository) UpdateUserAddress(ctx context.Context, userID int64,
 	WHERE id = $9 
 	RETURNING id, label, address_line, address_line_2, pincode, city, district, state, country
 	`
-	var updatedAddress domain.UserAddress
+	var updatedAddress user.UserAddress
 	err = repo.DB.QueryRow(ctx, query, req.Label, req.AddressLine, req.AddressLine2, req.Pincode, req.City, req.District, req.State, req.Country, req.ID).Scan(
 		&updatedAddress.ID, &updatedAddress.Label, &updatedAddress.AddressLine, &updatedAddress.AddressLine2, &updatedAddress.Pincode, &updatedAddress.City, &updatedAddress.District, &updatedAddress.State, &updatedAddress.Country)
 	if err != nil {
@@ -370,8 +367,8 @@ func (repo *UserRepository) DeleteUserAddress(ctx context.Context, userID int64,
 
 // user wallet ops
 
-func (repo *UserRepository) GetWallet(ctx context.Context, userID int64) (*domain.Wallet, error) {
-	wallet := &domain.Wallet{}
+func (repo *UserRepository) GetWallet(ctx context.Context, userID int64) (*payment.Wallet, error) {
+	wallet := &payment.Wallet{}
 	query := `SELECT id, balance, created_at, updated_at FROM wallets
     WHERE user_id = $1;`
 	err := repo.DB.QueryRow(ctx, query, userID).Scan(&wallet.ID, &wallet.Balance, &wallet.CreatedAt, &wallet.UpdatedAt)
@@ -381,11 +378,7 @@ func (repo *UserRepository) GetWallet(ctx context.Context, userID int64) (*domai
 	return wallet, nil
 }
 
-func (repo *UserRepository) GetWalletTransactions(
-	ctx context.Context,
-	userID int64,
-	filter *domain.TransactionFilter,
-) ([]*domain.WalletTransaction, error) {
+func (repo *UserRepository) GetWalletTransactions(ctx context.Context, userID int64, filter *payment.TransactionFilter) ([]*payment.WalletTransaction, error) {
 
 	query := `
 	SELECT
@@ -441,10 +434,10 @@ func (repo *UserRepository) GetWalletTransactions(
 	}
 	defer rows.Close()
 
-	var transactions []*domain.WalletTransaction
+	var transactions []*payment.WalletTransaction
 
 	for rows.Next() {
-		t := &domain.WalletTransaction{}
+		t := &payment.WalletTransaction{}
 
 		err := rows.Scan(
 			&t.ID,

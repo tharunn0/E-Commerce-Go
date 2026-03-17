@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 )
 
 type CouponRepository struct {
@@ -22,14 +22,14 @@ func NewCouponRepository(db *pgxpool.Pool) *CouponRepository {
 	return &CouponRepository{db: db}
 }
 
-func (repo *CouponRepository) CreateCoupon(ctx context.Context, req *domain.CreateCouponRequest) (*domain.CouponResponse, error) {
+func (repo *CouponRepository) CreateCoupon(ctx context.Context, req *promotion.CreateCouponRequest) (*promotion.CouponResponse, error) {
 
 	query := `INSERT INTO coupons 
 				(code, description, discount_type, discount_value, min_order_amount, max_discount_amount, valid_from, valid_to) 
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
 				RETURNING id, code, description, discount_type, discount_value, min_order_amount, max_discount_amount, valid_from, valid_to, is_active, created_at, updated_at`
 
-	var coupon domain.CouponResponse
+	var coupon promotion.CouponResponse
 	err := repo.db.QueryRow(ctx, query, req.CouponCode, req.Description, req.DiscountType,
 		req.DiscountValue, req.MinOrderAmount, req.MaxDiscountAmount,
 		req.ValidFrom, req.ValidTo).Scan(
@@ -51,7 +51,7 @@ func (repo *CouponRepository) CreateCoupon(ctx context.Context, req *domain.Crea
 	return &coupon, nil
 }
 
-func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *domain.ListCouponsFilter) ([]domain.CouponResponse, error) {
+func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *promotion.ListCouponsFilter) ([]promotion.CouponResponse, error) {
 
 	query := `SELECT 
 			id,
@@ -118,9 +118,9 @@ func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *domain
 	}
 	defer rows.Close()
 
-	var coupons []domain.CouponResponse
+	var coupons []promotion.CouponResponse
 	for rows.Next() {
-		var coupon domain.CouponResponse
+		var coupon promotion.CouponResponse
 		err := rows.Scan(
 			&coupon.ID, &coupon.CouponCode, &coupon.Description,
 			&coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount,
@@ -136,7 +136,7 @@ func (repo *CouponRepository) ListAllCoupons(ctx context.Context, filter *domain
 
 }
 
-func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string, userID int64) (*domain.CouponResponse, error) {
+func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string, userID int64) (*promotion.CouponResponse, error) {
 
 	// fetch referral first ,if not exist move to coupons
 	query := `SELECT 
@@ -147,7 +147,7 @@ func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string
 		created_at
 	FROM referral_coupons
 	WHERE coupon_code = $1 AND is_used = false AND user_id = $2`
-	var coupon domain.CouponResponse
+	var coupon promotion.CouponResponse
 	err := repo.db.QueryRow(ctx, query, couponCode, userID).Scan(
 		&coupon.ID, &coupon.CouponCode, &coupon.DiscountValue, &coupon.MinOrderAmount,
 		&coupon.CreatedAt)
@@ -201,7 +201,7 @@ func (repo *CouponRepository) FetchCoupon(ctx context.Context, couponCode string
 	return &coupon, nil
 }
 
-func (repo *CouponRepository) ListReferralRewards(ctx context.Context, userID int64) ([]domain.CouponResponse, error) {
+func (repo *CouponRepository) ListReferralRewards(ctx context.Context, userID int64) ([]promotion.CouponResponse, error) {
 	query := `SELECT id,
 		coupon_code,
 		discount_amount,
@@ -216,9 +216,9 @@ func (repo *CouponRepository) ListReferralRewards(ctx context.Context, userID in
 	}
 	defer rows.Close()
 
-	var coupons []domain.CouponResponse
+	var coupons []promotion.CouponResponse
 	for rows.Next() {
-		var coupon domain.CouponResponse
+		var coupon promotion.CouponResponse
 		err := rows.Scan(
 			&coupon.ID, &coupon.CouponCode, &coupon.DiscountValue, &coupon.MinOrderAmount,
 			&coupon.CreatedAt)
@@ -239,3 +239,4 @@ func (repo *CouponRepository) ListReferralRewards(ctx context.Context, userID in
 
 	return coupons, nil
 }
+

@@ -6,22 +6,25 @@ import (
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/discount"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type CartService struct {
-	productRepo domain.ProductRepository
-	offerRepo   domain.OfferRepository
-	cartRepo    domain.CartRepository
+	productRepo product.ProductRepository
+	offerRepo   promotion.OfferRepository
+	cartRepo    cart.CartRepository
 	log         *zap.Logger
 }
 
 func NewCartService(
-	cartRepo domain.CartRepository,
-	productRepo domain.ProductRepository,
-	offerRepo domain.OfferRepository,
+	cartRepo cart.CartRepository,
+	productRepo product.ProductRepository,
+	offerRepo promotion.OfferRepository,
 	log *zap.Logger) *CartService {
 	return &CartService{
 		cartRepo:    cartRepo,
@@ -31,7 +34,7 @@ func NewCartService(
 	}
 }
 
-func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartRequest) (*domain.Cart, *apperror.APIError) {
+func (s *CartService) AddToCart(ctx context.Context, req *cart.AddToCartRequest) (*cart.Cart, *apperror.APIError) {
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -81,8 +84,8 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 		}
 	}
 
-	cart, err := s.cartRepo.GetCartByID(ctx, *cartID)
-	log.Println("cart :", cart)
+	cartObj, err := s.cartRepo.GetCartByID(ctx, *cartID)
+	log.Println("cart :", cartObj)
 	if err != nil {
 
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", *cartID), zap.Error(err))
@@ -92,10 +95,10 @@ func (s *CartService) AddToCart(ctx context.Context, req *domain.AddToCartReques
 		}
 	}
 
-	return cart, nil
+	return cartObj, nil
 }
 
-func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIError) {
+func (s *CartService) GetCart(ctx context.Context) (*cart.Cart, *apperror.APIError) {
 
 	utils.LogCtxContent(ctx, s.log)
 
@@ -106,7 +109,7 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 			Message: "Invalid user ID.",
 		}
 	}
-	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
+	cartObj, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByCartID"), zap.Int64("user_id", userID), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -115,8 +118,8 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 		}
 	}
 
-	if cart.Items == nil {
-		return cart, nil
+	if cartObj.Items == nil {
+		return cartObj, nil
 	}
 
 	variantInfo, err := s.cartRepo.GetCartVariantInfo(ctx, userID)
@@ -130,7 +133,7 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 
 	var productIDs []int64
 	var categoryIDs []int64
-	for _, item := range cart.Items {
+	for _, item := range cartObj.Items {
 		productIDs = append(productIDs, item.ProductID)
 		categoryIDs = append(categoryIDs, item.CategoryID)
 		if variantInfo[item.ProductVariantID].Stock < item.Quantity {
@@ -158,16 +161,16 @@ func (s *CartService) GetCart(ctx context.Context) (*domain.Cart, *apperror.APIE
 		log.Println("offers found", "function", "GetAllActiveOffers")
 	}
 
-	log.Println("cart before discounts ", cart)
+	log.Println("cart before discounts ", cartObj)
 
-	domain.ApplyDiscounts(cart, offers)
+	discount.ApplyDiscounts(cartObj, offers)
 
-	log.Println("cart after discounts ", cart)
+	log.Println("cart after discounts ", cartObj)
 
-	return cart, nil
+	return cartObj, nil
 }
 
-func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *domain.UpdateCartItemQuantityRequest) (*domain.Cart, *apperror.APIError) {
+func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *cart.UpdateCartItemQuantityRequest) (*cart.Cart, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
@@ -197,7 +200,7 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *domain.Up
 			Message: "Failed to update cart item quantity.",
 		}
 	}
-	cart, err := s.cartRepo.GetCartByID(ctx, updatedCartID)
+	cartObj, err := s.cartRepo.GetCartByID(ctx, updatedCartID)
 	if err != nil {
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", updatedCartID), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -208,7 +211,7 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *domain.Up
 
 	var productIDs []int64
 	var categoryIDs []int64
-	for _, item := range cart.Items {
+	for _, item := range cartObj.Items {
 		productIDs = append(productIDs, item.ProductID)
 		categoryIDs = append(categoryIDs, item.CategoryID)
 	}
@@ -228,12 +231,12 @@ func (s *CartService) UpdateCartItemQuantity(ctx context.Context, req *domain.Up
 		log.Println("offers found", "function", "GetAllActiveOffers")
 	}
 
-	domain.ApplyDiscounts(cart, offers)
+	discount.ApplyDiscounts(cartObj, offers)
 
-	return cart, nil
+	return cartObj, nil
 }
 
-func (s *CartService) RemoveCartItem(ctx context.Context, req *domain.RemoveCartItemRequest) (*domain.Cart, *apperror.APIError) {
+func (s *CartService) RemoveCartItem(ctx context.Context, req *cart.RemoveCartItemRequest) (*cart.Cart, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
@@ -256,7 +259,7 @@ func (s *CartService) RemoveCartItem(ctx context.Context, req *domain.RemoveCart
 			Message: "Failed to remove cart item.",
 		}
 	}
-	cart, err := s.cartRepo.GetCartByID(ctx, removedCartID)
+	cartObj, err := s.cartRepo.GetCartByID(ctx, removedCartID)
 	if err != nil {
 		s.log.Error("failed to get cart", zap.String("function", "GetCartByID"), zap.Int64("cart_id", removedCartID), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -265,7 +268,7 @@ func (s *CartService) RemoveCartItem(ctx context.Context, req *domain.RemoveCart
 		}
 	}
 
-	return cart, nil
+	return cartObj, nil
 }
 
 func (s *CartService) EmptyCart(ctx context.Context) *apperror.APIError {

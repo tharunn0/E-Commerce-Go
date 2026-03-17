@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
 	"github.com/tharunn0/E-Commerce-Go/internal/infrastructure/payments"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 
@@ -76,7 +76,7 @@ func (h *PaymentHandler) Webhook(c *gin.Context) {
 		return
 	}
 
-	var req domain.WebhookEvent
+	var req payment.WebhookEvent
 
 	if err := json.Unmarshal(body, &req); err != nil {
 		h.logger.Error("failed to unmarshal request body", zap.Error(err))

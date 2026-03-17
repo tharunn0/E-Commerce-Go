@@ -5,24 +5,24 @@ import (
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/wishlist"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type WishlistService struct {
-	repo domain.WishlistRepository
+	repo wishlist.WishlistRepository
 	log  *zap.Logger
 }
 
-func NewWishlistService(wishlistRepository domain.WishlistRepository, logger *zap.Logger) *WishlistService {
+func NewWishlistService(wishlistRepository wishlist.WishlistRepository, logger *zap.Logger) *WishlistService {
 	return &WishlistService{
 		repo: wishlistRepository,
 		log:  logger,
 	}
 }
 
-func (s *WishlistService) AddToWishlist(ctx context.Context, productID int64) (*domain.Wishlist, *apperror.APIError) {
+func (s *WishlistService) AddToWishlist(ctx context.Context, productID int64) (*wishlist.Wishlist, *apperror.APIError) {
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -73,9 +73,7 @@ func (s *WishlistService) AddToWishlist(ctx context.Context, productID int64) (*
 		}
 	}
 
-	var _ domain.Wishlist
-
-	wishlist, err := s.repo.GetWishlistByID(ctx, wishlistId)
+	wish, err := s.repo.GetWishlistByID(ctx, wishlistId)
 	if err != nil {
 		s.log.Error("Failed to retrieve wishlist", zap.String("service-func", "WishlistService.AddToWishlist"), zap.Error(err))
 		return nil, &apperror.APIError{
@@ -84,10 +82,10 @@ func (s *WishlistService) AddToWishlist(ctx context.Context, productID int64) (*
 			Message: "Failed to retrieve wishlist",
 		}
 	}
-	return wishlist, nil
+	return wish, nil
 }
 
-func (s *WishlistService) GetWishlistByUserID(ctx context.Context) (*domain.Wishlist, *apperror.APIError) {
+func (s *WishlistService) GetWishlistByUserID(ctx context.Context) (*wishlist.Wishlist, *apperror.APIError) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, &apperror.APIError{
@@ -102,14 +100,14 @@ func (s *WishlistService) GetWishlistByUserID(ctx context.Context) (*domain.Wish
 		}
 	}
 
-	wishlist, err := s.repo.GetWishlistByUserID(ctx, userID)
+	wish, err := s.repo.GetWishlistByUserID(ctx, userID)
 	if err != nil {
 		return nil, &apperror.APIError{
 			Code:    "DB_ERROR",
 			Message: "Failed to retrieve wishlist",
 		}
 	}
-	return wishlist, nil
+	return wish, nil
 }
 
 func (s *WishlistService) RemoveFromWishlist(ctx context.Context, productIDs []int64) *apperror.APIError {

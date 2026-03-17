@@ -8,24 +8,29 @@ import (
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/discount"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/shipping"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
 	"go.uber.org/zap"
 )
 
 type CouponService struct {
 	log       *zap.Logger
-	repo      domain.CouponRepository
-	userRepo  domain.UserRepository
-	cartRepo  domain.CartRepository
-	offerRepo domain.OfferRepository
+	repo      promotion.CouponRepository
+	userRepo  user.UserRepository
+	cartRepo  cart.CartRepository
+	offerRepo promotion.OfferRepository
 }
 
-func NewCouponService(repo domain.CouponRepository, log *zap.Logger, userRepo domain.UserRepository, cartRepo domain.CartRepository, offerRepo domain.OfferRepository) *CouponService {
+func NewCouponService(repo promotion.CouponRepository, log *zap.Logger, userRepo user.UserRepository, cartRepo cart.CartRepository, offerRepo promotion.OfferRepository) *CouponService {
 	return &CouponService{repo: repo, log: log, userRepo: userRepo, cartRepo: cartRepo, offerRepo: offerRepo}
 }
 
-func (serv *CouponService) CreateCoupon(ctx context.Context, req *domain.CreateCouponRequest) (*domain.CouponResponse, *apperror.APIError) {
+func (serv *CouponService) CreateCoupon(ctx context.Context, req *promotion.CreateCouponRequest) (*promotion.CouponResponse, *apperror.APIError) {
 
 	// validate coupon request
 	if err := req.Validate(); err != nil {
@@ -60,7 +65,7 @@ func (serv *CouponService) CreateCoupon(ctx context.Context, req *domain.CreateC
 	return created, nil
 }
 
-func (serv *CouponService) ListAllCoupons(ctx context.Context, filter *domain.ListCouponsFilter) ([]domain.CouponResponse, *apperror.APIError) {
+func (serv *CouponService) ListAllCoupons(ctx context.Context, filter *promotion.ListCouponsFilter) ([]promotion.CouponResponse, *apperror.APIError) {
 
 	if !utils.IsAdmin(ctx) {
 		filter = nil
@@ -81,12 +86,12 @@ func (serv *CouponService) ListAllCoupons(ctx context.Context, filter *domain.Li
 	return coupons, nil
 }
 
-func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCouponRequest) (*domain.CartCheckoutResponse, []domain.NotEnoughStockError, *apperror.APIError) {
+func (s *CouponService) ApplyCoupon(ctx context.Context, req *promotion.ApplyCouponRequest) (*order.CartCheckoutResponse, []order.NotEnoughStockError, *apperror.APIError) {
 
 	log.Println("[service] apply coupon hit")
 
 	// validate delivery type
-	if req.DeliveryType != domain.DeliveryTypeNormal && req.DeliveryType != domain.DeliveryTypeExpress {
+	if req.DeliveryType != shipping.DeliveryTypeNormal && req.DeliveryType != shipping.DeliveryTypeExpress {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusBadRequest,
 			Code:    "BAD_REQUEST",
@@ -135,7 +140,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 	}
 
 	// get cart by user id
-	cart, err := s.cartRepo.GetCartByUserID(ctx, userID)
+	cartObj, err := s.cartRepo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		if err == apperror.ErrCartNotFound {
 			s.log.Error("Failed to get cart", zap.Error(err))
@@ -153,7 +158,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 		}
 	}
 
-	if cart.Items == nil {
+	if cartObj.Items == nil {
 		return nil, nil, &apperror.APIError{
 			Status:  http.StatusNotFound,
 			Code:    "NOT_FOUND",
@@ -182,14 +187,14 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 	}
 
 	// validate not enough stock
-	notEnoughStockError := utils.ValidateOrderItemsStock(cartVariantInfo, cart)
+	notEnoughStockError := utils.ValidateOrderItemsStock(cartVariantInfo, cartObj)
 	if len(notEnoughStockError) > 0 {
 		return nil, notEnoughStockError, nil
 	}
 
 	var productIds, categoryIds []int64
 
-	for _, item := range cart.Items {
+	for _, item := range cartObj.Items {
 		productIds = append(productIds, item.ProductID)
 		categoryIds = append(categoryIds, item.CategoryID)
 	}
@@ -207,7 +212,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 	}
 
 	if len(offers) > 0 {
-		domain.ApplyDiscounts(cart, offers)
+		discount.ApplyDiscounts(cartObj, offers)
 	}
 
 	// apply coupons
@@ -224,7 +229,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 		}
 
 		if err == apperror.ErrCouponNotFound {
-			cart.CouponData = &domain.CouponData{
+			cartObj.CouponData = &promotion.CouponData{
 				CouponCode:       req.CouponCode,
 				DiscountType:     "nil",
 				DiscountValue:    0,
@@ -233,7 +238,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 			}
 		} else {
 
-			err = domain.ValidateCoupon(coupon, time.Now())
+			err = promotion.ValidateCoupon(coupon, time.Now())
 			if err != nil {
 				return nil, nil, &apperror.APIError{
 					Status:  http.StatusBadRequest,
@@ -242,7 +247,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 				}
 			}
 
-			err = domain.ApplyCouponToCart(cart, coupon)
+			err = cart.ApplyCouponToCart(cartObj, coupon)
 			if err != nil {
 				return nil, nil, &apperror.APIError{
 					Status:  http.StatusBadRequest,
@@ -253,24 +258,24 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 		}
 	}
 	// shipping charge
-	shippingAmount := domain.DeliveryTypeCharges[req.DeliveryType]
+	shippingAmount := shipping.DeliveryTypeCharges[req.DeliveryType]
 
 	// delivery time and date
-	estimatedDeliveryTime, err := domain.GetDeliveryDays(userAddr.District)
+	estimatedDeliveryTime, err := shipping.GetDeliveryDays(userAddr.District)
 	if err != nil {
 		estimatedDeliveryTime = 7
 		shippingAmount = 150
 	}
-	estimatedDeliveryDate, err := domain.CalculateDeliveryDate(userAddr.District)
+	estimatedDeliveryDate, err := shipping.CalculateDeliveryDate(userAddr.District)
 	if err != nil {
 		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
 	}
 
 	// final cart items price
-	totalAmount := cart.CartTotalPrice + shippingAmount
+	totalAmount := cartObj.CartTotalPrice + shippingAmount
 
-	resp := &domain.CartCheckoutResponse{
-		Cart:                  cart,
+	resp := &order.CartCheckoutResponse{
+		Cart:                  cartObj,
 		ShippingCost:          shippingAmount,
 		TotalAmount:           totalAmount,
 		DeliveryType:          req.DeliveryType,
@@ -279,7 +284,7 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *domain.ApplyCoupon
 		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
 	}
 
-	s.log.Info("[service] Cart checkout successful", zap.Any("cart", cart), zap.Any("address", userAddr))
+	s.log.Info("[service] Cart checkout successful", zap.Any("cart", cartObj), zap.Any("address", userAddr))
 
 	return resp, nil, nil
 }

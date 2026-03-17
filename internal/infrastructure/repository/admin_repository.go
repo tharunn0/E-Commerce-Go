@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/user"
 )
 
 type AdminRepository struct {
@@ -21,7 +21,7 @@ func NewAdminRepository(db *pgxpool.Pool) *AdminRepository {
 	}
 }
 
-func (repo *AdminRepository) CreateAdmin(ctx context.Context, req *domain.AdminRegisterRequest) error {
+func (repo *AdminRepository) CreateAdmin(ctx context.Context, req *user.AdminRegisterRequest) error {
 	query := `INSERT INTO users (email, phone, password, first_name, last_name, role,is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	cmdTag, err := repo.DB.Exec(ctx, query, req.Email, req.Phone, req.Password, req.FirstName, req.LastName, "admin", true)
 	if err != nil {
@@ -45,41 +45,41 @@ func (repo *AdminRepository) CreateAdmin(ctx context.Context, req *domain.AdminR
 	return nil
 }
 
-func (repo *AdminRepository) GetAdmin(ctx context.Context, email string) (*domain.User, error) {
-	user := &domain.User{}
+func (repo *AdminRepository) GetAdmin(ctx context.Context, email string) (*user.User, error) {
+	userObj := &user.User{}
 	err := repo.DB.QueryRow(ctx,
 		`SELECT id, email, phone, password, first_name, last_name, role,is_verified , status FROM users
     WHERE role = 'admin' AND email = $1;
-	`, email).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status)
+	`, email).Scan(&userObj.ID, &userObj.Email, &userObj.Phone, &userObj.Password, &userObj.FirstName,
+		&userObj.LastName, &userObj.Role, &userObj.IsVerified, &userObj.Status)
 	if err != nil {
 		return nil, err
 	}
-	return user, nil
+	return userObj, nil
 }
 
-func (repo *AdminRepository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
-	user := &domain.User{}
+func (repo *AdminRepository) GetUserByEmail(ctx context.Context, email string) (*user.User, error) {
+	userObj := &user.User{}
 	err := repo.DB.QueryRow(ctx,
 		`SELECT id, email, phone, password, first_name, last_name, role, is_verified, status, created_at, updated_at
 		 FROM users WHERE email = $1 AND status = 'active'`,
-		email).Scan(&user.ID, &user.Email, &user.Phone, &user.Password, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt)
+		email).Scan(&userObj.ID, &userObj.Email, &userObj.Phone, &userObj.Password, &userObj.FirstName,
+		&userObj.LastName, &userObj.Role, &userObj.IsVerified, &userObj.Status, &userObj.CreatedAt, &userObj.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return user, nil
+	return userObj, nil
 }
 
-func (repo *AdminRepository) GetUsersByID(ctx context.Context, id int64) (*domain.UserProfile, error) {
+func (repo *AdminRepository) GetUsersByID(ctx context.Context, id int64) (*user.UserProfile, error) {
 
-	user := &domain.UserProfile{}
+	userProfile := &user.UserProfile{}
 
 	query := `SELECT id, email,COALESCE(phone,''), first_name, last_name, role, is_verified, status, created_at, updated_at FROM users
 	WHERE id = $1`
 
-	err := repo.DB.QueryRow(ctx, query, id).Scan(&user.ID, &user.Email, &user.Phone, &user.FirstName,
-		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt)
+	err := repo.DB.QueryRow(ctx, query, id).Scan(&userProfile.ID, &userProfile.Email, &userProfile.Phone, &userProfile.FirstName,
+		&userProfile.LastName, &userProfile.Role, &userProfile.IsVerified, &userProfile.Status, &userProfile.CreatedAt, &userProfile.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -87,25 +87,25 @@ func (repo *AdminRepository) GetUsersByID(ctx context.Context, id int64) (*domai
 	query = `SELECT id,label, address_line, address_line, pincode, city, state, country, created_at, updated_at
 	FROM user_addresses WHERE user_id = $1`
 
-	rows, err := repo.DB.Query(ctx, query, user.ID)
+	rows, err := repo.DB.Query(ctx, query, userProfile.ID)
 	if err != nil {
 		return nil, err
 	}
-	var addr = &domain.UserAddress{}
 	for rows.Next() {
+		addr := &user.UserAddress{}
 		err = rows.Scan(&addr.ID, &addr.Label, &addr.AddressLine, &addr.AddressLine2, &addr.Pincode, &addr.City,
 			&addr.State, &addr.Country, &addr.CreatedAt, &addr.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
 
-		user.Addresses = append(user.Addresses, addr)
+		userProfile.Addresses = append(userProfile.Addresses, addr)
 	}
 
-	return user, nil
+	return userProfile, nil
 }
 
-func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserFilter) ([]*domain.UserProfile, error) {
+func (repo *AdminRepository) ListUsers(ctx context.Context, filter *user.UserFilter) ([]*user.UserProfile, error) {
 	query := `
 		SELECT id, email, COALESCE(phone,''), first_name, last_name, role, is_verified, status, created_at, updated_at
 		FROM users
@@ -155,17 +155,17 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 	}
 	defer rows.Close()
 
-	var users []*domain.UserProfile
+	var users []*user.UserProfile
 	for rows.Next() {
-		var user domain.UserProfile
+		var userObj user.UserProfile
 		if err = rows.Scan(
-			&user.ID, &user.Email, &user.Phone,
-			&user.FirstName, &user.LastName, &user.Role,
-			&user.IsVerified, &user.Status, &user.CreatedAt, &user.UpdatedAt,
+			&userObj.ID, &userObj.Email, &userObj.Phone,
+			&userObj.FirstName, &userObj.LastName, &userObj.Role,
+			&userObj.IsVerified, &userObj.Status, &userObj.CreatedAt, &userObj.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
-		users = append(users, &user)
+		users = append(users, &userObj)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (repo *AdminRepository) ListUsers(ctx context.Context, filter *domain.UserF
 	return users, nil
 }
 
-func (repo *AdminRepository) UpdateUserStatus(ctx context.Context, req *domain.UserStatusUpdateRequest) error {
+func (repo *AdminRepository) UpdateUserStatus(ctx context.Context, req *user.UserStatusUpdateRequest) error {
 	_, err := repo.DB.Exec(ctx,
 		`UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`,
 		req.Status, req.UserID)
@@ -200,3 +200,4 @@ func (repo *AdminRepository) DeleteUser(ctx context.Context, id int64) error {
 	}
 	return nil
 }
+

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tharunn0/E-Commerce-Go/internal/domain"
+	"github.com/tharunn0/E-Commerce-Go/internal/domain/report"
 	"github.com/tharunn0/E-Commerce-Go/internal/service"
 	"go.uber.org/zap"
 )
@@ -26,7 +26,7 @@ func (h *ReportHandler) GetSalesReport(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.SalesReportRequest
+	var req report.SalesReportRequest
 
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -43,7 +43,7 @@ func (h *ReportHandler) GetSalesReport(c *gin.Context) {
 	log.Println("handler - from  :", req.From)
 	log.Println("handler - to date :", req.To)
 
-	report, apierr := h.serv.GetSalesReport(ctx, req)
+	reportData, apierr := h.serv.GetSalesReport(ctx, req)
 	if apierr != nil {
 
 		c.JSON(apierr.Status, gin.H{
@@ -56,7 +56,7 @@ func (h *ReportHandler) GetSalesReport(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":       "success",
-		"sales_report": report,
+		"sales_report": reportData,
 	})
 
 }
@@ -65,7 +65,7 @@ func (h *ReportHandler) GetTopSelling(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.TopSellingRequest
+	var req report.TopSellingRequest
 
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -97,7 +97,7 @@ func (h *ReportHandler) GetRevenueAnalytics(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	var req domain.RevenueAnalyticsRequest
+	var req report.RevenueAnalyticsRequest
 
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -107,7 +107,7 @@ func (h *ReportHandler) GetRevenueAnalytics(c *gin.Context) {
 		return
 	}
 
-	report, apierr := h.serv.GetRevenueAnalytics(ctx, req)
+	reportData, apierr := h.serv.GetRevenueAnalytics(ctx, req)
 	if apierr != nil {
 
 		c.JSON(apierr.Status, gin.H{
@@ -120,7 +120,7 @@ func (h *ReportHandler) GetRevenueAnalytics(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":            "success",
-		"revenue_analytics": report,
+		"revenue_analytics": reportData,
 	})
 
 }
