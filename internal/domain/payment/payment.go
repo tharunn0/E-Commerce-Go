@@ -80,6 +80,7 @@ type WebhookPayment struct {
 	CreatedAt int64             `json:"created_at"`
 }
 
+//go:generate mockgen -destination=mocks/mock_payment.go -package=mocks . PaymentGateway
 type PaymentGateway interface {
 	CreatePayment(ctx context.Context, req Request) (*Response, error)
 }
