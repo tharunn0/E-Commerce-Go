@@ -18,6 +18,7 @@ func ApplyDiscounts(cart *cart.Cart, offers []*promotion.Offer) {
 		baseTotal := unitPrice * float64(item.Quantity)
 
 		var bestDiscount float64
+		var bestOffer *promotion.AppliedOfferData
 
 		// 2️⃣ Evaluate offers
 		for _, offer := range offers {
@@ -51,10 +52,7 @@ func ApplyDiscounts(cart *cart.Cart, offers []*promotion.Offer) {
 
 			if discount > bestDiscount {
 				bestDiscount = discount
-			}
-
-			if discount > 0 {
-				item.AppliedOffer = &promotion.AppliedOfferData{
+				bestOffer = &promotion.AppliedOfferData{
 					OfferID:        offer.ID,
 					OfferName:      offer.Name,
 					DiscountType:   offer.DiscountType,
@@ -62,7 +60,6 @@ func ApplyDiscounts(cart *cart.Cart, offers []*promotion.Offer) {
 					DiscountAmount: discount,
 				}
 			}
-
 		}
 
 		// 4️⃣ Cap discount
@@ -77,9 +74,15 @@ func ApplyDiscounts(cart *cart.Cart, offers []*promotion.Offer) {
 
 			item.SalePrice = &discountedUnit
 			item.TotalPrice = discountedTotal
+			item.AppliedOffer = bestOffer
+			// update bestOffer discount amount if it was capped
+			if bestDiscount < bestOffer.DiscountAmount {
+				item.AppliedOffer.DiscountAmount = bestDiscount
+			}
 		} else {
 			item.SalePrice = nil
 			item.TotalPrice = baseTotal
+			item.AppliedOffer = nil
 		}
 
 		// 6️⃣ Accumulate cart total
