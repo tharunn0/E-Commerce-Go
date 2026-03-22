@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+//go:generate mockgen -destination=mocks/mock_offer_repo.go -package=mocks . OfferRepository
 type OfferRepository interface {
 	CreateOffer(ctx context.Context, req *CreateOfferRequest) error
 
@@ -18,6 +19,7 @@ type OfferRepository interface {
 	// GetAllOffers(ctx context.Context) ([]Offer, error)
 }
 
+//go:generate mockgen -destination=mocks/mock_coupon_repo.go -package=mocks . CouponRepository
 type CouponRepository interface {
 	CreateCoupon(ctx context.Context, req *CreateCouponRequest) (*CouponResponse, error)
 

@@ -45,6 +45,12 @@ cd <repo-name>
 
 ---
 
+Dowload golang dependencies
+
+```
+go mod tidy
+```
+
 # 2. Configure Environment Variables
 
 Copy the example environment file:

@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+//go:generate mockgen -destination=mocks/mock_cart_repo.go -package=mocks . CartRepository
 type CartRepository interface {
 	AddToCart(ctx context.Context, userID int64, productVariantID int64, quantity int64) (*int64, error)
 	GetCartByID(ctx context.Context, cartID int64) (*Cart, error)

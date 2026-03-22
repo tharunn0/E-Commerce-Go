@@ -10,19 +10,18 @@ import (
 	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/auth"
 	"github.com/tharunn0/E-Commerce-Go/internal/utils"
-	"github.com/tharunn0/E-Commerce-Go/pkg/mailer"
 	"go.uber.org/zap"
 )
 
 type AuthService struct {
 	repo   auth.AuthRepository
-	sender *mailer.MailSender
+	sender auth.EmailSender
 	log    *zap.Logger
 
 	cfg *config.SecuritySettings
 }
 
-func NewAuthService(Repo auth.AuthRepository, Sender *mailer.MailSender, logger *zap.Logger, cfg *config.SecuritySettings) *AuthService {
+func NewAuthService(Repo auth.AuthRepository, Sender auth.EmailSender, logger *zap.Logger, cfg *config.SecuritySettings) *AuthService {
 	return &AuthService{
 		repo:   Repo,
 		sender: Sender,

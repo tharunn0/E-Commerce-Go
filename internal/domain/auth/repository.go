@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+type EmailSender interface {
+	SendMail(ctx context.Context, templatePath, to, subject string, data interface{}) error
+}
+
 type AuthRepository interface {
 
 	// user verification

@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+//go:generate mockgen -destination=mocks/mock_product_repo.go -package=mocks . ProductRepository
 type ProductRepository interface {
 	// Brand operations
 	CreateBrand(ctx context.Context, createBrandRequest *CreateBrandRequest) (*Brand, error)
