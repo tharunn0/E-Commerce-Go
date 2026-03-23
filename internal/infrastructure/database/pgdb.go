@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,6 +23,7 @@ func InitDB(connStr string, logger *zap.Logger) *pgxpool.Pool {
 	// Pinging the database to verify the connection pool
 	var res int
 	if er = dbpool.QueryRow(ctx, "SELECT 9;").Scan(&res); res != 9 || er != nil {
+		log.Println("err :", er)
 		logger.Panic("DATABASE_PING_FAILED")
 	}
 
