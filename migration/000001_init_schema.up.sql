@@ -137,17 +137,6 @@ CREATE TABLE carts (
 );
 
 
-CREATE TABLE cart_items (
-    id BIGSERIAL PRIMARY KEY,
-    cart_id BIGINT NOT NULL
-        REFERENCES carts(id) ON DELETE CASCADE,
-    product_variant_id BIGINT NOT NULL
-        REFERENCES product_variants(id) ON DELETE RESTRICT,
-    quantity INTEGER DEFAULT 1 NOT NULL CHECK (quantity > 0),
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    CONSTRAINT ux_cart_items_cart_variant UNIQUE (cart_id, product_variant_id)
-);
 
 
 CREATE TABLE products (
@@ -181,6 +170,17 @@ CREATE TABLE product_variants (
     updated_at TIMESTAMPTZ
 );
 
+CREATE TABLE cart_items (
+    id BIGSERIAL PRIMARY KEY,
+    cart_id BIGINT NOT NULL
+        REFERENCES carts(id) ON DELETE CASCADE,
+    product_variant_id BIGINT NOT NULL
+        REFERENCES product_variants(id) ON DELETE RESTRICT,
+    quantity INTEGER DEFAULT 1 NOT NULL CHECK (quantity > 0),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT ux_cart_items_cart_variant UNIQUE (cart_id, product_variant_id)
+);
 
 CREATE TABLE product_variant_images (
     id BIGSERIAL PRIMARY KEY,
