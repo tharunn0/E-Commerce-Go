@@ -40,6 +40,8 @@ type HandlerDeps struct {
 	OAuthConfig *oauth2.Config
 	Razorpay    *razorpay.Client
 	Cfg         *config.AppConfig
+	DB          *pgxpool.Pool
+	Redis       *redis.Client
 }
 
 type ServerDeps struct {
@@ -86,6 +88,8 @@ func InitDependencies() *Dependencies {
 			OAuthConfig: oauth,
 			Razorpay:    razorpayClient,
 			Cfg:         cfg,
+			DB:          pgdb,
+			Redis:       redisdb,
 		},
 		ServerDeps: ServerDeps{
 			Logger: log,

@@ -105,6 +105,7 @@ type Handlers struct {
 	Coupon   *handler.CouponHandler
 	Report   *handler.ReportHandler
 	Review   *handler.ReviewHandler
+	Health   *handler.HealthHandler
 }
 
 func NewHandlers(s *Services, deps HandlerDeps) *Handlers {
@@ -121,5 +122,6 @@ func NewHandlers(s *Services, deps HandlerDeps) *Handlers {
 		Coupon:   handler.NewCouponHandler(s.Coupon, deps.Logger),
 		Report:   handler.NewReportHandler(s.Report, deps.Logger),
 		Review:   handler.NewReviewHandler(s.Review, deps.Logger),
+		Health:   handler.NewHealthHandler(deps.DB, deps.Redis, deps.Logger),
 	}
 }

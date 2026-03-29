@@ -21,6 +21,7 @@ type Handler struct {
 	Coupon   *handler.CouponHandler
 	Report   *handler.ReportHandler
 	Review   *handler.ReviewHandler
+	Health   *handler.HealthHandler
 }
 
 func NewRouteHandler(
@@ -36,6 +37,7 @@ func NewRouteHandler(
 	coupon *handler.CouponHandler,
 	report *handler.ReportHandler,
 	review *handler.ReviewHandler,
+	health *handler.HealthHandler,
 ) *Handler {
 	return &Handler{
 		User:     user,
@@ -50,6 +52,7 @@ func NewRouteHandler(
 		Coupon:   coupon,
 		Report:   report,
 		Review:   review,
+		Health:   health,
 	}
 }
 
@@ -60,6 +63,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 			"msg": "Server up and ready to roll",
 		})
 	})
+
+	g.GET("/health", h.Health.HealthCheck)
 
 	{
 		userAuth := g.Group("/api/v1/auth/users/")

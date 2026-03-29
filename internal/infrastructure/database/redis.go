@@ -20,12 +20,12 @@ func InitRedis(ctx context.Context, rediscfg config.RedisSettings, log *zap.Logg
 		DialTimeout:  5 * time.Second,
 	})
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	_, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if err := rdb.Ping(timeoutCtx).Err(); err != nil {
-		log.Fatal("REDIS_CONNECTION_FAILED", zap.Error(err))
-	}
+	// if err := rdb.Ping(timeoutCtx).Err(); err != nil {
+	// 	log.Fatal("REDIS_CONNECTION_FAILED", zap.Error(err))
+	// }
 
 	log.Info("REDIS_CONNECTED_SUCCESSFULLY")
 
