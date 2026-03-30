@@ -26,7 +26,8 @@ func NewHealthHandler(db *pgxpool.Pool, redis *redis.Client, logger *zap.Logger)
 }
 
 func (h *HealthHandler) HealthCheck(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	// Check Database
