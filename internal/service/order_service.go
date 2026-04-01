@@ -63,8 +63,6 @@ func NewOrderService(
 	}
 }
 
-// CHECKOUT SERVICES
-// ///////////////////////
 // checkout cart
 func (s *OrderService) CheckoutCart(ctx context.Context, req order.CartCheckoutRequest) (*order.CartCheckoutResponse, []order.NotEnoughStockError, *apperror.APIError) {
 
@@ -218,115 +216,6 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req order.CartCheckoutR
 	s.log.Info("Cart checkout successful", zap.Any("cart", cartObj), zap.Any("address", userAddr))
 
 	return resp, nil, nil
-}
-
-// checkout product variant
-func (s *OrderService) CheckoutProductVariant(ctx context.Context, req *order.ProductVariantCheckoutRequest) (*order.ProductVariantCheckoutResponse, *apperror.APIError) {
-	activeonly := !utils.IsAdmin(ctx)
-	// validate delivery type
-	if req.DeliveryType != shipping.DeliveryTypeNormal && req.DeliveryType != shipping.DeliveryTypeExpress {
-		return nil, &apperror.APIError{
-			Status:  http.StatusBadRequest,
-			Code:    "BAD_REQUEST",
-			Message: "Invalid delivery type.",
-		}
-	}
-
-	// get user id from context
-	userID, err := utils.GetUserIDFromContext(ctx)
-	if err != nil {
-		return nil, &apperror.APIError{
-			Status:  http.StatusUnauthorized,
-			Code:    "UNAUTHORIZED",
-			Message: "You are not authorized to perform this action.",
-		}
-	}
-
-	// validate address exists
-	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
-	if err != nil {
-		if err == apperror.ErrAddressNotFoundForUser {
-			return nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrAddressNotFoundForUser.Error(),
-			}
-		}
-		s.log.Error("Failed to get address", zap.Error(err))
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get address.",
-		}
-	}
-
-	// validate address belongs to user
-	if userAddr.UserID != userID {
-		return nil, &apperror.APIError{
-			Status:  http.StatusUnauthorized,
-			Code:    "UNAUTHORIZED",
-			Message: "You do not have access to this address.",
-		}
-	}
-
-	productVariant, err := s.productRepo.GetProductVariantByID(ctx, req.ProductVariantID, activeonly)
-	if err != nil {
-		if err == apperror.ErrProductVariantNotFound {
-			return nil, &apperror.APIError{
-				Status:  http.StatusNotFound,
-				Code:    "NOT_FOUND",
-				Message: apperror.ErrProductVariantNotFound.Error(),
-			}
-		}
-		s.log.Error("Failed to get product variant", zap.Error(err))
-		return nil, &apperror.APIError{
-			Status:  http.StatusInternalServerError,
-			Code:    "DB_ERROR",
-			Message: "Failed to get product variant.",
-		}
-	}
-
-	if productVariant.Stock < int(req.Quantity) {
-		return nil, &apperror.APIError{
-			Status:  http.StatusNotFound,
-			Code:    "NOT_FOUND",
-			Message: apperror.ErrNoStock.Error(),
-		}
-	}
-
-	// final shipping charge
-	shippingAmount := shipping.DeliveryTypeCharges[req.DeliveryType]
-
-	// final delivery time and date
-	var totalAmount float64
-	estimatedDeliveryTime, err := shipping.GetDeliveryDays(userAddr.District)
-	if err != nil {
-		estimatedDeliveryTime = 7
-		shippingAmount = 150
-	}
-	estimatedDeliveryDate, err := shipping.CalculateDeliveryDate(userAddr.District)
-	if err != nil {
-		estimatedDeliveryDate = time.Now().AddDate(0, 0, estimatedDeliveryTime)
-	}
-
-	// final product variant price
-	if productVariant.SalePrice == nil {
-		totalAmount = productVariant.OriginalPrice + shippingAmount
-	} else {
-		totalAmount = *productVariant.SalePrice + shippingAmount
-	}
-
-	resp := &order.ProductVariantCheckoutResponse{
-		ProductVariant:        productVariant,
-		ShippingCost:          shippingAmount,
-		TotalAmount:           totalAmount,
-		DeliveryType:          req.DeliveryType,
-		Address:               userAddr,
-		EstimatedDeliveryTime: fmt.Sprintf("%d days", estimatedDeliveryTime),
-		EstimatedDeliveryDate: estimatedDeliveryDate.String(),
-	}
-
-	return resp, nil
 }
 
 // create order
