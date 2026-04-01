@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -287,4 +288,38 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *promotion.ApplyCou
 	s.log.Info("[service] Cart checkout successful", zap.Any("cart", cartObj), zap.Any("address", userAddr))
 
 	return resp, nil, nil
+}
+
+func (s *CouponService) UpdateCoupon(ctx context.Context, req *promotion.UpdateCouponRequest) (*promotion.CouponResponse, *apperror.APIError) {
+
+	// fetch the coupon
+	_, err := s.repo.FetchCouponByID(ctx, req.ID)
+	if err != nil {
+
+		if errors.Is(err, apperror.ErrCouponNotFound) {
+			return nil, &apperror.APIError{
+				Status:  http.StatusNotFound,
+				Code:    "NOT_FOUND",
+				Message: "Coupon not found.",
+			}
+		}
+
+		return nil, &apperror.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "DB_ERROR",
+			Message: "Failed to get coupon.",
+		}
+	}
+
+	updatedCoupon, err := s.repo.UpdateCoupon(ctx, req)
+	if err != nil {
+		s.log.Error("Failed to update coupon", zap.Error(err))
+		return nil, &apperror.APIError{
+			Status:  http.StatusConflict,
+			Code:    "UPDATE_FAILED",
+			Message: "Failed to update coupon.",
+		}
+	}
+
+	return updatedCoupon, nil
 }

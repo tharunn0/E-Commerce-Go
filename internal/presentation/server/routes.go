@@ -272,8 +272,8 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		couponAdminRoute := g.Group("api/v1/admin/coupons").Use(middleware.JWTMiddleware("admin", logger, cfg.JWTSecret))
 		couponAdminRoute.POST("/", h.Coupon.CreateCoupon)
 		couponAdminRoute.GET("/", h.Coupon.ListAllCoupons)
+		couponAdminRoute.PATCH("/:id", h.Coupon.UpdateCoupon)
 		// couponAdminRoute.GET("/:id", h.Coupon.GetCouponByID)
-		// couponAdminRoute.PUT("/:id", h.Coupon.UpdateCoupon)
 		// couponAdminRoute.DELETE("/:id", h.Coupon.DeleteCoupon)
 
 		couponUserRoute := g.Group("api/v1/coupons").Use(middleware.JWTMiddleware("user", logger, cfg.JWTSecret))

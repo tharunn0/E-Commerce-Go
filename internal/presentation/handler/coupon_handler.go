@@ -3,6 +3,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/promotion"
@@ -82,5 +83,33 @@ func (h *CouponHandler) ApplyCoupon(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Coupon applied successfully", "status": "success", "data": coupon})
+
+}
+
+func (h *CouponHandler) UpdateCoupon(c *gin.Context) {
+
+	log.Println("[handler] update coupon hit")
+
+	ctx := c.Request.Context()
+
+	idStr := c.Param("id")
+
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+
+	var req promotion.UpdateCouponRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	req.ID = id
+
+	coupon, apierr := h.serv.UpdateCoupon(ctx, &req)
+	if apierr != nil {
+		c.JSON(apierr.Status, gin.H{"error": apierr.Code, "message": apierr.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Coupon updated successfully", "status": "success", "data": coupon})
 
 }

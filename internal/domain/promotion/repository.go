@@ -23,9 +23,13 @@ type OfferRepository interface {
 type CouponRepository interface {
 	CreateCoupon(ctx context.Context, req *CreateCouponRequest) (*CouponResponse, error)
 
+	UpdateCoupon(ctx context.Context, req *UpdateCouponRequest) (*CouponResponse, error)
+
 	ListAllCoupons(ctx context.Context, filter *ListCouponsFilter) ([]CouponResponse, error)
 
 	ListReferralRewards(ctx context.Context, userID int64) ([]CouponResponse, error)
 
 	FetchCoupon(ctx context.Context, couponCode string, userID int64) (*CouponResponse, error)
+
+	FetchCouponByID(ctx context.Context, couponID int64) (*CouponResponse, error)
 }

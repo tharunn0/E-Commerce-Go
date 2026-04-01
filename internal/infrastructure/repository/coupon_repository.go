@@ -240,3 +240,72 @@ func (repo *CouponRepository) ListReferralRewards(ctx context.Context, userID in
 	return coupons, nil
 }
 
+func (repo *CouponRepository) FetchCouponByID(ctx context.Context, couponID int64) (*promotion.CouponResponse, error) {
+
+	query := `SELECT 
+		id,
+		code,
+		description,
+		discount_type,
+		discount_value,
+		min_order_amount,
+		max_discount_amount,
+		is_active,
+		valid_from,
+		valid_to,
+		created_at,
+		updated_at
+	FROM coupons
+	WHERE id = $1`
+
+	var coupon promotion.CouponResponse
+	err := repo.db.QueryRow(ctx, query, couponID).Scan(
+		&coupon.ID, &coupon.CouponCode, &coupon.Description,
+		&coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount,
+		&coupon.MaxDiscountAmount, &coupon.IsActive, &coupon.ValidFrom, &coupon.ValidTo,
+		&coupon.CreatedAt, &coupon.UpdatedAt)
+	if err != nil {
+		log.Println("Error fetching coupon:", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperror.ErrCouponNotFound
+		}
+		return nil, err
+	}
+
+	return &coupon, nil
+}
+
+func (repo *CouponRepository) UpdateCoupon(ctx context.Context, req *promotion.UpdateCouponRequest) (*promotion.CouponResponse, error) {
+
+	query := `UPDATE coupons 
+		SET 
+			description = COALESCE($2, description),
+			discount_type = COALESCE($3, discount_type),
+			discount_value = COALESCE($4, discount_value),
+			min_order_amount = COALESCE($5, min_order_amount),
+			max_discount_amount = COALESCE($6, max_discount_amount),
+			valid_from = COALESCE($7, valid_from),
+			valid_to = COALESCE($8, valid_to),
+			is_active = COALESCE($9, is_active)
+		WHERE id = $1
+		RETURNING id, code, description, discount_type, discount_value, min_order_amount, max_discount_amount, is_active, valid_from, valid_to, created_at, updated_at`
+
+	var coupon promotion.CouponResponse
+	err := repo.db.QueryRow(ctx, query, req.ID, req.Description,
+		req.DiscountType, req.DiscountValue, req.MinOrderAmount,
+		req.MaxDiscountAmount, req.ValidFrom, req.ValidTo, req.IsActive).Scan(
+		&coupon.ID, &coupon.CouponCode, &coupon.Description,
+		&coupon.DiscountType, &coupon.DiscountValue, &coupon.MinOrderAmount,
+		&coupon.MaxDiscountAmount, &coupon.IsActive, &coupon.ValidFrom, &coupon.ValidTo,
+		&coupon.CreatedAt, &coupon.UpdatedAt)
+	if err != nil {
+		log.Println("Error updating coupon:", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperror.ErrCouponNotFound
+		}
+		return nil, err
+	}
+
+	return &coupon, nil
+
+}

@@ -35,6 +35,18 @@ type CouponResponse struct {
 	UpdatedAt         *time.Time `json:"updated_at,omitempty"`
 }
 
+type UpdateCouponRequest struct {
+	ID                int64      `json:"id"`
+	Description       *string    `json:"description"`
+	DiscountType      *string    `json:"discount_type"`
+	DiscountValue     *float64   `json:"discount_value"`
+	MinOrderAmount    *float64   `json:"min_order_amount"`
+	MaxDiscountAmount *float64   `json:"max_discount_amount"`
+	ValidFrom         *time.Time `json:"valid_from"`
+	ValidTo           *time.Time `json:"valid_to"`
+	IsActive          *bool      `json:"is_active"`
+}
+
 type ListCouponsFilter struct {
 	CouponCode   string `form:"code"`
 	DiscountType string `form:"type"`

@@ -71,6 +71,21 @@ func (mr *MockCouponRepositoryMockRecorder) FetchCoupon(ctx, couponCode, userID 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchCoupon", reflect.TypeOf((*MockCouponRepository)(nil).FetchCoupon), ctx, couponCode, userID)
 }
 
+// FetchCouponByID mocks base method.
+func (m *MockCouponRepository) FetchCouponByID(ctx context.Context, couponID int64) (*promotion.CouponResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchCouponByID", ctx, couponID)
+	ret0, _ := ret[0].(*promotion.CouponResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FetchCouponByID indicates an expected call of FetchCouponByID.
+func (mr *MockCouponRepositoryMockRecorder) FetchCouponByID(ctx, couponID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchCouponByID", reflect.TypeOf((*MockCouponRepository)(nil).FetchCouponByID), ctx, couponID)
+}
+
 // ListAllCoupons mocks base method.
 func (m *MockCouponRepository) ListAllCoupons(ctx context.Context, filter *promotion.ListCouponsFilter) ([]promotion.CouponResponse, error) {
 	m.ctrl.T.Helper()
@@ -99,4 +114,19 @@ func (m *MockCouponRepository) ListReferralRewards(ctx context.Context, userID i
 func (mr *MockCouponRepositoryMockRecorder) ListReferralRewards(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReferralRewards", reflect.TypeOf((*MockCouponRepository)(nil).ListReferralRewards), ctx, userID)
+}
+
+// UpdateCoupon mocks base method.
+func (m *MockCouponRepository) UpdateCoupon(ctx context.Context, req *promotion.UpdateCouponRequest) (*promotion.CouponResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCoupon", ctx, req)
+	ret0, _ := ret[0].(*promotion.CouponResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateCoupon indicates an expected call of UpdateCoupon.
+func (mr *MockCouponRepositoryMockRecorder) UpdateCoupon(ctx, req any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCoupon", reflect.TypeOf((*MockCouponRepository)(nil).UpdateCoupon), ctx, req)
 }
