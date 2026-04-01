@@ -246,7 +246,7 @@ func (r OrderRepository) GetUserOrderByID(ctx context.Context, orderID string, u
 	}
 
 	items := []order.OrderItem{}
-	query = `SELECT oi.id, pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.status,oi.total_price,pvi.url
+	query = `SELECT DISTINCT ON (oi.id) oi.id, pv.id, p.name, pv.sku, oi.quantity, oi.unit_price, oi.status,oi.total_price,pvi.url
 		FROM order_items oi
 		LEFT JOIN product_variants pv ON oi.product_variant_id = pv.id
 		LEFT JOIN products p ON pv.product_id = p.id
