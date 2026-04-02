@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 
 	"github.com/razorpay/razorpay-go"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/payment"
@@ -15,6 +16,10 @@ type RazorpayPayment struct {
 }
 
 func (r *RazorpayPayment) CreatePayment(ctx context.Context, req payment.Request) (*payment.Response, error) {
+
+	if r.Client == nil {
+		return nil, errors.New("razorpay client is not initialized")
+	}
 
 	// create payment
 	data := map[string]interface{}{

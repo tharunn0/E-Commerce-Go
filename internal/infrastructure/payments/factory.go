@@ -8,7 +8,7 @@ import (
 func GetPaymentGateway(method payment.PaymentMethod, client *razorpay.Client) payment.PaymentGateway {
 	switch method {
 	case payment.PaymentMethodRazorpay:
-		return &RazorpayPayment{}
+		return &RazorpayPayment{Client: client}
 	case payment.PaymentMethodCOD:
 		return &CODPayment{}
 	case payment.PaymentMethodWallet:

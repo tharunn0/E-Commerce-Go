@@ -237,8 +237,6 @@ func (s *OrderService) CreateOrderFromCart(ctx context.Context, req *order.Creat
 		}
 	}
 
-	fmt.Println("Checking user ID: ", userID)
-
 	// 3. get address
 	userAddr, err := s.userRepo.GetUserAddressByID(ctx, req.AddressID)
 	if err != nil {
