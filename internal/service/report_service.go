@@ -174,5 +174,8 @@ func (s *ReportService) GetDashboard(ctx context.Context, req *report.DashboardR
 
 	resp.TopBrands = brands
 
+	resp.From = req.From
+	resp.To = req.To
+
 	return resp, nil
 }
