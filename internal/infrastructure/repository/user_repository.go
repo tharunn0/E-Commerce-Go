@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -427,6 +428,8 @@ func (repo *UserRepository) GetWalletTransactions(ctx context.Context, userID in
 		query += fmt.Sprintf(" OFFSET $%d", paramIndex)
 		args = append(args, offset)
 	}
+
+	log.Println("query", query)
 
 	rows, err := repo.DB.Query(ctx, query, args...)
 	if err != nil {

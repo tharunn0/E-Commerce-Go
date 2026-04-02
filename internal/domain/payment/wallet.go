@@ -46,11 +46,12 @@ func (f *TransactionFilter) Validate() error {
 			return errors.New("invalid transaction type")
 		}
 	}
+	if f.StartDate.IsZero() && f.EndDate.IsZero() {
+		startDate := time.Now().AddDate(0, -6, 0)
+		endDate := time.Now()
 
-	if f.StartDate.IsZero() || f.EndDate.IsZero() {
-		// if start and end date = "" set it to last 7 days
-		f.StartDate = time.Now().AddDate(0, 0, -7)
-		f.EndDate = time.Now()
+		f.StartDate = startDate
+		f.EndDate = endDate
 	}
 
 	if f.StartDate.After(f.EndDate) {
