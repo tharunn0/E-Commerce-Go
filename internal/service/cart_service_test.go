@@ -24,7 +24,7 @@ func setupCartServiceTest(t *testing.T) (*cartMock.MockCartRepository, *productM
 	mockOfferRepo := offerMock.NewMockOfferRepository(ctrl)
 
 	log := zap.NewNop()
-	cartService := service.NewCartService(mockCartRepo, mockProductRepo, mockOfferRepo, config.CartSettings{}, log)
+	cartService := service.NewCartService(mockCartRepo, mockProductRepo, mockOfferRepo, config.CartSettings{MaxQuantity: 5}, log)
 
 	return mockCartRepo, mockProductRepo, mockOfferRepo, cartService
 }
