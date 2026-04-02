@@ -86,7 +86,7 @@ func NewServices(r *Repositories, deps ServiceDeps) *Services {
 			deps.Razorpay, deps.Logger,
 		),
 		Offer:  service.NewOfferService(r.OfferRepo, deps.Logger),
-		Coupon: service.NewCouponService(r.CouponRepo, deps.Logger, r.UserRepo, r.CartRepo, r.OfferRepo),
+		Coupon: service.NewCouponService(r.CouponRepo, deps.Logger, r.UserRepo, r.CartRepo, r.OfferRepo, deps.Cfg.Order),
 		Report: service.NewReportService(r.ReportRepo, deps.Logger),
 		Review: service.NewReviewService(r.ReviewRepo, deps.Logger),
 	}
