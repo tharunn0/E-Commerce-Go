@@ -74,7 +74,7 @@ func NewServices(r *Repositories, deps ServiceDeps) *Services {
 		Auth:     service.NewAuthService(r.AuthRepo, deps.Mailer, deps.Logger, &deps.Cfg.Security),
 		Category: service.NewCategoryService(r.CategoryRepo, deps.Logger),
 		Product:  service.NewProductService(r.ProductRepo, r.OfferRepo, deps.Logger),
-		Cart:     service.NewCartService(r.CartRepo, r.ProductRepo, r.OfferRepo, deps.Logger),
+		Cart:     service.NewCartService(r.CartRepo, r.ProductRepo, r.OfferRepo, deps.Cfg.Cart, deps.Logger),
 		Wishlist: service.NewWishlistService(r.WishlistRepo, deps.Logger),
 		Order: service.NewOrderService(
 			r.UserRepo, r.ProductRepo, r.CartRepo, r.OrderRepo,

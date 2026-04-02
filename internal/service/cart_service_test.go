@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
 	cartMock "github.com/tharunn0/E-Commerce-Go/internal/domain/cart/mocks"
@@ -23,7 +24,7 @@ func setupCartServiceTest(t *testing.T) (*cartMock.MockCartRepository, *productM
 	mockOfferRepo := offerMock.NewMockOfferRepository(ctrl)
 
 	log := zap.NewNop()
-	cartService := service.NewCartService(mockCartRepo, mockProductRepo, mockOfferRepo, log)
+	cartService := service.NewCartService(mockCartRepo, mockProductRepo, mockOfferRepo, config.CartSettings{}, log)
 
 	return mockCartRepo, mockProductRepo, mockOfferRepo, cartService
 }
@@ -34,7 +35,7 @@ func getMockContext(userID float64) context.Context {
 
 func TestCartService_AddToCart(t *testing.T) {
 	mockCartRepo, _, _, cartService := setupCartServiceTest(t)
-	ctx := getMockContext(1.0) 
+	ctx := getMockContext(1.0)
 
 	req := &cart.AddToCartRequest{
 		ProductVariantID: 10,
@@ -75,7 +76,7 @@ func TestCartService_AddToCart_InvalidQuantity(t *testing.T) {
 
 	req := &cart.AddToCartRequest{
 		ProductVariantID: 10,
-		Quantity:         6, 
+		Quantity:         6,
 	}
 
 	result, apiErr := cartService.AddToCart(ctx, req)

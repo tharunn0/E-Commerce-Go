@@ -14,6 +14,7 @@ type AppConfig struct {
 	Security SecuritySettings
 	Razorpay RazorpaySettings
 	Order    OrderSettings
+	Cart     CartSettings
 }
 
 type AppSettings struct {
@@ -67,6 +68,12 @@ type RazorpaySettings struct {
 type OrderSettings struct {
 	MaxOrderAmount    int64
 	MaxCodOrderAmount int64
+	ShippingCost      int64
+	DeliveryTime      int64
+}
+
+type CartSettings struct {
+	MaxQuantity int64
 }
 
 func LoadConfig() *AppConfig {
@@ -121,6 +128,11 @@ func LoadConfig() *AppConfig {
 		Order: OrderSettings{
 			MaxOrderAmount:    int64(getEnvAsInt("ALL_ORDER_MAX_AMOUNT", 10_00_000)),
 			MaxCodOrderAmount: int64(getEnvAsInt("COD_ORDER_MAX_AMOUNT", 50_000)),
+			ShippingCost:      int64(getEnvAsInt("SHIPPING_COST", 150)),
+			DeliveryTime:      int64(getEnvAsInt("DELIVERY_TIME", 7)),
+		},
+		Cart: CartSettings{
+			MaxQuantity: int64(getEnvAsInt("CART_MAX_QUANTITY", 5)),
 		},
 	}
 }

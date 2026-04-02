@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
+	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/discount"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/order"
@@ -21,14 +22,15 @@ import (
 
 type CouponService struct {
 	log       *zap.Logger
+	cfg       config.OrderSettings
 	repo      promotion.CouponRepository
 	userRepo  user.UserRepository
 	cartRepo  cart.CartRepository
 	offerRepo promotion.OfferRepository
 }
 
-func NewCouponService(repo promotion.CouponRepository, log *zap.Logger, userRepo user.UserRepository, cartRepo cart.CartRepository, offerRepo promotion.OfferRepository) *CouponService {
-	return &CouponService{repo: repo, log: log, userRepo: userRepo, cartRepo: cartRepo, offerRepo: offerRepo}
+func NewCouponService(repo promotion.CouponRepository, log *zap.Logger, userRepo user.UserRepository, cartRepo cart.CartRepository, offerRepo promotion.OfferRepository, cfg config.OrderSettings) *CouponService {
+	return &CouponService{repo: repo, log: log, userRepo: userRepo, cartRepo: cartRepo, offerRepo: offerRepo, cfg: cfg}
 }
 
 func (serv *CouponService) CreateCoupon(ctx context.Context, req *promotion.CreateCouponRequest) (*promotion.CouponResponse, *apperror.APIError) {
@@ -264,8 +266,8 @@ func (s *CouponService) ApplyCoupon(ctx context.Context, req *promotion.ApplyCou
 	// delivery time and date
 	estimatedDeliveryTime, err := shipping.GetDeliveryDays(userAddr.District)
 	if err != nil {
-		estimatedDeliveryTime = 7
-		shippingAmount = 150
+		estimatedDeliveryTime = int(s.cfg.DeliveryTime)
+		shippingAmount = float64(s.cfg.ShippingCost)
 	}
 	estimatedDeliveryDate, err := shipping.CalculateDeliveryDate(userAddr.District)
 	if err != nil {

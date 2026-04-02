@@ -193,8 +193,8 @@ func (s *OrderService) CheckoutCart(ctx context.Context, req order.CartCheckoutR
 	// delivery time and date
 	estimatedDeliveryTime, err := shipping.GetDeliveryDays(userAddr.District)
 	if err != nil {
-		estimatedDeliveryTime = 7
-		shippingAmount = 150
+		estimatedDeliveryTime = int(s.cfg.DeliveryTime)
+		shippingAmount = float64(s.cfg.ShippingCost)
 	}
 	estimatedDeliveryDate, err := shipping.CalculateDeliveryDate(userAddr.District)
 	if err != nil {
@@ -588,17 +588,6 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID string) (*order
 			Message: "Failed to get order.",
 		}
 	}
-
-	// deductableAmount := 0.0
-	// for _, v := range order.Items {
-	// 	if v.Status == "cancelled" {
-	// 		deductableAmount += v.TotalPrice
-	// 	}
-	// }
-
-	// order.ShippingCost = domain.DeliveryTypeCharges[order.DeliveryType]
-	// order.TotalAmount = order.Subtotal + order.TaxAmount + order.ShippingCost
-	// order.PayableAmount = order.Subtotal + order.TaxAmount + order.ShippingCost - deductableAmount
 
 	orderObj = utils.CalculateOrderTotalAmount(orderObj)
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/tharunn0/E-Commerce-Go/internal/apperror"
+	"github.com/tharunn0/E-Commerce-Go/internal/config"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/cart"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/discount"
 	"github.com/tharunn0/E-Commerce-Go/internal/domain/product"
@@ -18,6 +19,7 @@ type CartService struct {
 	productRepo product.ProductRepository
 	offerRepo   promotion.OfferRepository
 	cartRepo    cart.CartRepository
+	cfg         config.CartSettings
 	log         *zap.Logger
 }
 
@@ -25,11 +27,13 @@ func NewCartService(
 	cartRepo cart.CartRepository,
 	productRepo product.ProductRepository,
 	offerRepo promotion.OfferRepository,
+	cfg config.CartSettings,
 	log *zap.Logger) *CartService {
 	return &CartService{
 		cartRepo:    cartRepo,
 		productRepo: productRepo,
 		offerRepo:   offerRepo,
+		cfg:         cfg,
 		log:         log,
 	}
 }
@@ -46,7 +50,7 @@ func (s *CartService) AddToCart(ctx context.Context, req *cart.AddToCartRequest)
 
 	if req.Quantity <= 0 {
 		req.Quantity = 1
-	} else if req.Quantity > 5 {
+	} else if req.Quantity > s.cfg.MaxQuantity {
 		return nil, &apperror.APIError{
 			Status:  http.StatusUnprocessableEntity,
 			Code:    "QUANTITY_EXCEEDED",
