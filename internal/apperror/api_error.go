@@ -78,6 +78,8 @@ var (
 
 	ErrOrderItemNotFound = errors.New("Order item not found")
 
+	ErrInvalidOrderItems = errors.New("Invalid order items")
+
 	// Order-create related errors
 	ErrCreateOrderFail = errors.New("Order creation failed")
 

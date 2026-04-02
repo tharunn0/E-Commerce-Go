@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -632,7 +633,6 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *order.CancelOrderRe
 		}
 	}
 
-	var _ order.OrderResponse
 	orderObj, err := s.orderRepo.GetUserOrderByID(ctx, req.OrderID, userID)
 	if err != nil {
 		s.log.Error("Failed to get order", zap.Error(err))
@@ -676,6 +676,11 @@ func (s *OrderService) CancelOrder(ctx context.Context, req *order.CancelOrderRe
 	err = s.orderRepo.CancelOrderNew(ctx, req.OrderID, req.Reason, req.OrderItemsID)
 	if err != nil {
 		s.log.Error("Failed to cancel order", zap.Error(err))
+
+		if errors.Is(err, apperror.ErrInvalidOrderItems) {
+			return nil, apperror.New(http.StatusBadRequest, "INVALID_ORDER_ITEMS", err.Error())
+		}
+
 		return nil, &apperror.APIError{
 			Status:  http.StatusConflict,
 			Code:    "DB_ERROR",

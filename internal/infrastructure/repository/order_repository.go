@@ -491,7 +491,6 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 	if err != nil {
 		return err
 	}
-
 	defer tx.Rollback(ctx)
 
 	var internalOrderID int64
@@ -505,10 +504,43 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 		return err
 	}
 
+	// PARTIAL CANCEL VALIDATION
+	if len(orderItemIDs) > 0 {
+
+		rows, err := tx.Query(ctx, `
+			SELECT unnest($1::bigint[])
+			EXCEPT
+			SELECT id
+			FROM order_items
+			WHERE order_id = $2
+		`, orderItemIDs, internalOrderID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		var invalidIDs []int64
+
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			invalidIDs = append(invalidIDs, id)
+		}
+
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		if len(invalidIDs) > 0 {
+			return fmt.Errorf("%w: %v", apperror.ErrInvalidOrderItems, invalidIDs)
+		}
+	}
+
 	// FULL ORDER CANCELLATION
 	if len(orderItemIDs) == 0 {
 
-		// Cancel items + restore stock (transition-based)
 		_, err = tx.Exec(ctx, `
 			WITH cancelled_items AS (
 				UPDATE order_items
@@ -527,7 +559,6 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 			return err
 		}
 
-		// Cancel order
 		_, err = tx.Exec(ctx, `
 			UPDATE orders
 			SET status = 'cancelled',
@@ -539,7 +570,6 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 			return err
 		}
 
-		// Cancel shipment
 		_, err = tx.Exec(ctx, `
 			UPDATE shipments
 			SET status = 'cancelled',
@@ -551,7 +581,6 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 			return err
 		}
 
-		// Cancel payment
 		_, err = tx.Exec(ctx, `
 			UPDATE payments
 			SET status = 'cancelled',
@@ -567,8 +596,6 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 	}
 
 	// PARTIAL ORDER CANCELLATION
-
-	// Cancel selected items + restore stock
 	_, err = tx.Exec(ctx, `
 		WITH cancelled_items AS (
 			UPDATE order_items
@@ -588,7 +615,6 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 		return err
 	}
 
-	// Check remaining active items
 	var remaining int
 	err = tx.QueryRow(ctx, `
 		SELECT COUNT(*)
@@ -600,7 +626,7 @@ func (r OrderRepository) CancelOrderNew(ctx context.Context, orderID string, rea
 		return err
 	}
 
-	// If everything is cancelled, cascade
+	// if everything cancelled cascade order cancellation
 	if remaining == 0 {
 
 		_, err = tx.Exec(ctx, `
