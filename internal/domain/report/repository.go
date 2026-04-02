@@ -12,4 +12,6 @@ type ReportRepository interface {
 	GetTopSellingBrands(ctx context.Context, req *TopSellingRequest) ([]TopStatItem, error)
 
 	GetRevenueAnalytics(ctx context.Context, req *RevenueAnalyticsRequest) (*RevenueAnalyticsResponse, error)
+
+	GetDashboard(ctx context.Context, req *DashboardRequest) (*DashboardResponse, error)
 }

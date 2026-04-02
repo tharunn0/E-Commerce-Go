@@ -303,6 +303,9 @@ func RegisterRoutes(g *gin.Engine, logger *zap.Logger, h *Handler, cfg *config.S
 		reportAdminRoute.GET("/reports/sales", h.Report.GetSalesReport)
 		reportAdminRoute.GET("/reports/top", h.Report.GetTopSelling)
 		reportAdminRoute.GET("/analytics/revenue", h.Report.GetRevenueAnalytics)
+
+		// admin dashboard routes
+		reportAdminRoute.GET("/dashboard", h.Report.GetDashboard)
 	}
 
 }

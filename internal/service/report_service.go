@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"time"
 
@@ -25,9 +24,6 @@ func NewReportService(repo report.ReportRepository, log *zap.Logger) *ReportServ
 
 func (s *ReportService) GetSalesReport(ctx context.Context, req report.SalesReportRequest) (*report.SalesReportResponse, *apperror.APIError) {
 
-	log.Println("From: ", req.From)
-	log.Println("To: ", req.To)
-
 	// check if from is after 2020 and to is after from
 	if err := req.Validate(time.Now()); err != nil {
 		return nil, &apperror.APIError{
@@ -39,6 +35,7 @@ func (s *ReportService) GetSalesReport(ctx context.Context, req report.SalesRepo
 
 	reportResp, err := s.repo.GetSalesReport(ctx, &req)
 	if err != nil {
+		s.log.Error("error fetching sales report", zap.Error(err))
 		return nil, &apperror.APIError{
 			Status:  http.StatusInternalServerError,
 			Code:    "INTERNAL_ERROR",
@@ -116,4 +113,66 @@ func (s *ReportService) GetRevenueAnalytics(ctx context.Context, req report.Reve
 
 	return repoResp, nil
 
+}
+
+func (s *ReportService) GetDashboard(ctx context.Context, req *report.DashboardRequest) (*report.DashboardResponse, *apperror.APIError) {
+
+	now := time.Now()
+	if err := req.Validate(now); err != nil {
+		s.log.Error("[service.GetDashboard] error validating dashboard request", zap.Error(err))
+		return nil, apperror.New(http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	resp, err := s.repo.GetDashboard(ctx, req)
+	if err != nil {
+		s.log.Error("[service.GetDashboard] error fetching dashboard", zap.Error(err))
+		return nil, apperror.New(http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to fetch dashboard")
+	}
+
+	// fetch summary
+
+	reportFilter := report.SalesReportRequest{
+		From: req.From,
+		To:   req.To,
+	}
+	summary, err := s.repo.GetSalesReport(ctx, &reportFilter)
+	if err != nil {
+		s.log.Error("")
+	}
+
+	resp.Summary = &summary.SalesSummary
+
+	// fetch top products. categories and brands
+
+	reqFilter := &report.TopSellingRequest{
+		From:  req.From,
+		To:    req.To,
+		Limit: 5,
+	}
+
+	products, err := s.repo.GetTopSellingProducts(ctx, reqFilter)
+	if err != nil {
+		s.log.Error("[service.GetDashboard] error fetching top products", zap.Error(err))
+		return nil, apperror.New(http.StatusInternalServerError, "INTERNAL_ERROR", "internal error")
+	}
+
+	resp.TopProducts = products
+
+	categories, err := s.repo.GetTopSellingCategories(ctx, reqFilter)
+	if err != nil {
+		s.log.Error("[service.GetDashboard] error fetching top categories", zap.Error(err))
+		return nil, apperror.New(http.StatusInternalServerError, "INTERNAL_ERROR", "internal error")
+	}
+
+	resp.TopCategories = categories
+
+	brands, err := s.repo.GetTopSellingBrands(ctx, reqFilter)
+	if err != nil {
+		s.log.Error("[service.GetDashboard] error fetching top brands", zap.Error(err))
+		return nil, apperror.New(http.StatusInternalServerError, "INTERNAL_ERROR", "internal error")
+	}
+
+	resp.TopBrands = brands
+
+	return resp, nil
 }

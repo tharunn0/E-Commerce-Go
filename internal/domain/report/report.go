@@ -155,3 +155,76 @@ func (r *RevenueAnalyticsRequest) Validate(now time.Time) error {
 	}
 	return nil
 }
+
+type DashboardRequest struct {
+	From     time.Time `form:"from" time_format:"2006-01-02"`
+	To       time.Time `form:"to" time_format:"2006-01-02"`
+	Interval string    `form:"interval"` // day | week | month
+}
+
+type DashboardResponse struct {
+	From time.Time `json:"from,omitempty"`
+	To   time.Time `json:"to,omitempty"`
+
+	Stats *DashboardStats `json:"stats"`
+
+	Summary       *SalesSummary `json:"summary"`
+	TopProducts   []TopStatItem `json:"top_products"`
+	TopCategories []TopStatItem `json:"top_categories"`
+	TopBrands     []TopStatItem `json:"top_brands"`
+}
+
+type DashboardStats struct {
+	UserStats    *UserStats    `json:"user_stats"`
+	OrderStats   *OrderStats   `json:"order_stats"`
+	ProductStats *ProductStats `json:"product_stats"`
+
+	ActiveCoupons int64 `json:"active_coupons"`
+}
+
+type UserStats struct {
+	TotalUsers       int64 `json:"total_users"`
+	TotalActiveUsers int64 `json:"total_active_users"`
+}
+type OrderStats struct {
+	TotalOrders          int64 `json:"total_orders"`
+	TotalPendingOrders   int64 `json:"total_pending_orders"`
+	TotalDeliveredOrders int64 `json:"total_delivered_orders"`
+	TotalCancelledOrders int64 `json:"total_cancelled_orders"`
+	TotalReturnedOrders  int64 `json:"total_returned_orders"`
+}
+
+type ProductStats struct {
+	TotalProducts   int64 `json:"total_products"`
+	TotalCategories int64 `json:"total_categories"`
+	TotalBrands     int64 `json:"total_brands"`
+}
+
+func (r *DashboardRequest) Validate(now time.Time) error {
+	// Default dates
+	if r.From.IsZero() {
+		r.From = now.AddDate(0, 0, -30)
+	}
+	if r.To.IsZero() {
+		r.To = now
+	}
+
+	// Date validation
+	if r.From.After(now) {
+		return errors.New("from date cannot be in the future")
+	}
+	if r.From.After(r.To) {
+		return errors.New("from date cannot be after to date")
+	}
+	if r.To.After(now) {
+		return errors.New("to date cannot be in the future")
+	}
+
+	if r.Interval == "" {
+		r.Interval = "day"
+	}
+	if r.Interval != "day" && r.Interval != "week" && r.Interval != "month" {
+		return errors.New("invalid interval")
+	}
+	return nil
+}
