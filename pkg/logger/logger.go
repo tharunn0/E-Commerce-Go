@@ -12,6 +12,11 @@ var Tlog *zap.Logger
 
 func InitLogger() *zap.Logger {
 
+	// create logs folder if not exists
+	if _, err := os.Stat("logs"); os.IsNotExist(err) {
+		os.Mkdir("logs", 0755)
+	}
+
 	file, er := os.OpenFile("logs/app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if er != nil {
 		log.Fatalln("Couldnt load log file")
