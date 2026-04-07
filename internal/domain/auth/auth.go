@@ -10,6 +10,12 @@ const (
 	EmailResetTokenPrefix        = "auth:email-reset:"
 )
 
+const (
+	PasswordResetTemplate     string = "password_reset.html"
+	EmailVerificationTemplate string = "email_verification.html"
+	EmailResetTemplate        string = "email_reset.html"
+)
+
 type PasswordResetRequest struct {
 	Email string `json:"email" validate:"required,email"`
 }

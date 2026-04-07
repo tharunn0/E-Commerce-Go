@@ -25,7 +25,7 @@ func NewGoMailer(port int, host, username, password, from string) (*MailSender, 
 
 func (m *MailSender) SendMail(ctx context.Context, templatePath, to, subject string, data interface{}) error {
 
-	tmpl, err := template.ParseFiles(templatePath)
+	tmpl, err := template.ParseFS(FS, templatePath)
 	if err != nil {
 		return err
 	}
@@ -58,4 +58,13 @@ func (m *MailSender) SendMail(ctx context.Context, templatePath, to, subject str
 		return context.DeadlineExceeded
 	}
 
+}
+
+func LoadTemplates() (*template.Template, error) {
+	// This reads from the embedded filesystem, not the hard drive
+	tmpl, err := template.ParseFS(FS, "*.html")
+	if err != nil {
+		return nil, err
+	}
+	return tmpl, nil
 }

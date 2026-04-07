@@ -70,7 +70,7 @@ func (serv *AuthService) SendOTP(ctx context.Context, toAddr string) *apperror.A
 
 	toAddr = strings.ToLower(toAddr)
 
-	if err := serv.sender.SendMail(ctx, "./pkg/mailer/verification-mail-template.html", toAddr, "Email Verification", data); err != nil {
+	if err := serv.sender.SendMail(ctx, auth.EmailVerificationTemplate, toAddr, "Email Verification", data); err != nil {
 		serv.log.Error("SEND_OTP_FAILED", zap.String("service", "auth-service"), zap.String("function", "sendotp"), zap.Error(err))
 		return &apperror.APIError{
 			Code:    "OTP_EMAIL_FAILED",
@@ -175,9 +175,8 @@ func (serv *AuthService) SendPasswordResetLink(ctx context.Context, req *auth.Pa
 		ExpiryInMinutes: expiryTime,
 		Year:            strconv.Itoa(time.Now().Year()),
 	}
-	// "./pkg/mailer/verification-mail-template.html"
 
-	if err := serv.sender.SendMail(ctx, "./pkg/mailer/reset_password_mail.html", req.Email, "Password Reset Request", emailData); err != nil {
+	if err := serv.sender.SendMail(ctx, auth.PasswordResetTemplate, req.Email, "Password Reset Request", emailData); err != nil {
 		serv.log.Debug("Failed to send password reset email", zap.String("email", req.Email), zap.Error(err))
 		return &apperror.APIError{
 			Code:    "SEND_MAIL_FAILED",
@@ -282,7 +281,7 @@ func (serv *AuthService) SendEmailChangeLink(ctx context.Context, req *auth.Upda
 		ExpiryInMinutes:  expiryTime,
 		Year:             strconv.Itoa(time.Now().Year()),
 	}
-	err = serv.sender.SendMail(ctx, "./pkg/mailer/update-mail.html", req.Email, "Email Verification", emailData)
+	err = serv.sender.SendMail(ctx, auth.EmailResetTemplate, req.Email, "Email Verification", emailData)
 	if err != nil {
 		serv.log.Error("Failed to send email reset link", zap.String("email", req.Email), zap.Error(err))
 		return &apperror.APIError{
