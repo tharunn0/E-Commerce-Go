@@ -60,7 +60,7 @@ func InitDependencies() *Dependencies {
 	}
 	cfg := config.LoadConfig()
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.DB)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.DB, cfg.Postgres.SSL)
 	pgdb := database.InitDB(dsn, log)
 	redisdb := database.InitRedis(ctx, cfg.Redis, log)
 
