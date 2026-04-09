@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -54,10 +55,16 @@ func InitDependencies() *Dependencies {
 	log := logger.InitLogger()
 	ctx := context.Background()
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Failed to load .env")
+	if _, err := os.Stat(".env"); err == nil {
+		if loadErr := godotenv.Load(); loadErr != nil {
+			log.Warn("Could not load .env file: " + loadErr.Error())
+		} else {
+			log.Info("Loaded .env file successfully (local development)")
+		}
+	} else {
+		log.Info("No .env file found - using environment variables from Docker / system")
 	}
+
 	cfg := config.LoadConfig()
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.Host, cfg.Postgres.Port, cfg.Postgres.DB, cfg.Postgres.SSL)

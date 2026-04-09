@@ -14,12 +14,15 @@ func InitLogger() *zap.Logger {
 
 	// create logs folder if not exists
 	if _, err := os.Stat("logs"); os.IsNotExist(err) {
-		os.Mkdir("logs", 0755)
+		err = os.Mkdir("logs", 0755)
+		if err != nil {
+			log.Fatalln("Failed to create logs :", err)
+		}
 	}
 
 	file, er := os.OpenFile("logs/app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if er != nil {
-		log.Fatalln("Couldnt load log file")
+		log.Fatalln("Couldnt load log file :", er)
 	}
 
 	consoleEncoder := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{

@@ -1,0 +1,20 @@
+services:
+  web:
+    build: .
+    ports: 
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - postgresdb
+      - redisdb
+
+  postgresdb:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Pass123
+
+  redisdb:
+    image: redis:latest
