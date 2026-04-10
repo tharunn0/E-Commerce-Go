@@ -182,7 +182,7 @@ func (repo *UserRepository) GoogleSignIn(ctx context.Context, req *user.GoogleSi
 
 func (repo *UserRepository) GetUserByID(ctx context.Context, userID int64) (*user.User, error) {
 	user := &user.User{}
-	query := `SELECT id, email, phone, first_name, last_name, role,is_verified , status, referral_code,profile_img_url,created_at, updated_at FROM users
+	query := `SELECT id, email, phone, first_name, last_name, role,is_verified , status,COALESCE(referral_code, ""),profile_img_url,created_at, updated_at FROM users
     WHERE status = 'active' AND id = $1;`
 	err := repo.DB.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Email, &user.Phone, &user.FirstName,
 		&user.LastName, &user.Role, &user.IsVerified, &user.Status, &user.ReferralCode, &user.ProfilePicture, &user.CreatedAt, &user.UpdatedAt)
