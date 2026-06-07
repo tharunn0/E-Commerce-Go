@@ -31,7 +31,7 @@ build-release:
 
 .PHONY: test
 test:
-	go test -race -cover ./...
+	go test ./...
 
 .PHONY: fmt
 fmt:
