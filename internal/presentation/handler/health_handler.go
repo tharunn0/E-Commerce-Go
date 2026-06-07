@@ -26,36 +26,46 @@ func NewHealthHandler(db *pgxpool.Pool, redis *redis.Client, logger *zap.Logger)
 }
 
 func (h *HealthHandler) HealthCheck(c *gin.Context) {
-	ctx := c.Request.Context()
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// Check Database
-	dbStatus := "up"
+	dbStatus := gin.H{
+		"status": "up",
+	}
+
 	if err := h.db.Ping(ctx); err != nil {
 		h.logger.Error("Database ping failed", zap.Error(err))
-		dbStatus = "down"
+
+		dbStatus["status"] = "down"
+		dbStatus["error"] = err.Error()
 	}
 
-	// Check Redis
-	redisStatus := "up"
+	redisStatus := gin.H{
+		"status": "up",
+	}
+
 	if err := h.redis.Ping(ctx).Err(); err != nil {
 		h.logger.Error("Redis ping failed", zap.Error(err))
-		redisStatus = "down"
+
+		redisStatus["status"] = "down"
+		redisStatus["error"] = err.Error()
 	}
 
-	status := http.StatusOK
-	if dbStatus == "down" || redisStatus == "down" {
-		status = http.StatusServiceUnavailable
+	httpStatus := http.StatusOK
+	if dbStatus["status"] == "down" || redisStatus["status"] == "down" {
+		httpStatus = http.StatusServiceUnavailable
 	}
 
-	c.JSON(status, gin.H{
-		"status": "success",
+	c.JSON(httpStatus, gin.H{
+		"status":  "success",
+		"message": "Health check completed",
 		"data": gin.H{
-			"server":    "up",
+			"server": gin.H{
+				"status": "up",
+			},
 			"database":  dbStatus,
 			"redis":     redisStatus,
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"timestamp": time.Now().UTC(),
 		},
 	})
 }

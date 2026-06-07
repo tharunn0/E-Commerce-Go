@@ -14,6 +14,8 @@ import (
 )
 
 func InitDB(connStr string, logger *zap.Logger) *pgxpool.Pool {
+
+	time.Sleep(3 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -29,7 +31,7 @@ func InitDB(connStr string, logger *zap.Logger) *pgxpool.Pool {
 	}
 
 	// 3. Run Migrations
-	runMigrations(connStr, logger)
+	// runMigrations(connStr, logger)
 
 	logger.Info("DATABASE_READY_WITH_MIGRATIONS")
 	return dbpool
